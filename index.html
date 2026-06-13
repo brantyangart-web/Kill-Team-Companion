@@ -1930,8 +1930,7 @@
     //           初始化选人面板渲染
     // ==========================================
 
-    // 获取特工头像 HTML (如果未上传则显示默认文字头像)
-    function getAvatarHtml(opId, faction) {
+    function getAvatarUrl(opId, faction) {
       const avatarUrl = gameState.customAvatars[opId];
       let fallbackUrl = faction === gameState.factionA ? './default_sm_avatar.png' : './default_pm_avatar.png';
       
@@ -1939,13 +1938,17 @@
       if (activeOp && activeOp.defaultAvatar) {
         fallbackUrl = activeOp.defaultAvatar;
       } else {
-        const template = SM_TEMPLATES.concat(PM_TEMPLATES).find(t => t.id === opId);
+        const template = SM_TEMPLATES.concat(PM_TEMPLATES).concat(LEGIONARY_TEMPLATES).find(t => t.id === opId);
         if (template && template.defaultAvatar) {
           fallbackUrl = template.defaultAvatar;
         }
       }
-      
-      const imgUrl = avatarUrl || fallbackUrl;
+      return avatarUrl || fallbackUrl;
+    }
+
+    // 获取特工头像 HTML (如果未上传则显示默认文字头像)
+    function getAvatarHtml(opId, faction) {
+      const imgUrl = getAvatarUrl(opId, faction);
       return `<div class="op-avatar-slot main-avatar-${opId}" onclick="triggerAvatarUpload(event, '${opId}')">
                 <img src="${imgUrl}" class="op-avatar-img" />
               </div>`;
@@ -3912,6 +3915,7 @@
       addLog(`[攻击方] ${attacker.name} 使用 ${wizardState.weapon.name} 射击`);
       addLog(`[防守方] ${defender.name}`);
       
+      const oldWounds = defender.wounds;
       const actualDamage = defender.applyWounds(rawDmg, manualDrRolls);
       
       attacker.apl -= 1;
@@ -3920,7 +3924,7 @@
       
       closeModal();
       
-      playDamageCinematic(defender, actualDamage, 'shoot');
+      playDamageCinematic(defender, actualDamage, oldWounds, 'shoot');
       if (actualDamage > 0) {
         setTimeout(() => {
           triggerAvatarHitEffect(defender.id, 'shoot');
@@ -4522,8 +4526,9 @@
         const msg = `> ${side === 'attacker' ? '攻击方' : '防守方'} 执行打击 (Strike)，分配了 ${dmg} 伤害！<br>`;
         wizardState.meleeLogs += msg;
         
+        const oldWounds = targetOpponent.wounds;
         targetOpponent.applyWounds(dmg);
-        playDamageCinematic(targetOpponent, dmg, 'fight');
+        playDamageCinematic(targetOpponent, dmg, oldWounds, 'fight');
       } else {
         let targetIdx = -1;
         if (dice.isCrit) {
@@ -5054,16 +5059,16 @@
     }
 
     // ------------------ 动态处决血条动画 ------------------
-    function playDamageCinematic(defender, damage, attackType = 'shoot') {
-      const oldWounds = Math.min(defender.wounds + damage, defender.maxWounds);
+    function playDamageCinematic(defender, damage, oldWounds, attackType = 'shoot') {
       const newWounds = defender.wounds;
+      const cineAvatarUrl = getAvatarUrl(defender.id, defender.faction);
 
       const overlay = document.createElement('div');
       overlay.className = 'cinematic-damage-overlay';
       overlay.innerHTML = `
         <div class="cinematic-card" style="position:relative; ${damage === 0 ? 'border-color: #38bdf8; box-shadow: 0 0 50px rgba(56, 189, 248, 0.5);' : ''}">
           <h2 style="margin:0 0 15px; color:var(--text-muted);">${defender.name}</h2>
-          <img src="${defender.avatar}" class="cinematic-avatar" id="cine-avatar">
+          <img src="${cineAvatarUrl}" class="cinematic-avatar" id="cine-avatar">
           <div class="cinematic-hp-container">
             <div class="cinematic-hp-bar" id="cine-hp-bar" style="width: ${(oldWounds / defender.maxWounds) * 100}%"></div>
             <div class="cinematic-hp-text" id="cine-hp-text">${oldWounds} / ${defender.maxWounds}</div>
