@@ -1165,21 +1165,31 @@
     <div style="display:flex; gap: 40px; width: 80%; max-width: 800px; margin-bottom: 40px;">
       
       <!-- Faction A Selection -->
-      <div style="flex:1; background:var(--dark-card); padding:20px; border-radius:12px; border:2px solid var(--faction-a-color); text-align:center;">
-        <h2 style="color:var(--faction-a-color); margin-bottom: 20px;">Faction A (Left Side)</h2>
-        <select id="select-faction-a" style="width:100%; padding:10px; background:#1e293b; color:white; border:1px solid var(--panel-border); border-radius:6px; font-size:1.1rem; outline:none;">
-          <!-- Options injected by JS -->
-        </select>
+      <div id="setup-card-a" style="flex:1; background:var(--dark-card); padding:20px; border-radius:12px; border:2px solid var(--faction-a-color); text-align:center; transition: border-color 0.3s ease;">
+        <h2 id="setup-title-a" style="color:var(--faction-a-color); margin-bottom: 20px; transition: color 0.3s ease;">Faction A (Left Side)</h2>
+        <div style="display:flex; align-items:center; justify-content:space-between; background:#1e293b; border:1px solid var(--panel-border); border-radius:8px; padding:10px;">
+          <button class="qa-btn" style="padding: 10px 15px;" onclick="cycleFaction('A', -1)">◀</button>
+          <div style="flex:1; margin:0 15px; display:flex; flex-direction:column; align-items:center;">
+            <img id="carousel-img-a" src="" style="width:100%; height:80px; object-fit:cover; border-radius:6px; margin-bottom:10px; border:1px solid rgba(255,255,255,0.1);">
+            <div id="carousel-name-a" style="font-size:1.2rem; font-weight:bold; color:white;">-</div>
+          </div>
+          <button class="qa-btn" style="padding: 10px 15px;" onclick="cycleFaction('A', 1)">▶</button>
+        </div>
       </div>
 
       <div style="display:flex; align-items:center; font-size: 2rem; color: var(--text-muted); font-weight:bold;">VS</div>
 
       <!-- Faction B Selection -->
-      <div style="flex:1; background:var(--dark-card); padding:20px; border-radius:12px; border:2px solid var(--faction-b-color); text-align:center;">
-        <h2 style="color:var(--faction-b-color); margin-bottom: 20px;">Faction B (Right Side)</h2>
-        <select id="select-faction-b" style="width:100%; padding:10px; background:#1e293b; color:white; border:1px solid var(--panel-border); border-radius:6px; font-size:1.1rem; outline:none;">
-          <!-- Options injected by JS -->
-        </select>
+      <div id="setup-card-b" style="flex:1; background:var(--dark-card); padding:20px; border-radius:12px; border:2px solid var(--faction-b-color); text-align:center; transition: border-color 0.3s ease;">
+        <h2 id="setup-title-b" style="color:var(--faction-b-color); margin-bottom: 20px; transition: color 0.3s ease;">Faction B (Right Side)</h2>
+        <div style="display:flex; align-items:center; justify-content:space-between; background:#1e293b; border:1px solid var(--panel-border); border-radius:8px; padding:10px;">
+          <button class="qa-btn" style="padding: 10px 15px;" onclick="cycleFaction('B', -1)">◀</button>
+          <div style="flex:1; margin:0 15px; display:flex; flex-direction:column; align-items:center;">
+            <img id="carousel-img-b" src="" style="width:100%; height:80px; object-fit:cover; border-radius:6px; margin-bottom:10px; border:1px solid rgba(255,255,255,0.1);">
+            <div id="carousel-name-b" style="font-size:1.2rem; font-weight:bold; color:white;">-</div>
+          </div>
+          <button class="qa-btn" style="padding: 10px 15px;" onclick="cycleFaction('B', 1)">▶</button>
+        </div>
       </div>
 
     </div>
@@ -1321,7 +1331,7 @@
       <!-- 星际战士特工列表 -->
       <div class="operative-board team-a">
         <div class="board-header">
-          <img src="faction_header_sm.png" class="board-header-img">
+          <img src="faction_header_sm.png" class="board-header-img" id="board-header-img-a">
           <div class="board-header-content">
             <span id="label-team-a">死亡天使战队 (Angels of Death)</span>
             <span class="team-status" id="sm-alive-count">6/6 存活</span>
@@ -1406,7 +1416,7 @@
       <!-- 瘟疫战士特工列表 -->
       <div class="operative-board team-b">
         <div class="board-header">
-          <img src="faction_header_pm.png" class="board-header-img">
+          <img src="faction_header_pm.png" class="board-header-img" id="board-header-img-b">
           <div class="board-header-content">
             <span id="label-team-b">瘟疫守卫战队 (Plague Marines)</span>
             <span class="team-status" id="pm-alive-count">5/5 存活</span>
@@ -1671,35 +1681,56 @@
     // ==========================================
 
 
-    function initSetupScreen() {
-      const selectA = document.getElementById('select-faction-a');
-      const selectB = document.getElementById('select-faction-b');
-      selectA.innerHTML = '';
-      selectB.innerHTML = '';
-      
-      for (const [key, data] of Object.entries(FACTIONS_DB)) {
-        const optA = document.createElement('option');
-        optA.value = key; optA.textContent = data.name;
-        if (key === 'Space Marine') optA.selected = true;
-        selectA.appendChild(optA);
+    let availableFactions = [];
+    let factionIndexA = 0;
+    let factionIndexB = 0;
 
-        const optB = document.createElement('option');
-        optB.value = key; optB.textContent = data.name;
-        if (key === 'Plague Marine') optB.selected = true;
-        selectB.appendChild(optB);
+    function initSetupScreen() {
+      availableFactions = Object.keys(FACTIONS_DB);
+      
+      // Default selections
+      factionIndexA = availableFactions.indexOf('Space Marine');
+      if (factionIndexA === -1) factionIndexA = 0;
+      
+      factionIndexB = availableFactions.indexOf('Plague Marine');
+      if (factionIndexB === -1) factionIndexB = 1 % availableFactions.length;
+
+      updateCarousel('A');
+      updateCarousel('B');
+    }
+
+    function cycleFaction(side, dir) {
+      playSound('click');
+      const maxIdx = availableFactions.length;
+      if (side === 'A') {
+        factionIndexA = (factionIndexA + dir + maxIdx) % maxIdx;
+        updateCarousel('A');
+      } else {
+        factionIndexB = (factionIndexB + dir + maxIdx) % maxIdx;
+        updateCarousel('B');
       }
+    }
+
+    function updateCarousel(side) {
+      const idx = side === 'A' ? factionIndexA : factionIndexB;
+      const facKey = availableFactions[idx];
+      const facData = FACTIONS_DB[facKey];
+      
+      document.getElementById(`carousel-img-${side.toLowerCase()}`).src = facData.headerImg;
+      document.getElementById(`carousel-name-${side.toLowerCase()}`).textContent = facData.name;
+      
+      // Update preview colors
+      const colorVar = side === 'A' ? '--faction-a-color' : '--faction-b-color';
+      document.documentElement.style.setProperty(colorVar, facData.themeColor);
     }
 
     function enterRosterSelection() {
       playSound('click');
-      gameState.factionA = document.getElementById('select-faction-a').value;
-      gameState.factionB = document.getElementById('select-faction-b').value;
+      gameState.factionA = availableFactions[factionIndexA];
+      gameState.factionB = availableFactions[factionIndexB];
       
       const facA = FACTIONS_DB[gameState.factionA];
       const facB = FACTIONS_DB[gameState.factionB];
-
-      document.documentElement.style.setProperty('--faction-a-color', facA.themeColor);
-      document.documentElement.style.setProperty('--faction-b-color', facB.themeColor);
 
       document.getElementById('setup-overlay').style.display = 'none';
       document.getElementById('start-screen').style.display = 'block';
@@ -1955,6 +1986,9 @@
       document.getElementById('dash-title-b').textContent = FACTIONS_DB[gameState.factionB].name;
       document.getElementById('label-team-a').textContent = FACTIONS_DB[gameState.factionA].name;
       document.getElementById('label-team-b').textContent = FACTIONS_DB[gameState.factionB].name;
+      
+      document.getElementById('board-header-img-a').src = FACTIONS_DB[gameState.factionA].headerImg;
+      document.getElementById('board-header-img-b').src = FACTIONS_DB[gameState.factionB].headerImg;
 
       addLog('>>> 战队挑选部署完毕！');
       addLog(`  - ${FACTIONS_DB[gameState.factionA].name} 登场: ${gameState.operatives.filter(o => o.faction === gameState.factionA).map(o => o.name).join(', ')}`);
