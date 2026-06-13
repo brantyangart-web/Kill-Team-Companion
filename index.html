@@ -1659,6 +1659,7 @@
           this.isDead = true;
           this.hasActed = true;
           triggerOperativeDeathOverlay(this);
+          setTimeout(() => checkGameOver(), 500);
         }
         return actualDamage;
       }
@@ -1739,6 +1740,65 @@
       { id: 'pm_7', name: 'Plague Warrior (普通战士)', wounds: 12, apl: 2, df: 3, sv: 3, isLeader: false, defaultAvatar: './pm_warrior.png',
         weapons: [new Weapon('瘟疫爆弹步枪 (Plague Boltgun)', 4, 3, 3, 4, true), new Weapon('瘟疫重拳 (Fists)', 3, 3, 3, 4, false)] }
     ];
+
+    const LEGIONARY_TEMPLATES = [
+      { id: 'leg_1', name: 'Aspiring Champion (神选队长)', wounds: 13, apl: 3, df: 3, sv: 3, isLeader: true, defaultAvatar: './default_plague_marine_1781296932234.png',
+        weapons: [new Weapon('等离子手枪 (Plasma Pistol)', 4, 2, 5, 6, true), new Weapon('恶魔之剑 (Daemon Blade)', 5, 3, 4, 6, false)] },
+      { id: 'leg_2', name: 'Balefire Acolyte (邪火巫师)', wounds: 12, apl: 3, df: 3, sv: 3, isLeader: false, defaultAvatar: './default_plague_marine_1781296932234.png',
+        weapons: [new Weapon('邪火猛击 (Malign Strike)', 4, 3, 4, 5, true), new Weapon('诅咒法杖 (Cursed Staff)', 4, 3, 4, 5, false)] },
+      { id: 'leg_3', name: 'Anointed (受膏者)', wounds: 12, apl: 3, df: 3, sv: 3, isLeader: false, defaultAvatar: './default_plague_marine_1781296932234.png',
+        weapons: [new Weapon('爆弹手枪 (Bolt Pistol)', 4, 3, 3, 4, true), new Weapon('恶魔魔爪 (Demonic Claws)', 5, 3, 4, 5, false)] },
+      { id: 'leg_4', name: 'Butcher (屠夫)', wounds: 12, apl: 3, df: 3, sv: 3, isLeader: false, defaultAvatar: './default_plague_marine_1781296932234.png',
+        weapons: [new Weapon('爆弹手枪 (Bolt Pistol)', 4, 3, 3, 4, true), new Weapon('双手巨斧 (Great Axe)', 5, 4, 4, 5, false)] },
+      { id: 'leg_5', name: 'Shrivetalon (剥皮爪)', wounds: 12, apl: 3, df: 3, sv: 3, isLeader: false, defaultAvatar: './default_plague_marine_1781296932234.png',
+        weapons: [new Weapon('爆弹手枪 (Bolt Pistol)', 4, 3, 3, 4, true), new Weapon('双持毒刃 (Twin Blades)', 5, 3, 4, 5, false)] },
+      { id: 'leg_6', name: 'Heavy Gunner (重机枪手)', wounds: 12, apl: 3, df: 3, sv: 3, isLeader: false, defaultAvatar: './default_plague_marine_1781296932234.png',
+        weapons: [new Weapon('收割机枪 (Reaper Chaincannon)', 6, 3, 3, 4, true), new Weapon('近战短刀 (Fists)', 3, 3, 3, 4, false)] },
+      { id: 'leg_7', name: 'Icon Bearer (举旗手)', wounds: 12, apl: 3, df: 3, sv: 3, isLeader: false, defaultAvatar: './default_plague_marine_1781296932234.png',
+        weapons: [new Weapon('爆弹步枪 (Boltgun)', 4, 3, 3, 4, true), new Weapon('链锯剑 (Chainsword)', 4, 3, 4, 5, false)] }
+    ];
+
+    const FACTIONS_DB = {
+      "Space Marine": {
+        id: "Space Marine",
+        name: "死亡天使 (Angels of Death)",
+        templates: SM_TEMPLATES,
+        themeColor: "var(--sm-accent)",
+        diceClass: "sm-dice",
+        headerImg: "url('./faction_header_sm_1781315989603.png')",
+        ploys: [
+          { name: '风暴开火 (Bolter Discipline)', type: 'Strategic', cp: 1, desc: '特工在使用爆弹类武器时可进行第二次射击行动。' },
+          { name: '震慑突击 (Shock Assault)', type: 'Strategic', cp: 1, desc: '冲锋后近战搏斗时获得额外重投。' },
+          { name: '极限减伤 (Transhuman Physiology)', type: 'Firefight', cp: 1, desc: '遭到致命一击时可将 1 个暴击伤害降为普通伤害。' }
+        ]
+      },
+      "Plague Marine": {
+        id: "Plague Marine",
+        name: "死亡守卫 (Death Guard)",
+        templates: PM_TEMPLATES,
+        themeColor: "var(--pm-accent)",
+        diceClass: "pm-dice",
+        headerImg: "url('./faction_header_pm_1781316000042.png')",
+        ploys: [
+          { name: '无尽行军 (Inexorable Advance)', type: 'Strategic', cp: 1, desc: '忽略移动减损惩罚，强行推进。' },
+          { name: '剧毒喷洒 (Malicious Volleys)', type: 'Strategic', cp: 1, desc: '爆弹武器即使移动过也能双击。' },
+          { name: '恶心减伤 (Disgustingly Resilient)', type: 'Firefight', cp: 1, desc: '防守时可以将一枚失败骰改为普通成功。' }
+        ]
+      },
+      "Legionary": {
+        id: "Legionary",
+        name: "黑军团 (Legionaries)",
+        templates: LEGIONARY_TEMPLATES,
+        themeColor: "#ef4444",
+        diceClass: "pm-dice",
+        headerImg: "url('./faction_header_pm_1781316000042.png')", // Can replace later
+        ploys: [
+          { name: '黑暗诸神之怒 (Wrath of the Gods)', type: 'Strategic', cp: 1, desc: '本回合近战暴击判定+1。' },
+          { name: '恶意齐射 (Malicious Volleys)', type: 'Strategic', cp: 1, desc: '所有装备爆弹枪的特工可执行两次射击。' },
+          { name: '恶魔恩赐 (Daemonic Ward)', type: 'Firefight', cp: 1, desc: '在防守投骰时，可以重投 1 枚防御骰。' }
+        ]
+      }
+    };
 
     // ==========================================
     //           初始化选人面板渲染
@@ -2090,6 +2150,10 @@
 
     function endTurningPoint() {
       playSound('click');
+      if (gameState.turningPoint >= 4) {
+        endGame('TP5');
+        return;
+      }
       gameState.turningPoint += 1;
       gameState.phase = 'Initiative';
       
@@ -2119,6 +2183,81 @@
       addLog(`========================================`);
 
       startInitiativePhase();
+    }
+
+    function checkGameOver() {
+      if (gameState.gameOver) return;
+      const factions = ['Space Marine', 'Plague Marine'];
+      const aliveCounts = {};
+      factions.forEach(f => {
+        aliveCounts[f] = gameState.operatives.filter(o => o.faction === f && !o.isDead).length;
+      });
+
+      if (aliveCounts['Space Marine'] === 0 && aliveCounts['Plague Marine'] === 0) {
+        endGame('DRAW_WIPEOUT');
+      } else if (aliveCounts['Space Marine'] === 0) {
+        endGame('PM_WIPEOUT');
+      } else if (aliveCounts['Plague Marine'] === 0) {
+        endGame('SM_WIPEOUT');
+      }
+    }
+
+    function endGame(reasonCode) {
+      gameState.gameOver = true;
+      playSound('epic_win');
+      
+      let winnerText = '';
+      let descText = '';
+
+      if (reasonCode === 'DRAW_WIPEOUT') {
+        winnerText = '平局 (DRAW)';
+        descText = '双方全军覆没！鲜血染红了战场...';
+      } else if (reasonCode === 'PM_WIPEOUT') {
+        winnerText = '死亡守卫 胜利！ (Plague Marines Win)';
+        descText = '死亡天使全军覆没，瘟疫的赐福覆盖了战场。';
+      } else if (reasonCode === 'SM_WIPEOUT') {
+        winnerText = '死亡天使 胜利！ (Space Marines Win)';
+        descText = '死亡守卫被彻底肃清，帝皇的意志得到了贯彻。';
+      } else if (reasonCode === 'TP5') {
+        const smVp = gameState.smVp;
+        const pmVp = gameState.pmVp;
+        if (smVp > pmVp) {
+          winnerText = '死亡天使 胜利！ (Space Marines Win)';
+          descText = `第4回合结束。死亡天使以 ${smVp} : ${pmVp} 的胜利点优势赢得了战役！`;
+        } else if (pmVp > smVp) {
+          winnerText = '死亡守卫 胜利！ (Plague Marines Win)';
+          descText = `第4回合结束。死亡守卫以 ${pmVp} : ${smVp} 的胜利点优势赢得了战役！`;
+        } else {
+          winnerText = '平局 (DRAW)';
+          descText = `第4回合结束。双方胜利点相同 (${smVp} : ${pmVp})，战局陷入僵持！`;
+        }
+      }
+
+      const dashPhase = document.getElementById('dash-phase');
+      if (dashPhase) dashPhase.textContent = 'GAME OVER';
+
+      document.body.insertAdjacentHTML('beforeend', `
+        <div class="overlay" id="victory-overlay" style="display:flex; z-index: 10000; background:rgba(0,0,0,0.9);">
+          <div class="modal" style="text-align:center; max-width:600px; padding: 40px; border: 2px solid #fbbf24; box-shadow: 0 0 30px rgba(251, 191, 36, 0.5);">
+            <h1 style="font-size: 2.5rem; color: #fbbf24; margin-bottom: 20px; font-family:'Orbitron', sans-serif;">战役结束</h1>
+            <h2 style="font-size: 1.8rem; margin-bottom: 15px; color: white;">${winnerText}</h2>
+            <p style="font-size: 1.2rem; color: #cbd5e1; margin-bottom: 30px;">${descText}</p>
+            
+            <div style="display: flex; justify-content: center; gap: 20px;">
+              <div style="background: rgba(59,130,246,0.2); padding: 15px; border-radius: 8px; border: 1px solid #3b82f6; flex: 1;">
+                <h3 style="color:#60a5fa; margin-bottom: 10px;">Space Marine</h3>
+                <div style="font-size: 2rem; font-weight: bold; color: white;">${gameState.smVp} VP</div>
+              </div>
+              <div style="background: rgba(34,197,94,0.2); padding: 15px; border-radius: 8px; border: 1px solid #22c55e; flex: 1;">
+                <h3 style="color:#86efac; margin-bottom: 10px;">Plague Marine</h3>
+                <div style="font-size: 2rem; font-weight: bold; color: white;">${gameState.pmVp} VP</div>
+              </div>
+            </div>
+
+            <button class="modal-btn primary" style="margin-top: 30px; padding: 15px 30px; font-size: 1.2rem;" onclick="location.reload()">重新开始游戏</button>
+          </div>
+        </div>
+      `);
     }
 
     function updateGuidance(text) {
