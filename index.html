@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html lang="zh-CN">
 <head>
   <meta charset="UTF-8">
@@ -1090,6 +1090,36 @@
   </style>
 </head>
 <body>
+  <!-- ========================================== -->
+  <!--               Setup Overlay                -->
+  <!-- ========================================== -->
+  <div id="setup-overlay" style="position:fixed; top:0; left:0; width:100%; height:100%; background:var(--bg-color); z-index:9999; display:flex; flex-direction:column; align-items:center; justify-content:center; font-family:'Orbitron', sans-serif;">
+    <h1 style="font-size: 3rem; color: #fbbf24; margin-bottom: 40px; text-shadow: 0 0 20px rgba(251,191,36,0.5);">KILL TEAM COMPANION</h1>
+    
+    <div style="display:flex; gap: 40px; width: 80%; max-width: 800px; margin-bottom: 40px;">
+      
+      <!-- Faction A Selection -->
+      <div style="flex:1; background:var(--dark-card); padding:20px; border-radius:12px; border:2px solid var(--sm-accent); text-align:center;">
+        <h2 style="color:var(--sm-accent); margin-bottom: 20px;">Faction A (Left Side)</h2>
+        <select id="select-faction-a" style="width:100%; padding:10px; background:#1e293b; color:white; border:1px solid var(--panel-border); border-radius:6px; font-size:1.1rem; outline:none;">
+          <!-- Options injected by JS -->
+        </select>
+      </div>
+
+      <div style="display:flex; align-items:center; font-size: 2rem; color: var(--text-muted); font-weight:bold;">VS</div>
+
+      <!-- Faction B Selection -->
+      <div style="flex:1; background:var(--dark-card); padding:20px; border-radius:12px; border:2px solid var(--pm-accent); text-align:center;">
+        <h2 style="color:var(--pm-accent); margin-bottom: 20px;">Faction B (Right Side)</h2>
+        <select id="select-faction-b" style="width:100%; padding:10px; background:#1e293b; color:white; border:1px solid var(--panel-border); border-radius:6px; font-size:1.1rem; outline:none;">
+          <!-- Options injected by JS -->
+        </select>
+      </div>
+
+    </div>
+
+    <button class="btn-large" style="padding: 15px 50px; font-size: 1.5rem;" onclick="enterRosterSelection()">DEPLOY FORCES</button>
+  </div>
 
   <div class="app-container">
     
@@ -1105,7 +1135,7 @@
       <div class="faction-scores">
         <div class="score-card sm">
           <div>
-            <div class="score-card-title">死亡天使 (Angels of Death)</div>
+            <div class="score-card-title" id="dash-title-a">死亡天使 (Angels of Death)</div>
             <div class="score-values">
               <div class="score-group">
                 <span class="label">胜利点 VP</span>
@@ -1130,7 +1160,7 @@
 
         <div class="score-card pm">
           <div>
-            <div class="score-card-title">瘟疫守卫 (Plague Marines)</div>
+            <div class="score-card-title" id="dash-title-b">瘟疫守卫 (Plague Marines)</div>
             <div class="score-values">
               <div class="score-group">
                 <span class="label">胜利点 VP</span>
@@ -1167,7 +1197,7 @@
     </div>
 
     <!-- 部署选人屏幕 (7 选 6，符合官方 Handbook 规则) -->
-    <div class="start-screen" id="start-screen">
+    <div class="start-screen" id="start-screen" style="display: none;">
       <h2>部署挑选阶段 (Deployment Selection)</h2>
       <p style="margin-bottom: 16px;">
         请根据<b>《战锤40K：杀戮小队 新手手册 (2024)》</b>规则，为双方战队选择出战特工。各战队拥有 7 个可选模型，必须刚好派遣 <b>6 名</b> 特工上场，且必须遵循必要的角色上场限制。
@@ -1613,7 +1643,7 @@
         let actualDamage = 0;
         addLog(`[伤害] ${this.name} 准备分配 ${amount} 点伤害...`);
 
-        if (this.faction === 'Plague Marine') {
+        if (this.faction === gameState.factionB) {
           const hasPloyActive = gameState.pmActivePloys.includes('contagious_resilience');
           addLog(`[特性] 触发瘟疫守卫专属【恶心作呕 (DR 5+)】 ${hasPloyActive ? '(已开启传染韧性，允许首个失败重投)' : ''}：`);
           
@@ -1668,8 +1698,8 @@
     const gameState = {
       turningPoint: 1,
       phase: 'Initiative', 
-      initiative: 'Space Marine',
-      activeTurn: 'Space Marine',
+      initiative: '',
+      activeTurn: '',
       activeAgent: null,
       
       smVp: 0,
@@ -1800,6 +1830,47 @@
       }
     };
 
+    function initSetupScreen() {
+      const selectA = document.getElementById('select-faction-a');
+      const selectB = document.getElementById('select-faction-b');
+      selectA.innerHTML = '';
+      selectB.innerHTML = '';
+      
+      for (const [key, data] of Object.entries(FACTIONS_DB)) {
+        const optA = document.createElement('option');
+        optA.value = key; optA.textContent = data.name;
+        if (key === 'Space Marine') optA.selected = true;
+        selectA.appendChild(optA);
+
+        const optB = document.createElement('option');
+        optB.value = key; optB.textContent = data.name;
+        if (key === 'Plague Marine') optB.selected = true;
+        selectB.appendChild(optB);
+      }
+    }
+
+    function enterRosterSelection() {
+      playSound('click');
+      gameState.factionA = document.getElementById('select-faction-a').value;
+      gameState.factionB = document.getElementById('select-faction-b').value;
+      
+      const facA = FACTIONS_DB[gameState.factionA];
+      const facB = FACTIONS_DB[gameState.factionB];
+
+      document.documentElement.style.setProperty('--sm-accent', facA.themeColor);
+      document.documentElement.style.setProperty('--pm-accent', facB.themeColor);
+
+      document.getElementById('setup-overlay').style.display = 'none';
+      document.getElementById('start-screen').style.display = 'block';
+      
+      document.querySelector('.roster-picker-card.sm .roster-picker-title').textContent = facA.name;
+      document.querySelector('.roster-picker-card.pm .roster-picker-title').textContent = facB.name;
+      
+      renderRosterPickers();
+    }
+
+    window.addEventListener('DOMContentLoaded', initSetupScreen);
+
     // ==========================================
     //           初始化选人面板渲染
     // ==========================================
@@ -1807,7 +1878,7 @@
     // 获取特工头像 HTML (如果未上传则显示默认文字头像)
     function getAvatarHtml(opId, faction) {
       const avatarUrl = gameState.customAvatars[opId];
-      let fallbackUrl = faction === 'Space Marine' ? './default_sm_avatar.png' : './default_pm_avatar.png';
+      let fallbackUrl = faction === gameState.factionA ? './default_sm_avatar.png' : './default_pm_avatar.png';
       
       const activeOp = gameState.operatives.find(o => o.id === opId);
       if (activeOp && activeOp.defaultAvatar) {
@@ -1834,7 +1905,7 @@
       pmContainer.innerHTML = '';
 
       // 渲染 SM (死亡天使)
-      SM_TEMPLATES.forEach(tmpl => {
+      FACTIONS_DB[gameState.factionA].templates.forEach(tmpl => {
         const item = document.createElement('div');
         item.className = 'roster-pick-row';
         item.id = `picker-row-${tmpl.id}`;
@@ -1848,7 +1919,7 @@
           item.classList.add('selected');
         }
 
-        const avatarHtml = getAvatarHtml(tmpl.id, 'Space Marine');
+        const avatarHtml = getAvatarHtml(tmpl.id, gameState.factionA);
 
         item.innerHTML = `
           <input type="checkbox" class="roster-checkbox" id="check-${tmpl.id}" ${checkedAttr} onchange="toggleSelectSM('${tmpl.id}')">
@@ -1874,7 +1945,7 @@
       });
 
       // 渲染 PM (瘟疫战士)
-      PM_TEMPLATES.forEach(tmpl => {
+      FACTIONS_DB[gameState.factionB].templates.forEach(tmpl => {
         const item = document.createElement('div');
         item.className = 'roster-pick-row';
         item.id = `picker-row-${tmpl.id}`;
@@ -1889,7 +1960,7 @@
           item.classList.add('selected');
         }
 
-        const avatarHtml = getAvatarHtml(tmpl.id, 'Plague Marine');
+        const avatarHtml = getAvatarHtml(tmpl.id, gameState.factionB);
 
         item.innerHTML = `
           <input type="checkbox" class="roster-checkbox" id="check-${tmpl.id}" ${checkedAttr} onchange="toggleSelectPM('${tmpl.id}')">
@@ -1954,14 +2025,14 @@
     function updateSelectionCounts() {
       // 统计 SM
       let smSelected = 0;
-      SM_TEMPLATES.forEach(t => {
+      FACTIONS_DB[gameState.factionA].templates.forEach(t => {
         if (document.getElementById(`check-${t.id}`).checked) smSelected++;
       });
       document.getElementById('sm-roster-count').textContent = `已选: ${smSelected} / 6 人`;
 
       // 统计 PM
       let pmSelected = 0;
-      PM_TEMPLATES.forEach(t => {
+      FACTIONS_DB[gameState.factionB].templates.forEach(t => {
         if (document.getElementById(`check-${t.id}`).checked) pmSelected++;
       });
       document.getElementById('pm-roster-count').textContent = `已选: ${pmSelected} / 6 人`;
@@ -1973,7 +2044,7 @@
       
       const smSelectedIds = [];
       let smLeaderCount = 0;
-      SM_TEMPLATES.forEach(t => {
+      FACTIONS_DB[gameState.factionA].templates.forEach(t => {
         if (document.getElementById(`check-${t.id}`).checked) {
           smSelectedIds.push(t.id);
           if (t.isLeader) smLeaderCount++;
@@ -1982,51 +2053,50 @@
 
       const pmSelectedIds = [];
       let pmLeaderCount = 0;
-      PM_TEMPLATES.forEach(t => {
+      FACTIONS_DB[gameState.factionB].templates.forEach(t => {
         if (document.getElementById(`check-${t.id}`).checked) {
           pmSelectedIds.push(t.id);
           if (t.isLeader) pmLeaderCount++;
         }
       });
 
-      // 校验 SM
+      // 校验 Left Side
       if (smSelectedIds.length !== 6) {
         playSound('alert');
-        alert(`星际战士 (死亡天使) 必须刚好选择 6 人！当前选择了 ${smSelectedIds.length} 人。`);
+        alert(`${FACTIONS_DB[gameState.factionA].name} 必须刚好选择 6 人！当前选择了 ${smSelectedIds.length} 人。`);
         return;
       }
       if (smLeaderCount !== 1) {
         playSound('alert');
-        alert(`星际战士 必须选择且仅选择 1 名队长（Captain 或 Sergeant 二选一）！`);
+        alert(`${FACTIONS_DB[gameState.factionA].name} 必须选择且仅选择 1 名队长（Leader）！`);
         return;
       }
 
-      // 校验 PM
+      // 校验 Right Side
       if (pmSelectedIds.length !== 6) {
         playSound('alert');
-        alert(`瘟疫守卫 必须刚好选择 6 人！当前选择了 ${pmSelectedIds.length} 人。`);
+        alert(`${FACTIONS_DB[gameState.factionB].name} 必须刚好选择 6 人！当前选择了 ${pmSelectedIds.length} 人。`);
         return;
       }
-      const pmChampionChecked = document.getElementById('check-pm_1').checked;
-      if (!pmChampionChecked) {
+      if (pmLeaderCount !== 1) {
         playSound('alert');
-        alert(`瘟疫守卫 的 冠军队长 (Plague Champion) 是强制出战的 Leader 角色！`);
+        alert(`${FACTIONS_DB[gameState.factionB].name} 必须选择且仅选择 1 名队长（Leader）！`);
         return;
       }
 
       // 校验通过，载入特工列表
       gameState.operatives = [];
 
-      // 加载 SM
+      // 加载 Left Side
       smSelectedIds.forEach(id => {
-        const tmpl = SM_TEMPLATES.find(t => t.id === id);
-        gameState.operatives.push(new Operative(tmpl.id, tmpl.name, 'Space Marine', tmpl.wounds, tmpl.apl, tmpl.df, tmpl.sv, tmpl.weapons, tmpl.defaultAvatar));
+        const tmpl = FACTIONS_DB[gameState.factionA].templates.find(t => t.id === id);
+        gameState.operatives.push(new Operative(tmpl.id, tmpl.name, gameState.factionA, tmpl.wounds, tmpl.apl, tmpl.df, tmpl.sv, tmpl.weapons, tmpl.defaultAvatar));
       });
 
-      // 加载 PM
+      // 加载 Right Side
       pmSelectedIds.forEach(id => {
-        const tmpl = PM_TEMPLATES.find(t => t.id === id);
-        gameState.operatives.push(new Operative(tmpl.id, tmpl.name, 'Plague Marine', tmpl.wounds, tmpl.apl, tmpl.df, tmpl.sv, tmpl.weapons, tmpl.defaultAvatar));
+        const tmpl = FACTIONS_DB[gameState.factionB].templates.find(t => t.id === id);
+        gameState.operatives.push(new Operative(tmpl.id, tmpl.name, gameState.factionB, tmpl.wounds, tmpl.apl, tmpl.df, tmpl.sv, tmpl.weapons, tmpl.defaultAvatar));
       });
 
       // 进入先攻阶段
@@ -2036,8 +2106,8 @@
       document.getElementById('guidance-banner').style.display = 'flex';
 
       addLog('>>> 战队挑选部署完毕！');
-      addLog(`  - Angels of Death (星际战士) 登场: ${gameState.operatives.filter(o => o.faction === 'Space Marine').map(o => o.name).join(', ')}`);
-      addLog(`  - Plague Marines (瘟疫守卫) 登场: ${gameState.operatives.filter(o => o.faction === 'Plague Marine').map(o => o.name).join(', ')}`);
+      addLog(`  - Angels of Death (星际战士) 登场: ${gameState.operatives.filter(o => o.faction === gameState.factionA).map(o => o.name).join(', ')}`);
+      addLog(`  - Plague Marines (瘟疫守卫) 登场: ${gameState.operatives.filter(o => o.faction === gameState.factionB).map(o => o.name).join(', ')}`);
       
       updateScoresUI();
       renderOperatives();
@@ -2095,7 +2165,7 @@
       // Update Next Phase button visibility inside dash
       const nextBtn = document.getElementById('btn-next-phase');
       if (nextBtn) {
-        if (gameState.phase === 'Firefight' && !hasUsableOperatives('Space Marine') && !hasUsableOperatives('Plague Marine')) {
+        if (gameState.phase === 'Firefight' && !hasUsableOperatives(gameState.factionA) && !hasUsableOperatives(gameState.factionB)) {
           nextBtn.style.display = 'inline-block';
           nextBtn.textContent = '回合得分结算';
           nextBtn.onclick = showTurnEndScoringOverlay;
@@ -2187,17 +2257,17 @@
 
     function checkGameOver() {
       if (gameState.gameOver) return;
-      const factions = ['Space Marine', 'Plague Marine'];
+      const factions = [gameState.factionA, gameState.factionB];
       const aliveCounts = {};
       factions.forEach(f => {
         aliveCounts[f] = gameState.operatives.filter(o => o.faction === f && !o.isDead).length;
       });
 
-      if (aliveCounts['Space Marine'] === 0 && aliveCounts['Plague Marine'] === 0) {
+      if (aliveCounts[gameState.factionA] === 0 && aliveCounts[gameState.factionB] === 0) {
         endGame('DRAW_WIPEOUT');
-      } else if (aliveCounts['Space Marine'] === 0) {
+      } else if (aliveCounts[gameState.factionA] === 0) {
         endGame('PM_WIPEOUT');
-      } else if (aliveCounts['Plague Marine'] === 0) {
+      } else if (aliveCounts[gameState.factionB] === 0) {
         endGame('SM_WIPEOUT');
       }
     }
@@ -2275,7 +2345,7 @@
       let pmAlive = 0;
 
       gameState.operatives.forEach(op => {
-        const isSm = op.faction === 'Space Marine';
+        const isSm = op.faction === gameState.factionA;
         if (isSm && !op.isDead) smAlive++;
         if (!isSm && !op.isDead) pmAlive++;
 
@@ -2424,7 +2494,7 @@
             addLog(`  - 先攻判定平局 [${smVal}]，准备重投...`);
           } else {
             const winner = smVal > pmVal ? 'Space Marine' : 'Plague Marine';
-            const winnerCN = winner === 'Space Marine' ? '死亡天使' : '瘟疫守卫';
+            const winnerCN = winner === gameState.factionA ? '死亡天使' : '瘟疫守卫';
             playSound('crit');
 
             document.getElementById('overlay-init-sm-val').textContent = `点数: ${smVal}`;
@@ -2438,8 +2508,8 @@
               <div style="border-top:1px solid var(--panel-border); margin-top:16px; padding-top:16px; width:100%;">
                 <p style="color:var(--sm-accent); font-weight:bold; margin-bottom:10px;">👑 【${winnerCN}】选择首发玩家：</p>
                 <div style="display:flex; gap:10px;">
-                  <button class="qa-btn" onclick="selectTurnOrder('Space Marine')">死亡天使先攻 (Astartes First)</button>
-                  <button class="qa-btn" onclick="selectTurnOrder('Plague Marine')">瘟疫守卫先攻 (Death Guard First)</button>
+                  <button class="qa-btn" onclick="selectTurnOrder(gameState.factionA)">死亡天使先攻 (Astartes First)</button>
+                  <button class="qa-btn" onclick="selectTurnOrder(gameState.factionB)">瘟疫守卫先攻 (Death Guard First)</button>
                 </div>
               </div>
             `;
@@ -2453,7 +2523,7 @@
       playSound('click');
       gameState.initiative = faction;
       gameState.activeTurn = faction;
-      addLog(`  - 确认：【${faction === 'Space Marine' ? '死亡天使' : '瘟疫守卫'}】获得本回合的先攻优势！`);
+      addLog(`  - 确认：【${faction === gameState.factionA ? '死亡天使' : '瘟疫守卫'}】获得本回合的先攻优势！`);
       
       startStrategyPhase();
     }
@@ -2585,9 +2655,9 @@
           avatarContainer.innerHTML = getAvatarHtml(op.id, op.faction);
         }
         
-        activeCard.className = `active-card ${op.faction === 'Space Marine' ? 'sm-active' : 'pm-active'}`;
+        activeCard.className = `active-card ${op.faction === gameState.factionA ? 'sm-active' : 'pm-active'}`;
         document.getElementById('active-op-name').textContent = op.name;
-        document.getElementById('active-op-faction').textContent = op.faction === 'Space Marine' ? '死亡天使' : '瘟疫守卫';
+        document.getElementById('active-op-faction').textContent = op.faction === gameState.factionA ? '死亡天使' : '瘟疫守卫';
         
         const dots = document.getElementById('active-apl-dots');
         dots.innerHTML = '';
@@ -2601,7 +2671,7 @@
         const hasCharged = op.actionsPerformed.includes('Charge');
         
         const shootCount = op.actionsPerformed.filter(a => a === 'Shoot').length;
-        const maxShoots = (op.faction === 'Space Marine' && gameState.smActivePloys.includes('bolter_discipline')) ? 2 : 1;
+        const maxShoots = (op.faction === gameState.factionA && gameState.smActivePloys.includes('bolter_discipline')) ? 2 : 1;
         const hasShotLimit = shootCount >= maxShoots;
 
         const hasFought = op.actionsPerformed.includes('Fight');
@@ -2611,8 +2681,8 @@
         document.getElementById('action-shoot').disabled = op.apl < 1 || hasShotLimit || hasCharged;
         document.getElementById('action-fight').disabled = op.apl < 1 || hasFought;
 
-        const hasBolterDiscipline = op.faction === 'Space Marine' && gameState.smActivePloys.includes('bolter_discipline');
-        const hasContagiousResilience = op.faction === 'Plague Marine' && gameState.pmActivePloys.includes('contagious_resilience');
+        const hasBolterDiscipline = op.faction === gameState.factionA && gameState.smActivePloys.includes('bolter_discipline');
+        const hasContagiousResilience = op.faction === gameState.factionB && gameState.pmActivePloys.includes('contagious_resilience');
 
         const ployDisplay = document.getElementById('active-ploys-display');
         if (ployDisplay) {
@@ -2639,14 +2709,14 @@
         activeCard.className = 'active-card';
 
         const nextFaction = gameState.activeTurn;
-        const cn = nextFaction === 'Space Marine' ? '死亡天使' : '瘟疫守卫';
+        const cn = nextFaction === gameState.factionA ? '死亡天使' : '瘟疫守卫';
         
         const hasUsable = hasUsableOperatives(nextFaction);
         if (hasUsable) {
-          const sideName = nextFaction === 'Space Marine' ? '左边' : '右边';
+          const sideName = nextFaction === gameState.factionA ? '左边' : '右边';
           updateGuidance(`【激活提示】请从${sideName}【${cn}】战队卡片列表中选择点击发亮的特工卡片，载入动作。`);
         } else {
-          const oppFaction = nextFaction === 'Space Marine' ? 'Plague Marine' : 'Space Marine';
+          const oppFaction = nextFaction === gameState.factionA ? 'Plague Marine' : 'Space Marine';
           if (hasUsableOperatives(oppFaction)) {
             updateGuidance(`【激活换边】因为当前轮次已无可用单位，权能自动转回另一方。请继续点击激活。`);
           } else {
@@ -2694,9 +2764,9 @@
 
       if (nextHasUsable) {
         gameState.activeTurn = nextFaction;
-        addLog(`>>> 交替轮转：轮到【${nextFaction === 'Space Marine' ? '死亡天使' : '瘟疫守卫'}】选择特工激活。`);
+        addLog(`>>> 交替轮转：轮到【${nextFaction === gameState.factionA ? '死亡天使' : '瘟疫守卫'}】选择特工激活。`);
       } else if (currentHasUsable) {
-        addLog(`>>> 【${nextFaction === 'Space Marine' ? '死亡天使' : '瘟疫守卫'}】已无可用特工。继续激活【${gameState.activeTurn === 'Space Marine' ? '死亡天使' : '瘟疫守卫'}】。`);
+        addLog(`>>> 【${nextFaction === gameState.factionA ? '死亡天使' : '瘟疫守卫'}】已无可用特工。继续激活【${gameState.activeTurn === 'Space Marine' ? '死亡天使' : '瘟疫守卫'}】。`);
       } else {
         addLog(`>>> 双方全部特工激活完毕。准备开始回合得分结算。`);
         showTurnEndScoringOverlay();
@@ -2910,7 +2980,7 @@
 
       if (wizardState.step === 1) {
         title.textContent = '射击结算 - 步骤 1: 选择目标';
-        const enemyFaction = wizardState.attacker.faction === 'Space Marine' ? 'Plague Marine' : 'Space Marine';
+        const enemyFaction = wizardState.attacker.faction === gameState.factionA ? 'Plague Marine' : 'Space Marine';
         const targets = gameState.operatives.filter(o => o.faction === enemyFaction && !o.isDead);
 
         if (targets.length === 0) {
@@ -2998,7 +3068,7 @@
         title.textContent = '射击结算 - 步骤 4: 攻击方掷骰 (Angels of Death)';
         
         let rerollHint = '';
-        const curCp = wizardState.attacker.faction === 'Space Marine' ? gameState.smCp : gameState.pmCp;
+        const curCp = wizardState.attacker.faction === gameState.factionA ? gameState.smCp : gameState.pmCp;
         
         if (wizardState.attackRolls.length > 0) {
           rerollHint = `
@@ -3060,7 +3130,7 @@
         }
 
         let rerollHint = '';
-        const curCp = wizardState.defender.faction === 'Space Marine' ? gameState.smCp : gameState.pmCp;
+        const curCp = wizardState.defender.faction === gameState.factionA ? gameState.smCp : gameState.pmCp;
         if (wizardState.defenseRolls.length > 0 && dfCount > 0) {
           rerollHint = `
             <div class="roll-summary-block" style="margin-top:10px;">
@@ -3167,7 +3237,7 @@
         `;
 
         let drInputHtml = '';
-        if (wizardState.defender.faction === 'Plague Marine' && rawDmg > 0) {
+        if (wizardState.defender.faction === gameState.factionB && rawDmg > 0) {
           drInputHtml = `
             <div id="manual-dr-container" style="background:var(--dark-card); padding:10px; border-radius:8px; margin-top:8px; border:1px solid var(--panel-border);">
               <label style="font-size:0.75rem; color:var(--text-muted);">录入瘟疫守卫【恶心作呕】的 ${rawDmg} 个投骰点数 (为空则按随机)：</label>
@@ -3249,7 +3319,7 @@
       rollBtn.disabled = true;
       nextBtn.disabled = true;
 
-      const attDiceClass = wizardState.attacker.faction === 'Space Marine' ? 'sm-dice' : 'pm-dice';
+      const attDiceClass = wizardState.attacker.faction === gameState.factionA ? 'sm-dice' : 'pm-dice';
 
       // 1. 初始化滚动的占位骰子
       pool.innerHTML = '';
@@ -3318,8 +3388,8 @@
       pool.innerHTML = '';
       
       const faction = wizardState.attacker.faction;
-      const curCp = faction === 'Space Marine' ? gameState.smCp : gameState.pmCp;
-      const attDiceClass = faction === 'Space Marine' ? 'sm-dice' : 'pm-dice';
+      const curCp = faction === gameState.factionA ? gameState.smCp : gameState.pmCp;
+      const attDiceClass = faction === gameState.factionA ? 'sm-dice' : 'pm-dice';
 
       wizardState.attackRolls.forEach((val, idx) => {
         const d = document.createElement('div');
@@ -3352,7 +3422,7 @@
 
     function rerollSingleAttackDice(idx) {
       playSound('shoot');
-      if (wizardState.attacker.faction === 'Space Marine') {
+      if (wizardState.attacker.faction === gameState.factionA) {
         gameState.smCp -= 1;
       } else {
         gameState.pmCp -= 1;
@@ -3365,7 +3435,7 @@
       const pool = document.getElementById('attack-dice-pool');
       const diceCubes = pool.getElementsByClassName('kt-dice-cube');
       const cube = diceCubes[idx];
-      const attDiceClass = wizardState.attacker.faction === 'Space Marine' ? 'sm-dice' : 'pm-dice';
+      const attDiceClass = wizardState.attacker.faction === gameState.factionA ? 'sm-dice' : 'pm-dice';
       cube.className = `kt-dice-cube ${attDiceClass} rolling`;
       cube.innerHTML = '?';
 
@@ -3395,7 +3465,7 @@
       rollBtn.disabled = true;
       nextBtn.disabled = true;
 
-      const defDiceClass = wizardState.defender.faction === 'Space Marine' ? 'sm-dice' : 'pm-dice';
+      const defDiceClass = wizardState.defender.faction === gameState.factionA ? 'sm-dice' : 'pm-dice';
 
       pool.innerHTML = '';
       for (let i = 0; i < dfCount; i++) {
@@ -3461,8 +3531,8 @@
       pool.innerHTML = '';
 
       const faction = wizardState.defender.faction;
-      const curCp = faction === 'Space Marine' ? gameState.smCp : gameState.pmCp;
-      const defDiceClass = faction === 'Space Marine' ? 'sm-dice' : 'pm-dice';
+      const curCp = faction === gameState.factionA ? gameState.smCp : gameState.pmCp;
+      const defDiceClass = faction === gameState.factionA ? 'sm-dice' : 'pm-dice';
 
       wizardState.defenseRolls.forEach((val, idx) => {
         const d = document.createElement('div');
@@ -3495,7 +3565,7 @@
 
     function rerollSingleDefenseDice(idx, dfCount) {
       playSound('save');
-      if (wizardState.defender.faction === 'Space Marine') {
+      if (wizardState.defender.faction === gameState.factionA) {
         gameState.smCp -= 1;
       } else {
         gameState.pmCp -= 1;
@@ -3507,7 +3577,7 @@
       const pool = document.getElementById('defense-dice-pool');
       const diceCubes = pool.getElementsByClassName('kt-dice-cube');
       const cube = diceCubes[idx];
-      const defDiceClass = wizardState.defender.faction === 'Space Marine' ? 'sm-dice' : 'pm-dice';
+      const defDiceClass = wizardState.defender.faction === gameState.factionA ? 'sm-dice' : 'pm-dice';
       cube.className = `kt-dice-cube ${defDiceClass} rolling`;
       cube.innerHTML = '?';
 
@@ -3543,8 +3613,8 @@
       btn.disabled = true;
       nextBtn.disabled = true;
 
-      const attDiceClass = wizardState.attacker.faction === 'Space Marine' ? 'sm-dice' : 'pm-dice';
-      const defDiceClass = wizardState.defender.faction === 'Space Marine' ? 'sm-dice' : 'pm-dice';
+      const attDiceClass = wizardState.attacker.faction === gameState.factionA ? 'sm-dice' : 'pm-dice';
+      const defDiceClass = wizardState.defender.faction === gameState.factionA ? 'sm-dice' : 'pm-dice';
 
       // 1. 初始化滚动的占位骰子
       attPool.innerHTML = '';
@@ -3828,7 +3898,7 @@
 
       if (wizardState.step === 1) {
         title.textContent = '近战结算 - 步骤 1: 选择目标';
-        const enemyFaction = wizardState.attacker.faction === 'Space Marine' ? 'Plague Marine' : 'Space Marine';
+        const enemyFaction = wizardState.attacker.faction === gameState.factionA ? 'Plague Marine' : 'Space Marine';
         const targets = gameState.operatives.filter(o => o.faction === enemyFaction && !o.isDead);
 
         if (targets.length === 0) {
@@ -3962,8 +4032,8 @@
           }
         }
         
-        const attDiceClass = wizardState.attacker.faction === 'Space Marine' ? 'sm-dice' : 'pm-dice';
-        const defDiceClass = wizardState.defender.faction === 'Space Marine' ? 'sm-dice' : 'pm-dice';
+        const attDiceClass = wizardState.attacker.faction === gameState.factionA ? 'sm-dice' : 'pm-dice';
+        const defDiceClass = wizardState.defender.faction === gameState.factionA ? 'sm-dice' : 'pm-dice';
         
         if (wizardState.attackRolls.length > 0) {
             setTimeout(() => {
@@ -4032,8 +4102,8 @@
           return;
         }
         
-        const attDiceClass = wizardState.attacker.faction === 'Space Marine' ? 'sm-dice' : 'pm-dice';
-        const defDiceClass = wizardState.defender.faction === 'Space Marine' ? 'sm-dice' : 'pm-dice';
+        const attDiceClass = wizardState.attacker.faction === gameState.factionA ? 'sm-dice' : 'pm-dice';
+        const defDiceClass = wizardState.defender.faction === gameState.factionA ? 'sm-dice' : 'pm-dice';
 
         let attackerDiceHtml = '';
         wizardState.activeAttackerDice.forEach((d, idx) => {
@@ -4167,8 +4237,8 @@
       const defPool = document.getElementById('melee-def-pool');
       if (!attPool || !defPool) return;
       
-      const attDiceClass = wizardState.attacker.faction === 'Space Marine' ? 'sm-dice' : 'pm-dice';
-      const defDiceClass = wizardState.defender.faction === 'Space Marine' ? 'sm-dice' : 'pm-dice';
+      const attDiceClass = wizardState.attacker.faction === gameState.factionA ? 'sm-dice' : 'pm-dice';
+      const defDiceClass = wizardState.defender.faction === gameState.factionA ? 'sm-dice' : 'pm-dice';
 
       attPool.innerHTML = '';
       wizardState.activeAttackerDice.forEach(d => {
@@ -4189,7 +4259,7 @@
 
     function getDuelAvatarHtml(opId, faction) {
       const avatarUrl = gameState.customAvatars[opId];
-      let fallbackUrl = faction === 'Space Marine' ? './default_sm_avatar.png' : './default_pm_avatar.png';
+      let fallbackUrl = faction === gameState.factionA ? './default_sm_avatar.png' : './default_pm_avatar.png';
       
       const activeOp = gameState.operatives.find(o => o.id === opId);
       if (activeOp && activeOp.defaultAvatar) {
@@ -4596,7 +4666,7 @@
       
       if (overlay) {
         modelName.textContent = op.name;
-        modelFaction.textContent = op.faction === 'Space Marine' ? '死亡天使 (Angels of Death)' : '瘟疫守卫 (Plague Marines)';
+        modelFaction.textContent = op.faction === gameState.factionA ? '死亡天使 (Angels of Death)' : '瘟疫守卫 (Plague Marines)';
         
         const randIdx = Math.floor(Math.random() * GAG_MESSAGES.length);
         gagText.textContent = GAG_MESSAGES[randIdx];
@@ -4620,8 +4690,8 @@
     function checkVictory() {
       if (gameState.gameOver) return;
 
-      const smAlive = gameState.operatives.filter(o => o.faction === 'Space Marine' && !o.isDead).length;
-      const pmAlive = gameState.operatives.filter(o => o.faction === 'Plague Marine' && !o.isDead).length;
+      const smAlive = gameState.operatives.filter(o => o.faction === gameState.factionA && !o.isDead).length;
+      const pmAlive = gameState.operatives.filter(o => o.faction === gameState.factionB && !o.isDead).length;
       
       if (smAlive === 0 && pmAlive === 0) {
         gameState.gameOver = true;
@@ -4673,8 +4743,8 @@
       showPhaseOverlay();
       
       // 自动计算击杀 VP (1 VP/击杀)
-      const currentSmKills = gameState.operatives.filter(o => o.faction === 'Plague Marine' && o.isDead).length;
-      const currentPmKills = gameState.operatives.filter(o => o.faction === 'Space Marine' && o.isDead).length;
+      const currentSmKills = gameState.operatives.filter(o => o.faction === gameState.factionB && o.isDead).length;
+      const currentPmKills = gameState.operatives.filter(o => o.faction === gameState.factionA && o.isDead).length;
       
       const smKillVp = currentSmKills - gameState.smKillsScored;
       const pmKillVp = currentPmKills - gameState.pmKillsScored;
