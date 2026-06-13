@@ -1,4 +1,4 @@
-﻿<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="zh-CN">
 <head>
   <meta charset="UTF-8">
@@ -1914,10 +1914,7 @@
         const leaderBadge = isLeader ? '<span class="role-badge leader">LEADER</span>' : '<span class="role-badge">SPECIALIST</span>';
         const weaponNames = tmpl.weapons.map(w => w.name.split(' ')[0]).join(' / ');
 
-        const checkedAttr = !isLeader ? 'checked disabled' : '';
-        if (!isLeader) {
-          item.classList.add('selected');
-        }
+        const checkedAttr = '';
 
         const avatarHtml = getAvatarHtml(tmpl.id, gameState.factionA);
 
@@ -1931,15 +1928,13 @@
         `;
         
         // 绑定点击整行勾选
-        if (isLeader) {
-          item.onclick = (e) => {
-            if (e.target.className !== 'roster-checkbox' && !e.target.closest('.op-avatar-slot')) {
-              const cb = document.getElementById(`check-${tmpl.id}`);
-              cb.checked = !cb.checked;
-              toggleSelectSM(tmpl.id);
-            }
-          };
-        }
+        item.onclick = (e) => {
+          if (e.target.className !== 'roster-checkbox' && !e.target.closest('.op-avatar-slot')) {
+            const cb = document.getElementById(`check-${tmpl.id}`);
+            cb.checked = !cb.checked;
+            toggleSelectSM(tmpl.id);
+          }
+        };
 
         smContainer.appendChild(item);
       });
@@ -1954,11 +1949,7 @@
         const leaderBadge = isLeader ? '<span class="role-badge leader" style="border-color:var(--pm-accent); color:var(--pm-accent); background:rgba(132,204,22,0.15)">LEADER</span>' : '<span class="role-badge">SPECIALIST</span>';
         const weaponNames = tmpl.weapons.map(w => w.name.split(' ')[0]).join(' / ');
 
-        // Champion 必选
-        const checkedAttr = isLeader ? 'checked disabled' : '';
-        if (isLeader) {
-          item.classList.add('selected');
-        }
+        const checkedAttr = '';
 
         const avatarHtml = getAvatarHtml(tmpl.id, gameState.factionB);
 
@@ -1971,15 +1962,13 @@
           </div>
         `;
 
-        if (!isLeader) {
-          item.onclick = (e) => {
-            if (e.target.className !== 'roster-checkbox' && !e.target.closest('.op-avatar-slot')) {
-              const cb = document.getElementById(`check-${tmpl.id}`);
-              cb.checked = !cb.checked;
-              toggleSelectPM(tmpl.id);
-            }
-          };
-        }
+        item.onclick = (e) => {
+          if (e.target.className !== 'roster-checkbox' && !e.target.closest('.op-avatar-slot')) {
+            const cb = document.getElementById(`check-${tmpl.id}`);
+            cb.checked = !cb.checked;
+            toggleSelectPM(tmpl.id);
+          }
+        };
 
         pmContainer.appendChild(item);
       });
@@ -3112,6 +3101,7 @@
         } else {
           if (wizardState.attackRolls && wizardState.attackRolls.length > 0) {
              nextBtn.disabled = false;
+             renderAttackDiceView();
           } else {
              nextBtn.disabled = true;
           }
@@ -3175,6 +3165,7 @@
         } else {
           if ((wizardState.defenseRolls && wizardState.defenseRolls.length > 0) || dfCount === 0) {
              nextBtn.disabled = false;
+             if (dfCount > 0) renderDefenseDiceView(dfCount);
           } else {
              nextBtn.disabled = true;
           }
