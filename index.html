@@ -1099,6 +1099,7 @@
         <span class="tp-label">Turning Point</span>
         <span class="tp-num" id="dash-tp">1</span>
         <span class="phase-badge" id="dash-phase">Initiative</span>
+        <button class="qa-btn" id="btn-toggle-rollmode" style="margin-top: 8px; font-size: 0.75rem; padding: 4px;" onclick="toggleRollMode()">🎲 物理录入模式</button>
       </div>
 
       <div class="faction-scores">
@@ -1684,8 +1685,22 @@
       gameOver: false,
       customAvatars: {},
       smKillsScored: 0,
-      pmKillsScored: 0
+      pmKillsScored: 0,
+      rollMode: 'manual' // 'manual' = 物理录入, 'random' = 自动动画
     };
+
+    function toggleRollMode() {
+      playSound('click');
+      if (gameState.rollMode === 'manual') {
+        gameState.rollMode = 'random';
+        document.getElementById('btn-toggle-rollmode').textContent = '🎲 自动动画模式';
+        document.getElementById('btn-toggle-rollmode').style.background = '#3b82f6';
+      } else {
+        gameState.rollMode = 'manual';
+        document.getElementById('btn-toggle-rollmode').textContent = '🎲 物理录入模式';
+        document.getElementById('btn-toggle-rollmode').style.background = '#1e293b';
+      }
+    }
 
     // ==========================================
     //       官方 Starter Set 7个特工的原始数据库
@@ -2595,6 +2610,105 @@
       meleeTurn: 'attacker'
     };
 
+    function calcAttackStats() {
+      wizardState.attackCrit = 0;
+      wizardState.attackNorm = 0;
+      wizardState.attackRolls.forEach(val => {
+        if (val === 6) wizardState.attackCrit++;
+        else if (val >= wizardState.weapon.ts) wizardState.attackNorm++;
+      });
+    }
+
+    function calcDefenseStats() {
+      wizardState.defCrit = 0;
+      wizardState.defNorm = 0;
+      wizardState.defenseRolls.forEach(val => {
+        if (val === 6) wizardState.defCrit++;
+        else if (val >= wizardState.defender.sv) wizardState.defNorm++;
+      });
+    }
+
+    function calcMeleeStats() {
+      wizardState.attackCrit = 0;
+      wizardState.attackNorm = 0;
+      wizardState.attackRolls.forEach(val => {
+        if (val === 6) wizardState.attackCrit++;
+        else if (val >= wizardState.weapon.ts) wizardState.attackNorm++;
+      });
+      
+      wizardState.defCrit = 0;
+      wizardState.defNorm = 0;
+      const defMeleeWeapon = wizardState.defender.weapons.filter(w => !w.isRanged)[0] || new Weapon('重拳 (Fists)', 3, 3, 3, 4, false);
+      wizardState.defenseRolls.forEach(val => {
+        if (val === 6) wizardState.defCrit++;
+        else if (val >= defMeleeWeapon.ts) wizardState.defNorm++;
+      });
+    }
+
+    function inputPhysicalDice(type, val) {
+      playSound('click');
+      if (type === 'attack') {
+        if (wizardState.attackRolls.length < wizardState.weapon.attacks) {
+          wizardState.attackRolls.push(val);
+          calcAttackStats();
+          if (wizardState.attackRolls.length === wizardState.weapon.attacks) playSound('crit');
+          renderShootStep();
+        }
+      } else if (type === 'defense') {
+        let dfCount = wizardState.defender.df;
+        if (wizardState.inCover) dfCount = Math.max(0, dfCount - 1);
+        if (wizardState.defenseRolls.length < dfCount) {
+          wizardState.defenseRolls.push(val);
+          calcDefenseStats();
+          if (wizardState.defenseRolls.length === dfCount) playSound('crit');
+          renderShootStep();
+        }
+      } else if (type === 'meleeAttack') {
+        if (wizardState.attackRolls.length < wizardState.weapon.attacks) {
+          wizardState.attackRolls.push(val);
+          calcMeleeStats();
+          renderFightStep();
+        }
+      } else if (type === 'meleeDefense') {
+        const defMeleeWeapon = wizardState.defender.weapons.filter(w => !w.isRanged)[0] || new Weapon('重拳 (Fists)', 3, 3, 3, 4, false);
+        if (wizardState.defenseRolls.length < defMeleeWeapon.attacks) {
+          wizardState.defenseRolls.push(val);
+          calcMeleeStats();
+          renderFightStep();
+        }
+      }
+    }
+
+    function clearPhysicalDice(type) {
+      playSound('click');
+      if (type === 'attack') { wizardState.attackRolls = []; calcAttackStats(); renderShootStep(); }
+      else if (type === 'defense') { wizardState.defenseRolls = []; calcDefenseStats(); renderShootStep(); }
+      else if (type === 'meleeAttack') { wizardState.attackRolls = []; calcMeleeStats(); renderFightStep(); }
+      else if (type === 'meleeDefense') { wizardState.defenseRolls = []; calcMeleeStats(); renderFightStep(); }
+    }
+
+    function getKeypadHtml(type, currentCount, targetCount) {
+        if (currentCount >= targetCount) {
+            return `<div style="color:var(--green); text-align:center; font-weight:bold; margin-top:10px; font-size:1.1rem;">✅ 录入完成 (${currentCount}/${targetCount})</div>
+                    <div style="text-align:center; margin-top:10px;"><button class="qa-btn" style="background:var(--red);" onclick="clearPhysicalDice('${type}')">清除重录 (Clear)</button></div>`;
+        }
+        return `
+        <div style="margin-top:10px; background:var(--dark-card); padding:16px; border-radius:12px; border:1px solid var(--panel-border);">
+            <div style="text-align:center; margin-bottom:12px; font-weight:bold; color:var(--text-main); font-size:1.1rem;">
+                录入物理骰子 (${currentCount}/${targetCount})
+            </div>
+            <div style="display:grid; grid-template-columns:repeat(3, 1fr); gap:12px;">
+                <button class="qa-btn" style="font-size:1.5rem; padding:12px;" onclick="inputPhysicalDice('${type}', 1)">1</button>
+                <button class="qa-btn" style="font-size:1.5rem; padding:12px;" onclick="inputPhysicalDice('${type}', 2)">2</button>
+                <button class="qa-btn" style="font-size:1.5rem; padding:12px;" onclick="inputPhysicalDice('${type}', 3)">3</button>
+                <button class="qa-btn" style="font-size:1.5rem; padding:12px;" onclick="inputPhysicalDice('${type}', 4)">4</button>
+                <button class="qa-btn" style="font-size:1.5rem; padding:12px;" onclick="inputPhysicalDice('${type}', 5)">5</button>
+                <button class="qa-btn" style="font-size:1.5rem; padding:12px;" onclick="inputPhysicalDice('${type}', 6)">6</button>
+                <button class="qa-btn" style="grid-column:span 3; background:var(--red); font-size:1.1rem; padding:12px;" onclick="clearPhysicalDice('${type}')">清除重录 (Clear)</button>
+            </div>
+        </div>`;
+    }
+
     function openModal() {
       document.getElementById('combat-modal').style.display = 'flex';
       // 禁用默认的页脚按钮，要求必须先点“投骰子”或做出选择
@@ -2761,35 +2875,37 @@
           
           <p style="margin-bottom: 12px;">武器 [${wizardState.weapon.name}]，攻击骰数: <b>${wizardState.weapon.attacks}</b>，命中要求: <b>${wizardState.weapon.ts}+</b></p>
           
-          <div class="qa-options" style="margin-bottom: 16px;">
-            <button class="qa-btn ${wizardState.mode === 'random' ? 'selected' : ''}" onclick="setRollMode('random')">动画/数字掷骰 (Mode B)</button>
-            <button class="qa-btn ${wizardState.mode === 'manual' ? 'selected' : ''}" onclick="setRollMode('manual')">物理骰子录入 (Mode A)</button>
-          </div>
-
-          <div class="dice-rolling-area" id="attack-rolling-zone">
-            <div class="dice-pool-view" id="attack-dice-pool">
-              <span style="color:var(--text-muted); font-size:0.85rem;">等待投骰...</span>
-            </div>
-            <button class="modal-btn primary" id="btn-roll-attack" onclick="rollAttackDice()">开始顺序掷骰</button>
-          </div>
-
-          ${rerollHint}
-
-          <div id="manual-attack-input" style="display:none; background:var(--dark-card); padding:12px; border-radius:8px; border:1px solid var(--panel-border);">
-            <div class="form-group">
-              <label>请输入 ${wizardState.weapon.attacks} 个骰子值（1-6 逗号隔开）：</label>
-              <input type="text" id="manual-att-dice-val" value="6, 4, 3, 2" style="margin-top:6px; padding:6px; font-size:1rem; width:100%;">
-            </div>
-          </div>
+          ${gameState.rollMode === 'manual' ? 
+            getKeypadHtml('attack', wizardState.attackRolls.length, wizardState.weapon.attacks) + `
+            <div class="dice-rolling-area" id="attack-rolling-zone" style="margin-top: 15px;">
+              <div class="dice-pool-view" id="attack-dice-pool">
+                <span style="color:var(--text-muted); font-size:0.85rem;">等待录入骰子...</span>
+              </div>
+            </div>` 
+          : 
+            `<div class="dice-rolling-area" id="attack-rolling-zone" style="margin-top: 15px;">
+              <div class="dice-pool-view" id="attack-dice-pool">
+                <span style="color:var(--text-muted); font-size:0.85rem;">等待投骰...</span>
+              </div>
+              <button class="modal-btn primary" id="btn-roll-attack" onclick="rollAttackDice()">自动动画掷骰 (Auto Roll)</button>
+            </div>`
+          }
         `;
 
-        if (wizardState.attackRolls.length > 0) {
-          nextBtn.disabled = false;
-          renderAttackDiceView();
-        } else if (wizardState.mode === 'manual') {
-          nextBtn.disabled = false;
+        if (gameState.rollMode === 'manual') {
+          if (wizardState.attackRolls.length === wizardState.weapon.attacks) {
+            nextBtn.disabled = false;
+            renderAttackDiceView();
+          } else {
+            nextBtn.disabled = true;
+            if (wizardState.attackRolls.length > 0) renderAttackDiceView();
+          }
         } else {
-          nextBtn.disabled = true;
+          if (wizardState.attackRolls && wizardState.attackRolls.length > 0) {
+             nextBtn.disabled = false;
+          } else {
+             nextBtn.disabled = true;
+          }
         }
         nextBtn.textContent = '防守方投骰';
       }
@@ -2822,30 +2938,37 @@
           ${coverDesc}
           <p style="margin-bottom: 12px;">需要投掷的防御骰数: <b>${dfCount}</b></p>
 
-          <div class="dice-rolling-area" id="defense-rolling-zone">
-            <div class="dice-pool-view" id="defense-dice-pool">
-              <span style="color:var(--text-muted); font-size:0.85rem;">等待投骰...</span>
-            </div>
-            <button class="modal-btn primary" id="btn-roll-defense" onclick="rollDefenseDice(${dfCount})">开始顺序防守投骰</button>
-          </div>
-
-          ${rerollHint}
-
-          <div id="manual-defense-input" style="display:none; background:var(--dark-card); padding:12px; border-radius:8px; border:1px solid var(--panel-border);">
-            <div class="form-group">
-              <label>请输入 ${dfCount} 个防御骰子值（1-6 逗号隔开）：</label>
-              <input type="text" id="manual-def-dice-val" value="5, 2" style="margin-top:6px; padding:6px; font-size:1rem; width:100%;">
-            </div>
-          </div>
+          ${gameState.rollMode === 'manual' ?
+            getKeypadHtml('defense', wizardState.defenseRolls.length, dfCount) + `
+            <div class="dice-rolling-area" id="defense-rolling-zone" style="margin-top: 15px;">
+              <div class="dice-pool-view" id="defense-dice-pool">
+                <span style="color:var(--text-muted); font-size:0.85rem;">等待录入骰子...</span>
+              </div>
+            </div>`
+          :
+            `<div class="dice-rolling-area" id="defense-rolling-zone" style="margin-top: 15px;">
+              <div class="dice-pool-view" id="defense-dice-pool">
+                <span style="color:var(--text-muted); font-size:0.85rem;">等待投骰...</span>
+              </div>
+              <button class="modal-btn primary" id="btn-roll-defense" onclick="rollDefenseDice(${dfCount})">自动动画投骰 (Auto Roll)</button>
+            </div>`
+          }
         `;
 
-        if (wizardState.defenseRolls.length > 0 || dfCount === 0) {
-          nextBtn.disabled = false;
-          renderDefenseDiceView(dfCount);
-        } else if (wizardState.mode === 'manual') {
-          nextBtn.disabled = false;
+        if (gameState.rollMode === 'manual') {
+          if (wizardState.defenseRolls.length === dfCount || dfCount === 0) {
+            nextBtn.disabled = false;
+            renderDefenseDiceView(dfCount);
+          } else {
+            nextBtn.disabled = true;
+            if (wizardState.defenseRolls.length > 0) renderDefenseDiceView(dfCount);
+          }
         } else {
-          nextBtn.disabled = true;
+          if ((wizardState.defenseRolls && wizardState.defenseRolls.length > 0) || dfCount === 0) {
+             nextBtn.disabled = false;
+          } else {
+             nextBtn.disabled = true;
+          }
         }
         nextBtn.textContent = '计算伤害与对消';
       }
@@ -3392,19 +3515,6 @@
             alert('目标处于隐蔽姿态且紧贴重掩体，属于不可被选定状态，无法对其进行射击！');
             return;
           }
-        } else if (wizardState.step === 4 && wizardState.mode === 'manual') {
-          parseManualAttack();
-          if (wizardState.attackRolls.length === 0) {
-            alert('请输入有效的攻击骰点数！');
-            return;
-          }
-        } else if (wizardState.step === 5 && wizardState.mode === 'manual') {
-          parseManualDefense();
-          const inputEl = document.getElementById('manual-def-dice-val');
-          if (inputEl && inputEl.value.trim() !== '' && wizardState.defenseRolls.length === 0) {
-            alert('请输入有效的防御骰点数！');
-            return;
-          }
         }
       } else if (wizardState.actionType === 'fight') {
         if (wizardState.step === 3) {
@@ -3417,6 +3527,18 @@
             playSound('alert');
             alert('已执行退却（Fall Back）行动的特工，本回合激活内无法执行格斗（Fight）动作！');
             return;
+          }
+        } else if (wizardState.step === 4) {
+          if (gameState.rollMode === 'manual') {
+            const defMeleeWeapon = wizardState.defender.weapons.filter(w => !w.isRanged)[0] || new Weapon('重拳 (Fists)', 3, 3, 3, 4, false);
+            
+            wizardState.activeAttackerDice = wizardState.attackRolls
+              .filter(val => val >= wizardState.weapon.ts)
+              .map(val => ({ val, isCrit: val === 6, used: false }));
+              
+            wizardState.activeDefenderDice = wizardState.defenseRolls
+              .filter(val => val >= defMeleeWeapon.ts)
+              .map(val => ({ val, isCrit: val === 6, used: false }));
           }
         }
       }
@@ -3527,6 +3649,8 @@
         inMeleeRange: true,
         hasFallenBack: false,
         mode: 'random',
+        attackRolls: [],
+        defenseRolls: [],
         activeAttackerDice: [],
         activeDefenderDice: [],
         meleeTurn: 'attacker',
@@ -3642,33 +3766,94 @@
 
       else if (wizardState.step === 4) {
         title.textContent = '近战结算 - 步骤 4: 双方近战掷骰';
+        const defMeleeWeapon = wizardState.defender.weapons.filter(w => !w.isRanged)[0] || new Weapon('重拳 (Fists)', 3, 3, 3, 4, false);
         
-        body.innerHTML = `
-          <div class="melee-grid" style="margin-bottom: 16px;">
-            <div class="melee-pool-card">
-              <div class="melee-pool-title">攻击方 (${wizardState.attacker.name})</div>
-              <div class="melee-dice-pool" id="melee-att-pool">
-                <span style="color:var(--text-muted); font-size:0.8rem;">等待投骰...</span>
+        if (gameState.rollMode === 'manual') {
+          body.innerHTML = `
+            <div style="display:flex; gap:16px;">
+              <div style="flex:1;">
+                 <div style="color:var(--sm-accent); font-weight:bold; margin-bottom:8px;">🗡️ 攻击方 [${wizardState.attacker.name}]</div>
+                 ${getKeypadHtml('meleeAttack', wizardState.attackRolls.length, wizardState.weapon.attacks)}
+                 <div class="dice-pool-view" id="melee-att-pool" style="margin-top:10px; min-height:50px;">
+                   <span style="color:var(--text-muted); font-size:0.85rem;">等待录入...</span>
+                 </div>
+              </div>
+              <div style="flex:1;">
+                 <div style="color:var(--pm-accent); font-weight:bold; margin-bottom:8px;">🛡️ 防守方 [${wizardState.defender.name}]</div>
+                 ${getKeypadHtml('meleeDefense', wizardState.defenseRolls.length, defMeleeWeapon.attacks)}
+                 <div class="dice-pool-view" id="melee-def-pool" style="margin-top:10px; min-height:50px;">
+                   <span style="color:var(--text-muted); font-size:0.85rem;">等待录入...</span>
+                 </div>
+              </div>
+            </div>
+          `;
+        } else {
+          body.innerHTML = `
+            <div class="melee-grid" style="margin-bottom: 16px;">
+              <div class="melee-pool-card">
+                <div class="melee-pool-title">攻击方 (${wizardState.attacker.name})</div>
+                <div class="melee-dice-pool" id="melee-att-pool">
+                  <span style="color:var(--text-muted); font-size:0.8rem;">等待投骰...</span>
+                </div>
+              </div>
+              
+              <div class="melee-pool-card">
+                <div class="melee-pool-title">防守方 (${wizardState.defender.name})</div>
+                <div class="melee-dice-pool" id="melee-def-pool">
+                  <span style="color:var(--text-muted); font-size:0.8rem;">等待投骰...</span>
+                </div>
               </div>
             </div>
             
-            <div class="melee-pool-card">
-              <div class="melee-pool-title">防守方 (${wizardState.defender.name})</div>
-              <div class="melee-dice-pool" id="melee-def-pool">
-                <span style="color:var(--text-muted); font-size:0.8rem;">等待投骰...</span>
-              </div>
-            </div>
-          </div>
-          
-          <button class="btn-large" id="btn-roll-melee" onclick="rollMeleeDice()">开始掷骰</button>
-        `;
-        
-        if (wizardState.activeAttackerDice.length > 0 || wizardState.activeDefenderDice.length > 0) {
-          nextBtn.disabled = false;
-          renderMeleeRollsView();
-        } else {
-          nextBtn.disabled = true;
+            <button class="btn-large" id="btn-roll-melee" onclick="rollMeleeDice()">自动动画掷骰 (Auto Roll)</button>
+          `;
         }
+        
+        if (gameState.rollMode === 'manual') {
+          if (wizardState.attackRolls.length === wizardState.weapon.attacks && wizardState.defenseRolls.length === defMeleeWeapon.attacks) {
+            nextBtn.disabled = false;
+          } else {
+            nextBtn.disabled = true;
+          }
+        } else {
+          if (wizardState.activeAttackerDice && wizardState.activeAttackerDice.length > 0) {
+            nextBtn.disabled = false;
+          } else {
+            nextBtn.disabled = true;
+          }
+        }
+        
+        const attDiceClass = wizardState.attacker.faction === 'Space Marine' ? 'sm-dice' : 'pm-dice';
+        const defDiceClass = wizardState.defender.faction === 'Space Marine' ? 'sm-dice' : 'pm-dice';
+        
+        if (wizardState.attackRolls.length > 0) {
+            setTimeout(() => {
+                const attPool = document.getElementById('melee-att-pool');
+                if(attPool) {
+                    attPool.innerHTML = wizardState.attackRolls.map(val => {
+                        let cls = `kt-dice-cube ${attDiceClass}`;
+                        if (val === 6) cls += ' crit-dice';
+                        else if (val < wizardState.weapon.ts) cls += ' fail-dice';
+                        return `<div class="${cls}">${val}</div>`;
+                    }).join('');
+                }
+            }, 10);
+        }
+        
+        if (wizardState.defenseRolls.length > 0) {
+            setTimeout(() => {
+                const defPool = document.getElementById('melee-def-pool');
+                if(defPool) {
+                    defPool.innerHTML = wizardState.defenseRolls.map(val => {
+                        let cls = `kt-dice-cube ${defDiceClass}`;
+                        if (val === 6) cls += ' crit-dice';
+                        else if (val < defMeleeWeapon.ts) cls += ' fail-dice';
+                        return `<div class="${cls}">${val}</div>`;
+                    }).join('');
+                }
+            }, 10);
+        }
+
         nextBtn.textContent = '进入伤害/格挡分配';
       }
 
