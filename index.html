@@ -629,17 +629,17 @@
     .qa-options { display: flex; gap: 10px; }
     .qa-btn { flex-grow: 1; background: #1e293b; border: 1px solid #334155; color: #fff; padding: 10px; border-radius: 6px; font-weight: 600; cursor: pointer; text-align: center; }
     .qa-btn:hover { background: #334155; }
-    .qa-btn.selected { background: var(--faction-a-color); border-color: #3b82f6; box-shadow: 0 0 10px rgba(59, 130, 246, 0.3); }
+    .qa-btn.selected { background: var(--active-color, var(--faction-a-color)); border-color: var(--active-color, var(--faction-a-color)); box-shadow: 0 0 15px rgba(0,0,0,0.5); }
 
     .ploy-choice-card { background: var(--dark-card); border: 1px solid var(--panel-border); border-radius: 10px; padding: 16px; cursor: pointer; }
-    .ploy-choice-card.selected { border-color: var(--faction-a-color); background: rgba(234, 179, 8, 0.04); }
+    .ploy-choice-card.selected { border-color: var(--active-color, var(--faction-a-color)); background: rgba(0, 0, 0, 0.2); }
     .ploy-title { font-family: 'Orbitron', sans-serif; font-size: 1rem; font-weight: bold; color: #fff; display: flex; justify-content: space-between; }
     .ploy-desc { font-size: 0.8rem; color: var(--text-muted); margin-top: 8px; line-height: 1.4; }
 
     .weapon-picker-list { display: flex; flex-direction: column; gap: 8px; }
     .weapon-pick-item { background: var(--dark-card); border: 1px solid var(--panel-border); border-radius: 8px; padding: 12px; cursor: pointer; display: flex; justify-content: space-between; align-items: center; }
     .weapon-pick-item:hover { border-color: #475569; }
-    .weapon-pick-item.selected { border-color: var(--faction-a-color); background: rgba(234, 179, 8, 0.05); }
+    .weapon-pick-item.selected { border-color: var(--active-color, var(--faction-a-color)); background: rgba(0, 0, 0, 0.2); }
     .weapon-pick-name { font-weight: bold; color: #fff; }
     .weapon-pick-stats { font-family: 'Orbitron', sans-serif; font-size: 0.75rem; color: var(--text-muted); }
 
@@ -806,10 +806,10 @@
       cursor: pointer; border: 1px solid #475569; background: #1e293b; color: #fff;
     }
     .melee-dice-btn:hover { transform: translateY(-2px); box-shadow: 0 0 8px rgba(255, 255, 255, 0.2); }
-    .melee-dice-btn.sm-dice { background: var(--faction-a-color); border-color: #3b82f6; }
+    .melee-dice-btn.sm-dice { background: var(--active-color, var(--faction-a-color)); border-color: var(--active-color, var(--faction-a-color)); }
     .melee-dice-btn.pm-dice { background: var(--faction-b-color); border-color: #22c55e; }
     .melee-dice-btn.leg-dice { background: #374151; border-color: #facc15; color: #facc15; }
-    .melee-dice-btn.crit { border-color: var(--faction-a-color); box-shadow: 0 0 10px var(--faction-a-color); }
+    .melee-dice-btn.crit { border-color: var(--active-color, var(--faction-a-color)); box-shadow: 0 0 10px var(--active-color, var(--faction-a-color)); }
     .melee-dice-btn.used { opacity: 0.15; cursor: not-allowed; }
     .melee-interactive-log { background: #030712; border: 1px solid rgba(255,255,255,0.05); border-radius: 8px; padding: 10px; height: 120px; overflow-y: auto; font-family: 'Consolas', monospace; font-size: 0.75rem; color: var(--text-muted); }
 
@@ -2862,6 +2862,10 @@
           modalContent.style.backgroundImage = 'linear-gradient(rgba(11, 17, 32, 0.85), rgba(11, 17, 32, 0.95)), url("bg_shoot_action.png")';
           modalContent.style.backgroundSize = 'cover';
           modalContent.style.backgroundPosition = 'center';
+          const activeFacColor = op.faction === gameState.factionA ? 'var(--faction-a-color)' : 'var(--faction-b-color)';
+          modalContent.style.borderColor = activeFacColor;
+          modalContent.style.setProperty("--active-color", activeFacColor);
+          modalContent.style.boxShadow = `0 0 30px ${activeFacColor}`;
       }
 
       wizardState = {
@@ -3807,6 +3811,10 @@
           modalContent.style.backgroundImage = 'linear-gradient(rgba(11, 17, 32, 0.85), rgba(11, 17, 32, 0.95)), url("bg_melee_action.png")';
           modalContent.style.backgroundSize = 'cover';
           modalContent.style.backgroundPosition = 'center';
+          const activeFacColor = op.faction === gameState.factionA ? 'var(--faction-a-color)' : 'var(--faction-b-color)';
+          modalContent.style.borderColor = activeFacColor;
+          modalContent.style.setProperty("--active-color", activeFacColor);
+          modalContent.style.boxShadow = `0 0 30px ${activeFacColor}`;
       }
 
       wizardState = {
