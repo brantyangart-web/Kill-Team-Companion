@@ -7,6 +7,29 @@ export function initModelCallbacks(callbacks) {
   Object.assign(ui, callbacks);
 }
 
+// 武器规则关键字中英对照表
+const RULE_I18N = {
+  'PSYCHIC': '灵能',
+  'Saturate': '饱和',
+  'Severe': '重伤',
+  'Poison': '毒素',
+  'Toxic': '剧毒',
+  'Piercing Crits 1': '穿甲暴击 1',
+  'Torrent 1"': '涌流 1"',
+  'Torrent 2"': '涌流 2"',
+  'Shock': '震击',
+  'Stun': '眩晕',
+  'Brutal': '残暴',
+  'Indirect Fire': '间接射击',
+  'Heavy (Dash only)': '重型(仅冲刺)',
+  'Seek Light': '追光',
+  'Silent': '静默',
+};
+
+export function translateRule(rule) {
+  return RULE_I18N[rule] || rule;
+}
+
 export class Weapon {
   constructor(name, attacks, targetSkill, normalDmg, criticalDmg, isRanged = true, range = null, rules = []) {
     this.name = name;
@@ -29,7 +52,7 @@ export class Weapon {
   }
 
   get displayRules() {
-    return this.rules.length > 0 ? this.rules.join(', ') : '-';
+    return this.rules.length > 0 ? this.rules.map(r => RULE_I18N[r] || r).join(', ') : '-';
   }
 }
 
@@ -59,6 +82,8 @@ export class Operative {
     this.hasConceal = false;
     // Counteract 标记 (反击激活时为 true, 激活结束后重置)
     this.counteracting = false;
+    // Order 切换标记 (每个激活可切换 1 次)
+    this.orderSwitchedThisActivation = false;
   }
 
   /** Injured: HP 低于一半时 Move -2", 武器 Hit -1, APL -1 */
@@ -91,6 +116,7 @@ export class Operative {
     this.poisonTokens = 0;
     this.hasConceal = false;
     this.counteracting = false;
+    this.orderSwitchedThisActivation = false;
   }
 
   /**

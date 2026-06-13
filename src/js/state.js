@@ -32,7 +32,13 @@ export const gameState = {
   gameOver: false,
   customAvatars: {},
   smKillsScored: 0,
-  pmKillsScored: 0
+  pmKillsScored: 0,
+
+  // Counteract 每触发窗口限用 1 次
+  counteractUsedThisTrigger: false,
+
+  // 任务类型 (mission picker)
+  missionType: 'seize_ground'
 };
 
 // ==========================================
@@ -59,6 +65,7 @@ const defaultWizardState = {
 
   attRerollIndex: -1,
   defRerollIndex: -1,
+  brutalUsed: false,
 
   activeAttackerDice: [],
   activeDefenderDice: [],
@@ -95,6 +102,16 @@ export function hasUsableOperatives(faction) {
 
 export function endTurningPoint() {
   playSound('click');
+
+  // TP5 上限检测：达到第 5 回合后进入最终结算
+  if (gameState.turningPoint >= 5) {
+    ui.addLog(`\n========================================`);
+    ui.addLog(`>>> 已达第 5 回合上限！进入最终胜负结算！`);
+    ui.addLog(`========================================`);
+    ui.showTurnEndScoringOverlay(true); // final=true → 不显示"继续下一 TP"
+    return;
+  }
+
   gameState.turningPoint += 1;
   gameState.phase = 'Initiative';
 
@@ -103,6 +120,9 @@ export function endTurningPoint() {
   // Reset active ploys
   gameState.smActivePloys = [];
   gameState.pmActivePloys = [];
+
+  // Reset Counteract 触发限制
+  gameState.counteractUsedThisTrigger = false;
 
   // Reset operatives
   gameState.operatives.forEach(op => {
@@ -143,11 +163,12 @@ export function switchSides() {
   } else if (currentHasReady) {
     // Next has no ready, current still has ready → next may counteract
     gameState.activeTurn = nextFaction;
-    if (hasCounteractOperatives(nextFaction)) {
+    if (hasCounteractOperatives(nextFaction) && !gameState.counteractUsedThisTrigger) {
       ui.addLog(`>>> 【${factionName(nextFaction)}】无可用特工，但可发动反击 (Counteract)！`);
       ui.showCounteractOverlay(nextFaction);
     } else {
-      ui.addLog(`>>> 【${factionName(nextFaction)}】已无可用特工且无法反击。轮到【${factionName(gameState.activeTurn === nextFaction ? gameState.activeTurn : nextFaction)}】继续。`);
+      const reason = gameState.counteractUsedThisTrigger ? '反击机会已使用' : '无法反击';
+      ui.addLog(`>>> 【${factionName(nextFaction)}】已无可用特工且${reason}。轮到【${factionName(gameState.activeTurn === nextFaction ? gameState.activeTurn : nextFaction)}】继续。`);
       // Turn passes to opponent (who still has ready units)
       gameState.activeTurn = nextFaction === 'Space Marine' ? 'Plague Marine' : 'Space Marine';
     }
@@ -193,6 +214,7 @@ export function startCounteractActivation(opId) {
   op.actionsPerformed = [];
 
   gameState.activeAgent = op;
+  gameState.counteractUsedThisTrigger = true; // 本次反击窗口已使用
 
   ui.addLog(`>>> 【${op.name}】发动反击！获得 1 AP（移动不超过 2"）。`);
   ui.hideCounteractOverlay();

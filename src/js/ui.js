@@ -1,10 +1,68 @@
 import { gameState, wizardState, GAG_MESSAGES, hasUsableOperatives, switchSides, endTurningPoint, startCounteractActivation, skipCounteract } from './state.js';
 import { playSound } from './audio.js';
 import { SM_TEMPLATES, PM_TEMPLATES, RULE_TEXTS } from './constants.js';
-import { Weapon, Operative } from './models.js';
+import { Weapon, Operative, translateRule } from './models.js';
 
 // Accessibility: check reduced motion preference
 const prefersReducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)');
+
+// ==========================================
+//           Mission Type Data
+// ==========================================
+
+const MISSION_LABELS = {
+  'seize_ground': '夺取阵地 (Seize Ground)',
+  'recovery': '物资回收 (Recovery)',
+  'breakthrough': '突破防线 (Breakthrough)',
+  'custom': '自定义 (Custom)'
+};
+
+const MISSION_DESCRIPTIONS = {
+  'seize_ground': '<b style="color:var(--imperial-gold);">夺取阵地：</b>棋盘上通常摆放 3 个目标点。每回合结束时，根据控制的目标数量与局势获得 VP。',
+  'recovery': '<b style="color:var(--imperial-gold);">物资回收：</b>棋盘上散布遗物/情报标记。通过移动或激活动作拾取，并护送携带者回到己方部署区以完成回收。',
+  'breakthrough': '<b style="color:var(--imperial-gold);">突破防线：</b>派遣特工穿越战场，进入敌方部署区以获取 VP。先抵达敌方阵地者得分。',
+  'custom': '<b style="color:var(--imperial-gold);">自定义任务：</b>根据实体任务卡或自定规则，自由勾选各项得分条件。'
+};
+
+// 每个任务类型对应的目标 checklist (5 项)
+const MISSION_OBJECTIVES = {
+  'seize_ground': [
+    '控制中央目标点 (+1 VP)',
+    '控制左翼目标点 (+1 VP)',
+    '控制右翼目标点 (+1 VP)',
+    '控制目标数量多于对手 (+1 VP)',
+    '消灭对方半数以上特工 (+1 VP)'
+  ],
+  'recovery': [
+    '拾取 1 枚遗物/情报 (+1 VP)',
+    '拾取 2 枚及以上遗物/情报 (+1 VP)',
+    '将遗物送回己方部署区 (+1 VP)',
+    '阻止对手完成回收 (+1 VP)',
+    '消灭敌方携带遗物的特工 (+1 VP)'
+  ],
+  'breakthrough': [
+    '1 名特工进入敌方部署区 (+1 VP)',
+    '2+ 名特工进入敌方部署区 (+1 VP)',
+    '控制敌方部署区内的目标 (+1 VP)',
+    '阻滞敌方推进（敌方无人进入你部署区）(+1 VP)',
+    '歼灭敌方后卫力量 (+1 VP)'
+  ],
+  'custom': [
+    '控制 1+ 目标点 (+1 VP)',
+    '控制目标多于对手 (+1 VP)',
+    '完成特定任务动作 (+1 VP)',
+    '本回合秘密任务 1 (+1 VP)',
+    '本回合秘密任务 2 (+1 VP)'
+  ]
+};
+
+export function updateMissionDesc() {
+  const select = document.getElementById('mission-type');
+  const desc = document.getElementById('mission-desc');
+  if (select && desc) {
+    desc.innerHTML = MISSION_DESCRIPTIONS[select.value] || '';
+  }
+}
 
 // ==========================================
 //           Toast Notification System
@@ -331,7 +389,7 @@ export function getAvatarHtml(opId, faction) {
 function buildWeaponSummary(tmpl) {
   return tmpl.weapons.map(w => {
     const shortName = w.name.split(' ')[0];
-    const rulesTag = w.rules && w.rules.length > 0 ? ` [${w.rules.join(',')}]` : '';
+    const rulesTag = w.rules && w.rules.length > 0 ? ` [${w.rules.map(translateRule).join(',')}]` : '';
     return shortName + rulesTag;
   }).join(' / ');
 }
@@ -753,6 +811,13 @@ export function validateRostersAndDeploy() {
     }
   });
 
+  // 读取任务类型
+  const missionSelect = document.getElementById('mission-type');
+  if (missionSelect) {
+    gameState.missionType = missionSelect.value;
+  }
+  addLog(`  - 当前任务: ${MISSION_LABELS[gameState.missionType] || gameState.missionType}`);
+
   // 进入先攻阶段
   document.getElementById('start-screen').style.display = 'none';
   document.getElementById('global-dash').style.display = 'grid';
@@ -817,11 +882,16 @@ export function renderOperatives() {
       }
     }
 
-    // Conceal 切换按钮（仅当特工属于当前回合阵营且未死亡/未激活时可用）
-    const canToggleConceal = !op.isDead && !op.hasActed && gameState.phase === 'Firefight' && gameState.activeTurn === op.faction;
+    // Conceal 切换按钮（未激活时 / 激活中时均可切换，每激活限切换 1 次）
+    const isSelectable = !op.isDead && !op.hasActed && gameState.phase === 'Firefight' && gameState.activeTurn === op.faction;
+    const isActiveAgent = gameState.activeAgent && gameState.activeAgent.id === op.id;
+    const canToggleConceal = (isSelectable || isActiveAgent) && !op.orderSwitchedThisActivation;
+    const concealDisabled = (isSelectable || isActiveAgent) && op.orderSwitchedThisActivation;
     const concealBtnHtml = canToggleConceal
-      ? `<button class="conceal-toggle-btn" onclick="event.stopPropagation(); toggleConceal('${op.id}')" title="切换隐蔽状态" style="font-size:0.65rem; padding:2px 6px; margin-left:4px; background:${op.hasConceal ? 'rgba(129,140,248,0.3)' : 'transparent'}; border:1px solid #818cf8; color:#818cf8; border-radius:4px; cursor:pointer;">${op.hasConceal ? '🛡️隐蔽' : '🛡️'}</button>`
-      : '';
+      ? `<button class="conceal-toggle-btn" onclick="event.stopPropagation(); toggleConceal('${op.id}')" title="切换命令 (每激活限 1 次)" style="font-size:0.65rem; padding:2px 6px; margin-left:4px; background:${op.hasConceal ? 'rgba(129,140,248,0.3)' : 'transparent'}; border:1px solid #818cf8; color:#818cf8; border-radius:4px; cursor:pointer;">${op.hasConceal ? '🛡️隐蔽' : '🛡️'}</button>`
+      : concealDisabled
+        ? `<button class="conceal-toggle-btn" disabled title="本激活已切换过命令" style="font-size:0.65rem; padding:2px 6px; margin-left:4px; background:transparent; border:1px solid #475569; color:#475569; border-radius:4px; cursor:not-allowed; opacity:0.5;">🛡️已切换</button>`
+        : '';
 
     const avatarHtml = getAvatarHtml(op.id, op.faction);
 
@@ -856,9 +926,14 @@ export function renderOperatives() {
     card.setAttribute('tabindex', '0');
     card.setAttribute('aria-label', `${op.name}，HP: ${op.wounds}/${op.maxWounds}，${op.isDead ? '已阵亡' : op.hasActed ? '已激活' : '可激活'}`);
 
+    // 预选高亮
+    if (gameState.pendingActivation && gameState.pendingActivation.id === op.id) {
+      card.classList.add('pending-activation');
+    }
+
     if (!op.isDead && !op.hasActed && gameState.phase === 'Firefight' && gameState.activeTurn === op.faction && !gameState.activeAgent) {
-      card.onclick = () => activateOperative(op.id);
-      card.onkeydown = (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); activateOperative(op.id); } };
+      card.onclick = () => selectOperative(op.id);
+      card.onkeydown = (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); selectOperative(op.id); } };
     } else {
       card.onclick = null;
       card.onkeydown = null;
@@ -880,15 +955,55 @@ export function renderOperatives() {
 export function toggleConceal(opId) {
   playSound('click');
   const op = gameState.operatives.find(o => o.id === opId);
-  if (!op || op.isDead || op.hasActed) return;
+  if (!op || op.isDead) return;
+  if (op.orderSwitchedThisActivation) {
+    showToast('本激活已切换过命令 (每激活限切换 1 次)！', 'warning');
+    return;
+  }
   op.toggleConceal();
-  addLog(`[隐蔽] ${op.name} ${op.hasConceal ? '进入隐蔽状态 (Conceal Order)，不可被指定为射击/近战目标。' : '解除了隐蔽状态。'}`);
+  op.orderSwitchedThisActivation = true;
+  addLog(`[命令切换] ${op.name} ${op.hasConceal ? '进入隐蔽状态 (Conceal Order)，不可被指定为射击/近战目标。' : '切换为交战状态 (Engage Order)。'}`);
   renderOperatives();
+  updateActivePanel();
 }
 
 // ==========================================
 //           Active Panel
 // ==========================================
+
+// ---- 两步激活: 第一步 - 预选特工 ----
+export function selectOperative(opId) {
+  playSound('click');
+  const op = gameState.operatives.find(o => o.id === opId);
+  if (!op || op.isDead || op.hasActed) return;
+  if (gameState.phase !== 'Firefight' || gameState.activeTurn !== op.faction) return;
+  if (gameState.activeAgent) return; // 已有激活中的特工
+
+  // 如果点击的是已经预选的特工, 取消预选
+  if (gameState.pendingActivation && gameState.pendingActivation.id === opId) {
+    gameState.pendingActivation = null;
+  } else {
+    gameState.pendingActivation = op;
+  }
+  renderOperatives();
+  updateActivePanel();
+}
+
+// ---- 两步激活: 第二步 - 确认激活 ----
+export function confirmActivation() {
+  const pending = gameState.pendingActivation;
+  if (!pending) return;
+  gameState.pendingActivation = null;
+  activateOperative(pending.id);
+}
+
+// ---- 取消预选 ----
+export function cancelSelection() {
+  playSound('click');
+  gameState.pendingActivation = null;
+  renderOperatives();
+  updateActivePanel();
+}
 
 export function activateOperative(opId) {
   playSound('click');
@@ -896,11 +1011,13 @@ export function activateOperative(opId) {
   if (!op || op.isDead || op.hasActed) return;
 
   gameState.activeAgent = op;
+  gameState.pendingActivation = null;
   op.actionsPerformed = [];
+  op.orderSwitchedThisActivation = false;
 
   // Poison Token 伤害：携带毒素标记的特工在激活开始时受到 1 点伤害
   if (op.poisonTokens > 0) {
-    addLog(`[Poison] ${op.name} 携带毒素标记，激活开始受到 1 点伤害！`);
+    addLog(`[毒素] ${op.name} 携带毒素标记，激活开始受到 1 点伤害！`);
     op.applyWounds(1);
     // 如果因此阵亡则不再继续激活
     if (op.isDead) {
@@ -924,6 +1041,61 @@ export function updateActivePanel() {
   const empty = document.getElementById('active-panel-empty');
   const statusTitle = document.getElementById('active-panel-status');
   const activeCard = document.getElementById('active-panel');
+
+  // ---- 回合指示器 ----
+  const turnIndicator = document.getElementById('turn-indicator');
+  const turnIndicatorFaction = document.getElementById('turn-indicator-faction');
+  const turnIndicatorLabel = document.querySelector('.turn-indicator-label');
+  if (turnIndicator && gameState.phase === 'Firefight') {
+    turnIndicator.style.display = 'flex';
+    const cn = gameState.activeTurn === 'Space Marine' ? '死亡天使' : '瘟疫守卫';
+    if (turnIndicatorFaction) turnIndicatorFaction.textContent = cn;
+    turnIndicator.className = `turn-indicator ${gameState.activeTurn === 'Space Marine' ? 'sm-turn' : 'pm-turn'}`;
+    if (turnIndicatorLabel) {
+      if (gameState.activeAgent) {
+        turnIndicatorLabel.textContent = ' — 正在行动';
+      } else if (gameState.pendingActivation) {
+        turnIndicatorLabel.textContent = ' — 请确认激活';
+      } else {
+        turnIndicatorLabel.textContent = '的回合 — 请选择特工';
+      }
+    }
+  } else if (turnIndicator) {
+    turnIndicator.style.display = 'none';
+  }
+
+  // ---- 预选激活预览面板 ----
+  const pendingPanel = document.getElementById('pending-activation-panel');
+  if (pendingPanel) {
+    if (gameState.pendingActivation && !gameState.activeAgent) {
+      pendingPanel.style.display = 'flex';
+      const pop = gameState.pendingActivation;
+      const pendingAvatar = document.getElementById('pending-op-avatar');
+      if (pendingAvatar) pendingAvatar.innerHTML = getAvatarHtml(pop.id, pop.faction);
+      document.getElementById('pending-op-name').textContent = pop.name;
+      document.getElementById('pending-op-faction').textContent = pop.faction === 'Space Marine' ? '死亡天使' : '瘟疫守卫';
+      document.getElementById('pending-op-move').textContent = pop.currentMove + '"';
+      document.getElementById('pending-op-hp').textContent = `${pop.wounds}/${pop.maxWounds}`;
+      document.getElementById('pending-op-apl').textContent = pop.currentApl;
+    } else {
+      pendingPanel.style.display = 'none';
+    }
+  }
+
+  // ---- 高亮当前行动方队伍面板，对手面板置灰 ----
+  const smBoard = document.getElementById('sm-board');
+  const pmBoard = document.getElementById('pm-board');
+  const isFirefight = gameState.phase === 'Firefight';
+  const smIsActive = isFirefight && gameState.activeTurn === 'Space Marine';
+  const pmIsActive = isFirefight && gameState.activeTurn === 'Plague Marine';
+  if (smBoard) {
+    smBoard.classList.toggle('active-turn', smIsActive);
+    smBoard.classList.toggle('inactive-turn', isFirefight && !smIsActive);
+  }
+  if (pmBoard) {
+    pmBoard.classList.toggle('active-turn', pmIsActive);
+    pmBoard.classList.toggle('inactive-turn', isFirefight && !pmIsActive);
+  }
 
   if (gameState.activeAgent) {
     content.style.display = 'flex';
@@ -951,6 +1123,11 @@ export function updateActivePanel() {
 
     const hasMoved = op.actionsPerformed.includes('Move');
     const hasCharged = op.actionsPerformed.includes('Charge');
+    const hasAdvanced = op.actionsPerformed.includes('Advance');
+    const hasDashed = op.actionsPerformed.includes('Dash');
+    // Heavy (Dash only) 武器例外：Dash 后仍可用 Heavy 武器射击
+    const hasHeavyWeapon = op.weapons.some(w => w.hasRule('Heavy'));
+    const hasFallenBack = op.actionsPerformed.includes('FallBack');
 
     const shootCount = op.actionsPerformed.filter(a => a === 'Shoot').length;
     const fightCount = op.actionsPerformed.filter(a => a === 'Fight').length;
@@ -960,6 +1137,12 @@ export function updateActivePanel() {
     // Astartes 双重行动规则: 可选择 2 Shoot 或 2 Fight (但不能混合)
     const isAstartes = true; // 所有 SM 和 PM 都是 Astartes
     const isCounteracting = op.counteracting === true;
+
+    // 任意移动行动标记 (Move/Charge/Advance/Dash/FallBack 均阻止其他移动行动)
+    const hasAnyMove = hasMoved || hasCharged || hasAdvanced || hasDashed || hasFallenBack;
+    // Advance/FallBack 后不能再 Shoot/Fight；Dash 后 Fight 不能，Shoot 仅 Heavy 武器可
+    const noCombatAfterMove = hasAdvanced || hasFallenBack;
+    const shootBlockedAfterDash = hasDashed && !hasHeavyWeapon;
 
     // Counteract 模式下: 仅 1 次行动, 禁止冲锋, 移动不超过 2"
     const maxShoots = isCounteracting ? 1 : (isAstartes ? 2 : 1);
@@ -971,10 +1154,22 @@ export function updateActivePanel() {
     const shootLimitReached = shootCount >= maxShoots;
     const fightLimitReached = fightCount >= maxFights;
 
-    document.getElementById('action-move').disabled = op.apl < 1 || hasMoved || hasCharged;
-    document.getElementById('action-charge').disabled = isCounteracting ? true : (op.apl < 1 || hasMoved || hasCharged || hasFought);
-    document.getElementById('action-shoot').disabled = op.apl < 1 || shootLimitReached || shootLocked || hasCharged;
-    document.getElementById('action-fight').disabled = op.apl < 1 || fightLimitReached || fightLocked;
+    // 移动行动: 一旦执行过任意移动，所有其他移动行动均禁用
+    document.getElementById('action-move').disabled = op.apl < 1 || hasAnyMove || isCounteracting;
+    // Charge 禁用条件: Counteract / 已耗尽APL / 已执行任意移动 / 已近战 / 已射击 / Conceal 标记 (隐蔽不能冲锋)
+    document.getElementById('action-charge').disabled = isCounteracting ? true : (op.apl < 1 || hasAnyMove || hasFought || hasShot || op.hasConceal);
+    // Advance: 同 Charge，且不能 Counteract
+    document.getElementById('action-advance').disabled = op.apl < 1 || hasAnyMove || hasFought || hasShot || isCounteracting;
+    // Dash: 同 Advance
+    document.getElementById('action-dash').disabled = op.apl < 1 || hasAnyMove || hasFought || hasShot || isCounteracting;
+    // Fall Back: 同 Advance，且不能脱离已脱离状态
+    document.getElementById('action-fallback').disabled = op.apl < 1 || hasAnyMove || hasFought || hasShot || isCounteracting;
+    // Shoot: 原有约束 + Advance/FallBack 后不能射击 + Dash 后仅 Heavy 武器可射
+    // 特殊规则: 若所有武器都是 Heavy (Dash only)，未 Dash 时 Shoot 禁用；Dash 后 Shoot 可用
+    const shootHeavyBlocked = hasHeavyWeapon && !hasDashed && op.weapons.every(w => w.hasRule('Heavy'));
+    document.getElementById('action-shoot').disabled = op.apl < 1 || shootLimitReached || shootLocked || hasCharged || noCombatAfterMove || shootBlockedAfterDash || shootHeavyBlocked;
+    // Fight: 原有约束 + Advance/Dash/FallBack 后都不能近战
+    document.getElementById('action-fight').disabled = op.apl < 1 || fightLimitReached || fightLocked || noCombatAfterMove || hasDashed;
 
     const hasContagiousResilience = op.faction === 'Plague Marine' && gameState.pmActivePloys.includes('contagious_resilience');
 
@@ -982,6 +1177,9 @@ export function updateActivePanel() {
     if (ployDisplay) {
         const ploysText = [];
         if (isCounteracting) ploysText.push('<span style="color:#f97316;">⚡ 反击 (Counteract): 仅限 1 次行动, 移动≤2", 不可冲锋</span>');
+        if (hasAdvanced) ploysText.push('<span style="color:#f59e0b;">🏃💨 已前进 (Advance): 不能再射击/近战</span>');
+        if (hasDashed) ploysText.push(`<span style="color:#f59e0b;">💨💨 已冲刺 (Dash): 不能再近战${hasHeavyWeapon ? '，仅 Heavy 武器可射击' : '，不能射击'}</span>`);
+        if (hasFallenBack) ploysText.push('<span style="color:#f59e0b;">🔙 已撤退 (Fall Back): 不能再射击/近战</span>');
         if (hasShot && !isCounteracting) ploysText.push(`<span style="color:#6a9ad4;">💥 Astartes: 已射击×${shootCount}，锁定近战</span>`);
         if (hasFought && !isCounteracting) ploysText.push(`<span style="color:#f87171;">⚔️ Astartes: 已近战×${fightCount}，锁定射击</span>`);
         if (hasContagiousResilience) ploysText.push('<span style="color:var(--pm-accent);">🛡️ 传染韧性生效中</span>');
@@ -1010,7 +1208,14 @@ export function updateActivePanel() {
         }
     }
 
-    updateGuidance(`【特工行动】${op.name} 剩余 APL: ${op.apl}。可执行移动/冲锋/射击/近战，或点击下方按钮结束。`);
+    updateGuidance(`【特工行动】${op.name} 剩余 APL: ${op.apl}。可执行移动/冲锋/前进/冲刺/撤退/射击/近战，或点击下方按钮结束。`);
+  } else if (gameState.pendingActivation) {
+    // 预选状态 - 显示预览面板（已在上方处理），隐藏空面板
+    content.style.display = 'none';
+    empty.style.display = 'none';
+    statusTitle.textContent = '等待确认';
+    activeCard.className = 'active-card';
+    updateGuidance(`【预选确认】已选中【${gameState.pendingActivation.name}】。请在右侧面板点击「确认激活」或「取消」。`);
   } else {
     content.style.display = 'none';
     empty.style.display = 'block';
@@ -1059,6 +1264,36 @@ export function performCharge() {
   updateActivePanel();
 }
 
+export function performAdvance() {
+  const op = gameState.activeAgent;
+  if (!op || op.apl < 1) return;
+  playSound('click');
+  op.apl -= 1;
+  op.actionsPerformed.push('Advance');
+  addLog(`  - ${op.name} 执行 [前进 (Advance)]，移动距离 +3" (总计 ${op.currentMove + 3}")，但本激活不能再射击/近战。`);
+  updateActivePanel();
+}
+
+export function performDash() {
+  const op = gameState.activeAgent;
+  if (!op || op.apl < 1) return;
+  playSound('click');
+  op.apl -= 1;
+  op.actionsPerformed.push('Dash');
+  addLog(`  - ${op.name} 执行 [冲刺 (Dash)]，移动距离 ×2 (总计 ${op.currentMove * 2}")，但本激活不能再射击/近战。`);
+  updateActivePanel();
+}
+
+export function performFallBack() {
+  const op = gameState.activeAgent;
+  if (!op || op.apl < 1) return;
+  playSound('click');
+  op.apl -= 1;
+  op.actionsPerformed.push('FallBack');
+  addLog(`  - ${op.name} 执行 [撤退 (Fall Back)]，脱离交战区域。本激活不能再射击/近战。`);
+  updateActivePanel();
+}
+
 export function endActivation() {
   playSound('click');
   const op = gameState.activeAgent;
@@ -1074,6 +1309,7 @@ export function endActivation() {
   op.apl = 0;
   addLog(`[结束激活] ${op.name} 结束了本次激活。`);
   gameState.activeAgent = null;
+  gameState.pendingActivation = null;
   switchSides();
 }
 
@@ -1253,6 +1489,9 @@ export function rollInitiativeOverlay() {
         const winnerCN = winner === 'Space Marine' ? '死亡天使' : '瘟疫守卫';
         playSound('crit');
 
+        // 隐藏掷骰按钮 (结果已确定)
+        rollBtn.style.display = 'none';
+
         document.getElementById('overlay-init-sm-val').textContent = `点数: ${smVal}`;
         document.getElementById('overlay-init-pm-val').textContent = `点数: ${pmVal}`;
 
@@ -1264,20 +1503,61 @@ export function rollInitiativeOverlay() {
         turnOrderDiv.style.cssText = 'border-top:1px solid var(--panel-border); margin-top:16px; padding-top:16px; width:100%;';
         turnOrderDiv.innerHTML = `
             <p style="color:var(--sm-accent); font-weight:bold; margin-bottom:10px;">👑 【${winnerCN}】选择首发玩家：</p>
-            <div style="display:flex; gap:10px;">
-              <button class="qa-btn" onclick="selectTurnOrder('Space Marine')">死亡天使先攻 (Astartes First)</button>
-              <button class="qa-btn" onclick="selectTurnOrder('Plague Marine')">瘟疫守卫先攻 (Death Guard First)</button>
+            <div id="turn-order-buttons" style="display:flex; gap:10px; margin-bottom:10px;">
+              <button class="qa-btn turn-order-btn" data-faction="Space Marine" onclick="selectTurnOrder('Space Marine')" style="flex:1;">死亡天使先攻</button>
+              <button class="qa-btn turn-order-btn" data-faction="Plague Marine" onclick="selectTurnOrder('Plague Marine')" style="flex:1;">瘟疫守卫先攻</button>
             </div>
+            <button id="btn-confirm-turn-order" class="btn-large" onclick="confirmTurnOrder()" style="display:none; padding:10px 30px; font-size:0.9rem; width:100%; margin-top:8px;">
+              确认首发选择
+            </button>
         `;
         overlayBox.appendChild(turnOrderDiv);
-        updateGuidance(`【选择先后】王座归属：【${winnerCN}】玩家获胜，请点击按钮指定本回合先攻。`);
+        updateGuidance(`【选择先后】王座归属：【${winnerCN}】玩家获胜，请点击按钮选择首发方并确认。`);
       }
     }, 300);
   }, 700);
 }
 
+// ---- 两步首发选择: 第一步 - 高亮选中 ----
 export function selectTurnOrder(faction) {
   playSound('click');
+
+  // 高亮选中按钮
+  const btns = document.querySelectorAll('.turn-order-btn');
+  btns.forEach(btn => {
+    if (btn.dataset.faction === faction) {
+      btn.classList.add('selected');
+      btn.style.background = 'linear-gradient(135deg, var(--imperial-gold), #8a6a1c)';
+      btn.style.color = '#000';
+      btn.style.borderColor = 'var(--imperial-gold-bright)';
+      btn.style.boxShadow = '0 0 12px rgba(201, 168, 76, 0.5)';
+    } else {
+      btn.classList.remove('selected');
+      btn.style.background = '';
+      btn.style.color = '';
+      btn.style.borderColor = '';
+      btn.style.boxShadow = '';
+    }
+  });
+
+  // 显示确认按钮
+  const confirmBtn = document.getElementById('btn-confirm-turn-order');
+  if (confirmBtn) {
+    confirmBtn.style.display = 'block';
+    confirmBtn.dataset.pending = faction;
+  }
+
+  const cn = faction === 'Space Marine' ? '死亡天使' : '瘟疫守卫';
+  updateGuidance(`【预选首发】已选中【${cn}】为先攻方，请点击确认按钮完成选择。`);
+}
+
+// ---- 两步首发选择: 第二步 - 确认 ----
+export function confirmTurnOrder() {
+  const confirmBtn = document.getElementById('btn-confirm-turn-order');
+  const faction = confirmBtn && confirmBtn.dataset.pending;
+  if (!faction) return;
+
+  playSound('crit');
   gameState.initiative = faction;
   gameState.activeTurn = faction;
   addLog(`  - 确认：【${faction === 'Space Marine' ? '死亡天使' : '瘟疫守卫'}】获得本回合的先攻优势！`);
@@ -1509,8 +1789,9 @@ export function declareVictory(winner, text) {
 //           Turn Scoring
 // ==========================================
 
-export function showTurnEndScoringOverlay() {
+export function showTurnEndScoringOverlay(isFinal = false) {
   gameState.phase = 'TurnEndScoring';
+  gameState.isFinalScoring = isFinal; // 标记是否为最终结算
   updateScoresUI();
   showPhaseOverlay();
 
@@ -1542,6 +1823,18 @@ export function renderTurnEndScoringContent() {
   const totalSmVpThisTurn = gameState.tempSmKillVp + gameState.tempSmObjVp;
   const totalPmVpThisTurn = gameState.tempPmKillVp + gameState.tempPmObjVp;
 
+  // 动态生成任务目标 checklist (按当前任务类型)
+  const objectives = MISSION_OBJECTIVES[gameState.missionType] || MISSION_OBJECTIVES['custom'];
+  const missionLabel = MISSION_LABELS[gameState.missionType] || '自定义任务';
+  const buildChecklistHtml = (side, checklist, accentColor) => {
+    return objectives.map((obj, i) => `
+      <label class="scoring-item">
+        <input type="checkbox" ${accentColor ? `style="accent-color: ${accentColor};"` : ''} ${checklist[i] ? 'checked' : ''} onchange="toggleScoringChecklist('${side}', ${i})">
+        <span>${obj}</span>
+      </label>
+    `).join('');
+  };
+
   const isFinalTP = gameState.turningPoint >= 5;
   const confirmBtnText = isFinalTP ? '确认结算并完成对局' : '确认结算并推进回合';
   const confirmAction = isFinalTP ? 'declareScoreVictory()' : 'confirmTurnEndScoring()';
@@ -1566,27 +1859,10 @@ export function renderTurnEndScoringContent() {
           </div>
 
           <div class="scoring-checklist-card">
-            <div style="font-weight:600; font-size:0.75rem; color:var(--text-muted); margin-bottom:4px; text-transform:uppercase;">任务结算助手 (Objective Checklist)</div>
-            <label class="scoring-item">
-              <input type="checkbox" ${gameState.tempSmChecklist[0] ? 'checked' : ''} onchange="toggleScoringChecklist('sm', 0)">
-              <span>控制1+目标点 (+1 VP)</span>
-            </label>
-            <label class="scoring-item">
-              <input type="checkbox" ${gameState.tempSmChecklist[1] ? 'checked' : ''} onchange="toggleScoringChecklist('sm', 1)">
-              <span>控制目标多于对手 (+1 VP)</span>
-            </label>
-            <label class="scoring-item">
-              <input type="checkbox" ${gameState.tempSmChecklist[2] ? 'checked' : ''} onchange="toggleScoringChecklist('sm', 2)">
-              <span>完成特定任务动作 (+1 VP)</span>
-            </label>
-            <label class="scoring-item">
-              <input type="checkbox" ${gameState.tempSmChecklist[3] ? 'checked' : ''} onchange="toggleScoringChecklist('sm', 3)">
-              <span>本回合秘密任务1 (+1 VP)</span>
-            </label>
-            <label class="scoring-item">
-              <input type="checkbox" ${gameState.tempSmChecklist[4] ? 'checked' : ''} onchange="toggleScoringChecklist('sm', 4)">
-              <span>本回合秘密任务2 (+1 VP)</span>
-            </label>
+            <div style="font-weight:600; font-size:0.75rem; color:var(--text-muted); margin-bottom:4px; text-transform:uppercase;">
+              ${missionLabel} — 任务结算助手
+            </div>
+            ${buildChecklistHtml('sm', gameState.tempSmChecklist, '')}
           </div>
 
           <div style="display:flex; justify-content:space-between; align-items:center; margin-top:4px;">
@@ -1616,27 +1892,10 @@ export function renderTurnEndScoringContent() {
           </div>
 
           <div class="scoring-checklist-card">
-            <div style="font-weight:600; font-size:0.75rem; color:var(--text-muted); margin-bottom:4px; text-transform:uppercase;">任务结算助手 (Objective Checklist)</div>
-            <label class="scoring-item">
-              <input type="checkbox" style="accent-color: var(--pm-accent);" ${gameState.tempPmChecklist[0] ? 'checked' : ''} onchange="toggleScoringChecklist('pm', 0)">
-              <span>控制1+目标点 (+1 VP)</span>
-            </label>
-            <label class="scoring-item">
-              <input type="checkbox" style="accent-color: var(--pm-accent);" ${gameState.tempPmChecklist[1] ? 'checked' : ''} onchange="toggleScoringChecklist('pm', 1)">
-              <span>控制目标多于对手 (+1 VP)</span>
-            </label>
-            <label class="scoring-item">
-              <input type="checkbox" style="accent-color: var(--pm-accent);" ${gameState.tempPmChecklist[2] ? 'checked' : ''} onchange="toggleScoringChecklist('pm', 2)">
-              <span>完成特定任务动作 (+1 VP)</span>
-            </label>
-            <label class="scoring-item">
-              <input type="checkbox" style="accent-color: var(--pm-accent);" ${gameState.tempPmChecklist[3] ? 'checked' : ''} onchange="toggleScoringChecklist('pm', 3)">
-              <span>本回合秘密任务1 (+1 VP)</span>
-            </label>
-            <label class="scoring-item">
-              <input type="checkbox" style="accent-color: var(--pm-accent);" ${gameState.tempPmChecklist[4] ? 'checked' : ''} onchange="toggleScoringChecklist('pm', 4)">
-              <span>本回合秘密任务2 (+1 VP)</span>
-            </label>
+            <div style="font-weight:600; font-size:0.75rem; color:var(--text-muted); margin-bottom:4px; text-transform:uppercase;">
+              ${missionLabel} — 任务结算助手
+            </div>
+            ${buildChecklistHtml('pm', gameState.tempPmChecklist, 'var(--pm-accent)')}
           </div>
 
           <div style="display:flex; justify-content:space-between; align-items:center; margin-top:4px;">

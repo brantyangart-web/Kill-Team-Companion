@@ -8,8 +8,8 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Pirata+One&family=Outfit:wght@300;400;500;600;700&display=swap" rel="stylesheet">
-  <script type="module" crossorigin src="/Kill-Team-Companion/assets/index-C7NLoI3Y.js"></script>
-  <link rel="stylesheet" crossorigin href="/Kill-Team-Companion/assets/index-CDCe5mkI.css">
+  <script type="module" crossorigin src="/Kill-Team-Companion/assets/index-D6Um006X.js"></script>
+  <link rel="stylesheet" crossorigin href="/Kill-Team-Companion/assets/index-feT8-37d.css">
 </head>
 <body>
 
@@ -105,6 +105,25 @@
         </ul>
       </div>
 
+      <!-- 任务类型选择 -->
+      <div id="mission-picker" style="max-width: 900px; margin: 0 auto 18px auto; padding: 14px 18px; background: rgba(10,20,35,0.55); border: 1px solid rgba(201,168,76,0.25); border-radius: 12px; box-shadow: 0 2px 10px rgba(0,0,0,0.25);">
+        <div style="display:flex; align-items:center; gap:12px; flex-wrap:wrap;">
+          <label for="mission-type" style="font-family:'Pirata One',serif; color:var(--imperial-gold); font-size:1rem; font-weight:600; white-space:nowrap;">
+            🎯 任务类型 (Mission Type):
+          </label>
+          <select id="mission-type" onchange="updateMissionDesc()" style="flex:1; min-width:220px; padding:8px 12px; background:rgba(20,30,45,0.9); color:var(--text-light); border:1px solid rgba(201,168,76,0.4); border-radius:6px; font-size:0.9rem; cursor:pointer;">
+            <option value="seize_ground">夺取阵地 (Seize Ground) — 占领目标点</option>
+            <option value="recovery">物资回收 (Recovery) — 搜集遗物情报</option>
+            <option value="breakthrough">突破防线 (Breakthrough) — 攻入敌方阵地</option>
+            <option value="custom">自定义 (Custom) — 自由勾选</option>
+          </select>
+          <button class="help-icon-btn" onclick="showRuleHelp('mission')" title="任务规则说明">?</button>
+        </div>
+        <div id="mission-desc" style="margin-top:10px; font-size:0.8rem; color:var(--text-muted); line-height:1.5; padding:8px 10px; background:rgba(201,168,76,0.05); border-left:2px solid var(--imperial-gold); border-radius:4px;">
+          <b style="color:var(--imperial-gold);">夺取阵地：</b>棋盘上通常摆放 3 个目标点。每回合结束时，根据控制的目标数量与局势获得 VP。
+        </div>
+      </div>
+
       <div class="roster-picker-grid">
 
         <div class="roster-picker-card sm">
@@ -134,7 +153,7 @@
     <div class="battleground" id="battle-area" style="display: none; position: relative;">
 
       <!-- 星际战士特工列表 -->
-      <div class="operative-board sm-team">
+      <div class="operative-board sm-team" id="sm-board">
         <div class="board-header">
           <img src="/Kill-Team-Companion/assets/faction_header_sm-DMABfrUP.png" class="board-header-img" alt="死亡天使战队旗帜 (Angels of Death Banner)" width="400" height="80">
           <div class="board-header-content">
@@ -150,6 +169,26 @@
 
         <div class="active-card" id="active-panel">
           <div class="active-card-title" id="active-panel-status">等待特工激活</div>
+
+          <!-- 回合指示条 -->
+          <div class="turn-indicator" id="turn-indicator" style="display:none;">
+            <span class="turn-indicator-faction" id="turn-indicator-faction">死亡天使</span>
+            <span class="turn-indicator-label">的回合 — 请选择特工</span>
+          </div>
+
+          <!-- 预选确认区 (两步激活) -->
+          <div id="pending-activation-panel" style="display:none; flex-direction:column; align-items:center; padding:12px 0;">
+            <div id="pending-op-avatar" style="margin-bottom:8px;"></div>
+            <div class="active-agent-name" id="pending-op-name">-</div>
+            <div class="active-agent-faction" id="pending-op-faction">-</div>
+            <div style="font-size:0.8rem; color:var(--text-muted); margin:8px 0;">
+              Move: <b id="pending-op-move">-</b> | HP: <b id="pending-op-hp">-</b> | APL: <b id="pending-op-apl">-</b>
+            </div>
+            <div style="display:flex; gap:10px; margin-top:8px;">
+              <button class="btn-end-activation" onclick="cancelSelection()" style="background:rgba(100,116,139,0.2); border-color:#475569; padding:8px 24px; font-size:0.85rem;">取消</button>
+              <button class="btn-end-activation" onclick="confirmActivation()" style="background:linear-gradient(135deg, var(--green), #2a5a3a); border-color:#4a7c59; padding:8px 24px; font-size:0.85rem;">确认激活</button>
+            </div>
+          </div>
 
           <div id="active-panel-content" style="display: none; flex-direction: column; align-items: center;">
             <div id="active-op-avatar-container" style="margin-bottom: 8px;"></div>
@@ -178,6 +217,30 @@
                   <span class="cost">1 APL</span>
                 </button>
                 <button class="help-icon-btn" aria-label="查看冲锋规则说明" onclick="showRuleHelp('charge')">?</button>
+              </div>
+
+              <div class="action-btn-row">
+                <button class="combat-action-btn" id="action-advance" onclick="performAdvance()">
+                  <span><span aria-hidden="true">🏃💨</span> 前进 (Advance)</span>
+                  <span class="cost">1 APL | +3"</span>
+                </button>
+                <button class="help-icon-btn" aria-label="查看前进规则说明" onclick="showRuleHelp('advance')">?</button>
+              </div>
+
+              <div class="action-btn-row">
+                <button class="combat-action-btn" id="action-dash" onclick="performDash()">
+                  <span><span aria-hidden="true">💨💨</span> 冲刺 (Dash)</span>
+                  <span class="cost">1 APL | ×2</span>
+                </button>
+                <button class="help-icon-btn" aria-label="查看冲刺规则说明" onclick="showRuleHelp('dash')">?</button>
+              </div>
+
+              <div class="action-btn-row">
+                <button class="combat-action-btn" id="action-fallback" onclick="performFallBack()">
+                  <span><span aria-hidden="true">🔙</span> 撤退 (Fall Back)</span>
+                  <span class="cost">1 APL | 脱离交战</span>
+                </button>
+                <button class="help-icon-btn" aria-label="查看撤退规则说明" onclick="showRuleHelp('fallback')">?</button>
               </div>
 
               <div class="action-btn-row">
@@ -213,7 +276,7 @@
       </div>
 
       <!-- 瘟疫战士特工列表 -->
-      <div class="operative-board pm-team">
+      <div class="operative-board pm-team" id="pm-board">
         <div class="board-header">
           <img src="/Kill-Team-Companion/assets/faction_header_pm-CaCzJ_DI.png" class="board-header-img" alt="瘟疫守卫战队旗帜 (Plague Marines Banner)" width="400" height="80">
           <div class="board-header-content">

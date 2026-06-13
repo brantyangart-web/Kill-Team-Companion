@@ -188,6 +188,69 @@ const RULE_TEXTS = {
             <li>之后轮到防守方挑骰，直至分完或一方阵亡。</li>
           </ul>
         `
+  },
+  advance: {
+    title: '🏃💨 前进 (Advance) 规则帮助',
+    body: `
+          <p><b>行动点消耗:</b> 1 APL</p>
+          <p style="margin-top:6px;"><b>移动距离:</b> 角色移动值 <b>+3"</b> (即 9 英寸)。</p>
+          <p style="margin-top:6px;"><b>使用场景:</b> 需要快速移动到掩体或有利位置时使用。</p>
+          <p style="margin-top:6px;"><b>规则限制:</b></p>
+          <ul>
+            <li>前进后<b>不能再射击或近战</b>。</li>
+            <li>如果本回合该特工已经执行过任意移动/冲锋/前进/冲刺/撤退，则<b>不能</b>执行前进。</li>
+          </ul>
+        `
+  },
+  dash: {
+    title: '💨💨 冲刺 (Dash) 规则帮助',
+    body: `
+          <p><b>行动点消耗:</b> 1 APL</p>
+          <p style="margin-top:6px;"><b>移动距离:</b> 角色移动值 <b>×2</b> (即 12 英寸)。</p>
+          <p style="margin-top:6px;"><b>使用场景:</b> 需要最快速度穿越战场时使用。同时也是唯一能让 <b>Heavy (Dash only)</b> 武器开火的方式。</p>
+          <p style="margin-top:6px;"><b>规则限制:</b></p>
+          <ul>
+            <li>冲刺后<b>不能再射击或近战</b>（Heavy (Dash only) 武器例外：Dash 后可以射击）。</li>
+            <li>如果本回合该特工已经执行过任意移动/冲锋/前进/冲刺/撤退，则<b>不能</b>执行冲刺。</li>
+          </ul>
+        `
+  },
+  fallback: {
+    title: '🔙 撤退 (Fall Back) 规则帮助',
+    body: `
+          <p><b>行动点消耗:</b> 1 APL</p>
+          <p style="margin-top:6px;"><b>移动距离:</b> 角色正常移动值 (6 英寸)。</p>
+          <p style="margin-top:6px;"><b>使用场景:</b> 脱离当前交战（敌方 1 英寸范围内），避免被近战缠住。</p>
+          <p style="margin-top:6px;"><b>规则限制:</b></p>
+          <ul>
+            <li>撤退移动必须<b>远离所有敌人</b>，结束时不能在任何敌方特工的交战距离内。</li>
+            <li>撤退后<b>不能再射击或近战</b>。</li>
+            <li>如果本回合该特工已经执行过任意移动/冲锋/前进/冲刺/撤退，则<b>不能</b>执行撤退。</li>
+          </ul>
+        `
+  },
+  mission: {
+    title: '🎯 任务类型 (Mission Type) 规则帮助',
+    body: `
+          <p style="margin-top:6px;">KT2024 提供多种任务类型，每种任务对应不同的胜利条件和目标得分点。请在部署前选择本局任务。</p>
+          <p style="margin-top:8px;"><b>🏁 夺取阵地 (Seize Ground):</b></p>
+          <ul>
+            <li>战场上布置 3 个目标点（通常为中心 + 两翼）。</li>
+            <li>每回合结束：控制 1 个目标 +1 VP；控制目标多于对手 +1 VP；控制所有目标 +1 VP。</li>
+          </ul>
+          <p style="margin-top:8px;"><b>📦 物资回收 (Recovery):</b></p>
+          <ul>
+            <li>战场上散布遗物/情报标记。特工必须处于标记 1" 内才能拾取。</li>
+            <li>携带遗物的特工回到己方部署区即完成回收，获得 VP。</li>
+            <li>携带遗物的特工阵亡时，遗物掉落于原地。</li>
+          </ul>
+          <p style="margin-top:8px;"><b>⚔️ 突破防线 (Breakthrough):</b></p>
+          <ul>
+            <li>每回合结束时，统计位于敌方部署区内的己方特工数量。</li>
+            <li>1 名特工进入敌方部署区 +1 VP；2 名以上 +1 VP；控制区内目标 +1 VP。</li>
+          </ul>
+          <p style="margin-top:8px;"><b>🛠️ 自定义 (Custom):</b> 根据自定规则勾选得分条件。</p>
+        `
   }
 };
 

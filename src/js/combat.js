@@ -1,6 +1,6 @@
 import { gameState, wizardState } from './state.js';
 import { playSound } from './audio.js';
-import { Operative, Weapon } from './models.js';
+import { Operative, Weapon, translateRule } from './models.js';
 
 // UI callbacks
 const ui = {};
@@ -73,6 +73,18 @@ export function nextModalStep() {
         if (showToast) showToast('目标处于隐蔽姿态且紧贴重掩体，无法对其进行射击！', 'error');
         return;
       }
+      // Torrent: 自动命中，跳过攻击骰步骤
+      const torrentMatch = wizardState.weapon.rules.find(r => r.startsWith('Torrent'));
+      if (torrentMatch) {
+        const torrentHits = parseInt(torrentMatch.match(/\d+/)?.[0] || wizardState.weapon.attacks);
+        wizardState.attackRolls = [];
+        wizardState.attackCrit = 0;
+        wizardState.attackNorm = torrentHits;
+        if (showToast) showToast(`💧 激流 (Torrent): 自动命中 ${torrentHits} 次，跳过攻击骰步骤。`, 'info');
+        wizardState.step = 5; // 直接跳到防御骰步骤
+        renderShootStep();
+        return;
+      }
     } else if (wizardState.step === 4 && wizardState.mode === 'manual') {
       parseManualAttack();
       if (wizardState.attackRolls.length === 0) {
@@ -139,6 +151,7 @@ export function openShootWizard() {
     mode: 'random',
     attRerollIndex: -1,
     defRerollIndex: -1,
+    brutalUsed: false,
     attackRolls: [],
     defenseRolls: []
   });
@@ -204,22 +217,29 @@ export function renderShootStep() {
     title.textContent = '射击结算 - 步骤 2: 选择武器';
     const rangedWeapons = wizardState.attacker.weapons.filter(w => w.isRanged);
     const isInjuredAttacker = wizardState.attacker.isInjured;
+    const hasDashed = wizardState.attacker.actionsPerformed.includes('Dash');
     let listHtml = '<div class="weapon-picker-list">';
     rangedWeapons.forEach((w, idx) => {
       const hitStat = isInjuredAttacker ? `${w.ts}+ <span style="color:var(--red); font-size:0.7rem;">→ ${w.ts + 1}+</span>` : `${w.ts}+`;
       const rangeStr = w.range ? ` | Range: ${w.range}"` : '';
-      const rulesStr = w.rules && w.rules.length > 0 ? ` | ${w.rules.join(', ')}` : '';
+      const rulesStr = w.rules && w.rules.length > 0 ? ` | ${w.rules.map(translateRule).join(', ')}` : '';
+      const isHeavy = w.hasRule('Heavy');
+      const heavyBlocked = isHeavy && !hasDashed;
+      const heavyNote = heavyBlocked ? ' <span style="color:var(--red); font-size:0.65rem;">[需先冲刺]</span>' : '';
+      const disabledStyle = heavyBlocked ? 'opacity:0.4; cursor:not-allowed; pointer-events:none;' : '';
       listHtml += `
-        <div class="weapon-pick-item ${wizardState.weapon.name === w.name ? 'selected' : ''}" role="button" tabindex="0" onclick="selectShootWeapon(${idx})" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();selectShootWeapon(${idx})}">
-          <span class="weapon-pick-name">${w.name}</span>
+        <div class="weapon-pick-item ${wizardState.weapon.name === w.name ? 'selected' : ''}" role="button" tabindex="0" style="${disabledStyle}" onclick="${heavyBlocked ? '' : `selectShootWeapon(${idx})`}" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();${heavyBlocked ? '' : `selectShootWeapon(${idx})`}}">
+          <span class="weapon-pick-name">${w.name}${heavyNote}</span>
           <span class="weapon-pick-stats">A: ${w.attacks} | BS: ${hitStat} | D: ${w.normalDamage}/${w.criticalDamage}${rangeStr}${rulesStr}</span>
         </div>
       `;
     });
     listHtml += '</div>';
 
+    const dashHint = hasDashed ? '' : '<p style="color:var(--text-muted); font-size:0.75rem; margin-bottom:8px;">💡 标注<span style="color:var(--red);">[需先冲刺]</span>的武器为重武器，仅在执行冲刺 (Dash) 后可使用。</p>';
     body.innerHTML = `
       <p style="margin-bottom:10px;">选择你要射击使用的武器：</p>
+      ${dashHint}
       ${listHtml}
     `;
     nextBtn.textContent = '回答判定问题';
@@ -228,14 +248,32 @@ export function renderShootStep() {
 
   else if (wizardState.step === 3) {
     title.textContent = '射击结算 - 步骤 3: 距离与掩体判定';
+    const w = wizardState.weapon;
+    const hasIndirect = w.hasRule('Indirect Fire');
+    const hasSilent = w.hasRule('Silent');
+    const hasSeekLight = w.hasRule('Seek Light');
+
+    // Indirect Fire: 自动视为在射程和视线内
+    const rangeNote = hasIndirect
+      ? '<p style="color:#818cf8; font-size:0.75rem;">💡 <b>间接射击</b>：无需视线，射程判定跳过。</p>'
+      : hasSilent
+        ? '<p style="color:#818cf8; font-size:0.75rem;">💡 <b>寂静</b>：无射程限制。</p>'
+        : '';
+
+    const coverNote = hasSeekLight
+      ? '<p style="color:#f59e0b; font-size:0.75rem;">💡 <b>寻光</b>：目标即使在掩体中也无法获得掩体加成。</p>'
+      : '';
+
     body.innerHTML = `
       <p style="margin-bottom: 12px; color:var(--text-muted);">回答以下判定问题以完成结算：</p>
+      ${rangeNote}
+      ${coverNote}
 
       <div class="qa-card">
-        <div class="qa-question">1. 目标是否在你的有效视线和射程内？</div>
+        <div class="qa-question">1. 目标是否在你的有效视线和射程内？${hasIndirect || hasSilent ? ' <span style="color:#818cf8;">(自动判定为是)</span>' : ''}</div>
         <div class="qa-options">
-          <button class="qa-btn ${wizardState.inRangeAndVisible ? 'selected' : ''}" onclick="setQA('inRangeAndVisible', true)">是 (在射程内)</button>
-          <button class="qa-btn ${!wizardState.inRangeAndVisible ? 'selected' : ''}" onclick="setQA('inRangeAndVisible', false)">否 (无法见/超射程)</button>
+          <button class="qa-btn ${wizardState.inRangeAndVisible ? 'selected' : ''}" onclick="setQA('inRangeAndVisible', true)" ${hasIndirect || hasSilent ? 'style="pointer-events:none; opacity:0.6;"' : ''}>是 (在射程内)</button>
+          <button class="qa-btn ${!wizardState.inRangeAndVisible ? 'selected' : ''}" onclick="setQA('inRangeAndVisible', false)" ${hasIndirect || hasSilent ? 'style="pointer-events:none; opacity:0.6;"' : ''}>否 (无法见/超射程)</button>
         </div>
       </div>
 
@@ -248,13 +286,18 @@ export function renderShootStep() {
       </div>
 
       <div class="qa-card" style="margin-top:10px;">
-        <div class="qa-question">3. 目标是否在掩体中 (Cover)？</div>
+        <div class="qa-question">3. 目标是否在掩体中 (Cover)？${hasSeekLight ? ' <span style="color:#f59e0b;">(寻光忽略掩体)</span>' : ''}</div>
         <div class="qa-options">
-          <button class="qa-btn ${wizardState.inCover ? 'selected' : ''}" onclick="setQA('inCover', true)">是 (触发掩体成功保留)</button>
-          <button class="qa-btn ${!wizardState.inCover ? 'selected' : ''}" onclick="setQA('inCover', false)">否 (开阔地带)</button>
+          <button class="qa-btn ${wizardState.inCover ? 'selected' : ''}" onclick="setQA('inCover', true)" ${hasSeekLight ? 'style="pointer-events:none; opacity:0.6;"' : ''}>是 (触发掩体成功保留)</button>
+          <button class="qa-btn ${!wizardState.inCover ? 'selected' : ''}" onclick="setQA('inCover', false)" ${hasSeekLight ? 'style="pointer-events:none; opacity:0.6;"' : ''}>否 (开阔地带)</button>
         </div>
       </div>
     `;
+
+    // 自动设置: Indirect Fire/Silent → inRangeAndVisible=true; Seek Light → inCover=false
+    if (hasIndirect || hasSilent) wizardState.inRangeAndVisible = true;
+    if (hasSeekLight) wizardState.inCover = false;
+
     nextBtn.textContent = '选择掷骰模式';
     nextBtn.disabled = false;
   }
@@ -266,18 +309,30 @@ export function renderShootStep() {
     const curCp = wizardState.attacker.faction === 'Space Marine' ? gameState.smCp : gameState.pmCp;
 
     if (wizardState.attackRolls.length > 0) {
+      const summaryEffTs = wizardState.weapon.ts + (wizardState.attacker.isInjured ? 1 : 0);
+      const injNote = wizardState.attacker.isInjured ? ' <span style="color:var(--red); font-size:0.75rem;">(重伤+1)</span>' : '';
+      const hasBrutal = wizardState.weapon.hasRule && wizardState.weapon.hasRule('Brutal');
+      const failedCount = wizardState.attackRolls.filter(r => r < summaryEffTs && r !== 6).length;
+      const brutalBtn = hasBrutal && failedCount > 0 && !wizardState.brutalUsed
+        ? `<br><button class="qa-btn" onclick="brutalReroll()" style="margin-top:6px; font-size:0.8rem; padding:6px 12px; background:linear-gradient(135deg, #b91c1c, #7f1d1d); border-color:#dc2626;">🔥 残暴重投 (Brutal): 重投 ${failedCount} 个失败骰</button>`
+        : hasBrutal && wizardState.brutalUsed
+          ? '<br><span style="color:var(--text-muted); font-size:0.75rem;">🔥 残暴重投已使用</span>'
+          : '';
       rerollHint = `
         <div class="roll-summary-block" style="margin-top:10px;">
-          🎯 <b>命中统计:</b> 暴击(6点): <span style="color:var(--sm-accent); font-weight:bold;">${wizardState.attackCrit}</span>, 普通命中(${wizardState.weapon.ts}+): <span style="color:#6a9ad4;">${wizardState.attackNorm}</span>
+          🎯 <b>命中统计:</b> 暴击(6点): <span style="color:var(--sm-accent); font-weight:bold;">${wizardState.attackCrit}</span>, 普通命中(${summaryEffTs}+${injNote}): <span style="color:#6a9ad4;">${wizardState.attackNorm}</span>
           ${curCp >= 1 && wizardState.attRerollIndex === -1 ? '<br><span style="color:var(--sm-accent);">💡 战术重投：你可以消耗 1 CP 点击上方任何一个未命中的灰色骰子重投。</span>' : ''}
+          ${brutalBtn}
         </div>
       `;
     }
 
+    const displayEffTs = wizardState.weapon.ts + (wizardState.attacker.isInjured ? 1 : 0);
+    const injLabel = wizardState.attacker.isInjured ? ` <span style="color:var(--red); font-size:0.75rem;">(重伤+1 → ${displayEffTs}+)</span>` : '';
     body.innerHTML = `
       ${getShootDuelHeaderHtml()}
 
-      <p style="margin-bottom: 12px;">武器 [${wizardState.weapon.name}]，攻击骰数: <b>${wizardState.weapon.attacks}</b>，命中要求: <b>${wizardState.weapon.ts}+</b></p>
+      <p style="margin-bottom: 12px;">武器 [${wizardState.weapon.name}]，攻击骰数: <b>${wizardState.weapon.attacks}</b>，命中要求: <b>${displayEffTs}+</b>${injLabel}</p>
 
       <div class="qa-options" style="margin-bottom: 16px;">
         <button class="qa-btn ${wizardState.mode === 'random' ? 'selected' : ''}" onclick="setRollMode('random')">动画/数字掷骰 (Mode B)</button>
@@ -288,7 +343,7 @@ export function renderShootStep() {
         <div class="dice-pool-view" id="attack-dice-pool">
           <span style="color:var(--text-muted); font-size:0.85rem;">等待投骰...</span>
         </div>
-        <button class="modal-btn primary" id="btn-roll-attack" onclick="rollAttackDice()">开始顺序掷骰</button>
+        ${wizardState.attackRolls.length === 0 ? '<button class="modal-btn primary" id="btn-roll-attack" onclick="rollAttackDice()">开始顺序掷骰</button>' : ''}
       </div>
 
       ${rerollHint}
@@ -322,6 +377,18 @@ export function renderShootStep() {
       dfCount = Math.max(0, dfCount - 1);
     }
 
+    // Shock 规则：每次命中减少防御骰池 N 点
+    const shockMatch = wizardState.weapon.rules.find(r => r.startsWith('Shock'));
+    let shockReduction = 0;
+    if (shockMatch) {
+      const shockVal = parseInt(shockMatch.match(/\d+/)?.[0] || '1');
+      const totalHits = wizardState.attackCrit + wizardState.attackNorm;
+      shockReduction = shockVal * totalHits;
+      const prevDf = dfCount;
+      dfCount = Math.max(0, dfCount - shockReduction);
+      coverDesc += `<p style="color:#f97316; margin-bottom: 4px;">⚡ <b>冲击 (Shock ${shockVal})</b>：${totalHits} 次命中 × ${shockVal} = DF 池减少 ${shockReduction} (DF = ${prevDf} -> ${dfCount})</p>`;
+    }
+
     let rerollHint = '';
     const curCp = wizardState.defender.faction === 'Space Marine' ? gameState.smCp : gameState.pmCp;
     if (wizardState.defenseRolls.length > 0 && dfCount > 0) {
@@ -344,7 +411,7 @@ export function renderShootStep() {
         <div class="dice-pool-view" id="defense-dice-pool">
           <span style="color:var(--text-muted); font-size:0.85rem;">等待投骰...</span>
         </div>
-        <button class="modal-btn primary" id="btn-roll-defense" onclick="rollDefenseDice(${dfCount})">开始顺序防守投骰</button>
+        ${wizardState.defenseRolls.length === 0 ? `<button class="modal-btn primary" id="btn-roll-defense" onclick="rollDefenseDice(${dfCount})">开始顺序防守投骰</button>` : ''}
       </div>
 
       ${rerollHint}
@@ -376,6 +443,28 @@ export function renderShootStep() {
     let remainingCritSaves = wizardState.defCrit;
     let remainingNormSaves = wizardState.defNorm;
 
+    // Saturate 规则：暴击命中无法被防御骰抵消，直接穿透
+    const hasSaturate = wizardState.weapon.hasRule && wizardState.weapon.hasRule('Saturate');
+    let saturateCrits = 0;
+    if (hasSaturate && remainingCrits > 0) {
+      saturateCrits = remainingCrits;
+      ui.addLog(`[饱和] ${saturateCrits} 个暴击命中无法被防御骰抵消，直接穿透！`);
+      remainingCrits = 0; // 所有暴击都穿透，不参与匹配
+    }
+
+    // Piercing Crits 规则：暴击穿透 N 点 SV (防御骰结果 -N)
+    const piercingMatch = wizardState.weapon.rules.find(r => r.startsWith('Piercing Crits'));
+    if (piercingMatch && wizardState.attackCrit > 0) {
+      const piercingVal = parseInt(piercingMatch.match(/\d+/)?.[0] || '1');
+      ui.addLog(`[穿透暴击 ${piercingVal}] 暴击命中时，防御骰 SV 判定 -${piercingVal}。`);
+      // 简化实现：从防御成功中移除等同于暴击数的普通成功 (假设 SV 被穿透后失败)
+      const svReduction = Math.min(wizardState.attackCrit * piercingVal, remainingNormSaves);
+      if (svReduction > 0) {
+        remainingNormSaves -= svReduction;
+        ui.addLog(`  → 穿透效果抵消了 ${svReduction} 个普通防御成功。`);
+      }
+    }
+
     const critWithCrit = Math.min(remainingCrits, remainingCritSaves);
     remainingCrits -= critWithCrit;
     remainingCritSaves -= critWithCrit;
@@ -402,12 +491,20 @@ export function renderShootStep() {
     if (hasToxic && wizardState.defender.poisonTokens > 0) {
       normDmg += 1;
       critDmg += 1;
-      ui.addLog(`[Toxic] 目标携带毒素标记，${wizardState.weapon.name} 伤害 +1 (${normDmg}/${critDmg})`);
+      ui.addLog(`[剧毒] 目标携带毒素标记，${wizardState.weapon.name} 伤害 +1 (${normDmg}/${critDmg})`);
+    }
+
+    // Severe 规则：暴击伤害 +1
+    const hasSevere = wizardState.weapon.hasRule && wizardState.weapon.hasRule('Severe');
+    if (hasSevere) {
+      critDmg += 1;
+      ui.addLog(`[严重] ${wizardState.weapon.name} 暴击伤害 +1 (${critDmg})`);
     }
 
     // 构建每次攻击的伤害数组（用于 DR per-attack 结算）
     const dmgPerAttack = [];
-    for (let i = 0; i < remainingCrits; i++) dmgPerAttack.push(critDmg);
+    // Saturate 暴击（穿透） + 普通穿透暴击
+    for (let i = 0; i < saturateCrits + remainingCrits; i++) dmgPerAttack.push(critDmg);
     for (let i = 0; i < remainingNorms; i++) dmgPerAttack.push(normDmg);
     const rawDmg = dmgPerAttack.reduce((s, v) => s + v, 0);
 
@@ -420,8 +517,9 @@ export function renderShootStep() {
           <span class="matching-label">攻击命中</span>
           <div class="matching-dice-list">
     `;
+    const matchEffTs = wizardState.weapon.ts + (wizardState.attacker.isInjured ? 1 : 0);
     for (let i = 0; i < wizardState.attackCrit; i++) matchingHtml += '<div class="kt-dice-cube sm-dice crit-dice">6</div>';
-    for (let i = 0; i < wizardState.attackNorm; i++) matchingHtml += `<div class="kt-dice-cube sm-dice">${wizardState.weapon.ts}</div>`;
+    for (let i = 0; i < wizardState.attackNorm; i++) matchingHtml += `<div class="kt-dice-cube sm-dice">${matchEffTs}</div>`;
     if (wizardState.attackCrit + wizardState.attackNorm === 0) matchingHtml += '<span style="font-size:0.8rem; color:var(--text-muted);">无命中</span>';
     matchingHtml += `
           </div>
@@ -456,8 +554,8 @@ export function renderShootStep() {
 
       <div class="qa-card" style="margin-top:10px;">
         <p style="font-size:0.95rem; font-weight:600; color:#fff;">最终对消计算汇报：</p>
-        <p style="margin-top:4px;">- 暴击命中残留: <b>${remainingCrits}</b> 个 (每个伤害: ${critDmg}${hasToxic && wizardState.defender.poisonTokens > 0 ? ' <span style="color:#a78bfa;">[Toxic+1]</span>' : ''})</p>
-        <p>- 普通命中残留: <b>${remainingNorms}</b> 个 (每个伤害: ${normDmg}${hasToxic && wizardState.defender.poisonTokens > 0 ? ' <span style="color:#a78bfa;">[Toxic+1]</span>' : ''})</p>
+        <p style="margin-top:4px;">- 暴击命中残留: <b>${remainingCrits}</b> 个 (每个伤害: ${critDmg}${hasToxic && wizardState.defender.poisonTokens > 0 ? ' <span style="color:#a78bfa;">[剧毒+1]</span>' : ''})</p>
+        <p>- 普通命中残留: <b>${remainingNorms}</b> 个 (每个伤害: ${normDmg}${hasToxic && wizardState.defender.poisonTokens > 0 ? ' <span style="color:#a78bfa;">[剧毒+1]</span>' : ''})</p>
         <p style="color:var(--sm-accent); font-weight:bold; margin-top:8px; font-size:1rem;">分配伤害总计: ${rawDmg} 点</p>
       </div>
 
@@ -519,6 +617,9 @@ export function rollAttackDice() {
   const pool = document.getElementById('attack-dice-pool');
   const rollBtn = document.getElementById('btn-roll-attack');
 
+  // 防御性检查：如果已经投过骰子，不允许重复投掷
+  if (wizardState.attackRolls.length > 0) return;
+
   rollBtn.disabled = true;
   nextBtn.disabled = true;
 
@@ -547,6 +648,7 @@ export function rollAttackDice() {
     diceAnimationTimeouts = [];
     // Settle all remaining dice immediately
     const diceCubes = pool.getElementsByClassName('kt-dice-cube');
+    const skipEffTs = wizardState.weapon.ts + (wizardState.attacker.isInjured ? 1 : 0);
     for (let i = currentSettleIndex; i < totalAttacks; i++) {
       const val = Math.floor(Math.random() * 6) + 1;
       finalRolls.push(val);
@@ -555,7 +657,7 @@ export function rollAttackDice() {
         cube.classList.remove('rolling');
         cube.textContent = val;
         if (val === 6) cube.classList.add('crit-dice');
-        else if (val < wizardState.weapon.ts) cube.classList.add('fail-dice');
+        else if (val < skipEffTs) cube.classList.add('fail-dice');
       }
     }
     wizardState.attackRolls = finalRolls;
@@ -584,10 +686,11 @@ export function rollAttackDice() {
       cube.classList.remove('rolling');
       cube.textContent = val;
 
+      const stepEffTs = wizardState.weapon.ts + (wizardState.attacker.isInjured ? 1 : 0);
       if (val === 6) {
         cube.classList.add('crit-dice');
         playSound('crit');
-      } else if (val < wizardState.weapon.ts) {
+      } else if (val < stepEffTs) {
         cube.classList.add('fail-dice');
         playSound('click');
       } else {
@@ -627,17 +730,18 @@ export function renderAttackDiceView() {
   const faction = wizardState.attacker.faction;
   const curCp = faction === 'Space Marine' ? gameState.smCp : gameState.pmCp;
   const attDiceClass = faction === 'Space Marine' ? 'sm-dice' : 'pm-dice';
+  const renderEffTs = wizardState.weapon.ts + (wizardState.attacker.isInjured ? 1 : 0);
 
   wizardState.attackRolls.forEach((val, idx) => {
     const d = document.createElement('div');
     let cls = `kt-dice-cube ${attDiceClass}`;
     if (val === 6) cls += ' crit-dice';
-    else if (val < wizardState.weapon.ts) cls += ' fail-dice';
+    else if (val < renderEffTs) cls += ' fail-dice';
 
     d.className = cls;
     d.textContent = val;
 
-    const isFail = val < wizardState.weapon.ts;
+    const isFail = val < renderEffTs;
     if (isFail && curCp >= 1 && wizardState.attRerollIndex === -1) {
       const badge = document.createElement('div');
       badge.className = 'reroll-indicator';
@@ -686,13 +790,43 @@ export function rerollSingleAttackDice(idx) {
   }, 500);
 }
 
+// Brutal 规则：重投所有失败骰子 (1 次)
+export function brutalReroll() {
+  if (wizardState.brutalUsed) return;
+  playSound('shoot');
+
+  const effTs = wizardState.weapon.ts + (wizardState.attacker.isInjured ? 1 : 0);
+  const oldRolls = [...wizardState.attackRolls];
+  const failedIndices = [];
+  wizardState.attackRolls.forEach((val, idx) => {
+    if (val < effTs && val !== 6) failedIndices.push(idx);
+  });
+
+  if (failedIndices.length === 0) return;
+
+  // 重投所有失败骰子
+  failedIndices.forEach(idx => {
+    wizardState.attackRolls[idx] = Math.floor(Math.random() * 6) + 1;
+  });
+
+  wizardState.brutalUsed = true;
+  ui.addLog(`[残暴重投] ${wizardState.weapon.name} 重投 ${failedIndices.length} 个失败骰子！`);
+  ui.addLog(`  旧结果: [${oldRolls.join(', ')}] → 新结果: [${wizardState.attackRolls.join(', ')}]`);
+
+  recalculateAttackStats();
+  renderShootStep();
+}
+
 export function recalculateAttackStats() {
   let crits = 0;
   let norms = 0;
-  const ts = wizardState.weapon.ts;
+  // Injured 命中惩罚: TS/WS +1 (6 永远是暴击, 不受惩罚影响)
+  const attacker = wizardState.attacker;
+  const injuryPenalty = (attacker && attacker.isInjured) ? 1 : 0;
+  const effectiveTs = wizardState.weapon.ts + injuryPenalty;
   wizardState.attackRolls.forEach(val => {
     if (val === 6) crits++;
-    else if (val >= ts) norms++;
+    else if (val >= effectiveTs) norms++;
   });
   wizardState.attackCrit = crits;
   wizardState.attackNorm = norms;
@@ -706,6 +840,9 @@ export function rollDefenseDice(dfCount) {
   const nextBtn = document.getElementById('modal-btn-next');
   const pool = document.getElementById('defense-dice-pool');
   const rollBtn = document.getElementById('btn-roll-defense');
+
+  // 防御性检查：如果已经投过骰子，不允许重复投掷
+  if (wizardState.defenseRolls.length > 0) return;
 
   if (dfCount === 0) {
     wizardState.defCrit = 0;
@@ -935,7 +1072,26 @@ export function confirmShootResult(dmgPerAttack) {
   const hasPoison = wizardState.weapon.hasRule && wizardState.weapon.hasRule('Poison');
   if (hasPoison && actualDamage > 0 && defender.poisonTokens < 1) {
     defender.poisonTokens = 1;
-    ui.addLog(`[Poison] ${defender.name} 获得了 1 个毒素标记！下次激活开始时将受到 1 点伤害。`);
+    ui.addLog(`[毒素] ${defender.name} 获得了 1 个毒素标记！下次激活开始时将受到 1 点伤害。`);
+  }
+
+  // Stun 规则：命中后目标 APL -N
+  const stunMatch = wizardState.weapon.rules.find(r => r.startsWith('Stun'));
+  if (stunMatch && actualDamage > 0) {
+    const stunVal = parseInt(stunMatch.match(/\d+/)?.[0] || '1');
+    const prevApl = defender.apl;
+    defender.apl = Math.max(0, defender.apl - stunVal);
+    ui.addLog(`[震慑] ${defender.name} 被震慑！APL: ${prevApl} → ${defender.apl} (-${stunVal})`);
+  }
+
+  // PSYCHIC 规则：攻击方每投出 1，自己受到 1 点伤害 (Peril)
+  const hasPsychic = wizardState.weapon.hasRule && wizardState.weapon.hasRule('PSYCHIC');
+  if (hasPsychic) {
+    const perilCount = wizardState.attackRolls.filter(r => r === 1).length;
+    if (perilCount > 0) {
+      ui.addLog(`[灵能反噬] ${wizardState.weapon.name} 引发危险！投出 ${perilCount} 个 1，攻击方受到 ${perilCount} 点伤害。`);
+      attacker.applyWounds(perilCount);
+    }
   }
 
   attacker.apl -= 1;
@@ -1062,7 +1218,7 @@ export function renderFightStep() {
     let listHtml = '<div class="weapon-picker-list">';
     meleeWeapons.forEach((w, idx) => {
       const hitStat = isInjuredAttacker ? `${w.ts}+ <span style="color:var(--red); font-size:0.7rem;">→ ${w.ts + 1}+</span>` : `${w.ts}+`;
-      const rulesStr = w.rules && w.rules.length > 0 ? ` | ${w.rules.join(', ')}` : '';
+      const rulesStr = w.rules && w.rules.length > 0 ? ` | ${w.rules.map(translateRule).join(', ')}` : '';
       listHtml += `
         <div class="weapon-pick-item ${wizardState.weapon.name === w.name ? 'selected' : ''}" role="button" tabindex="0" onclick="selectFightWeapon(${idx})" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();selectFightWeapon(${idx})}">
           <span class="weapon-pick-name">${w.name}</span>
@@ -1348,6 +1504,8 @@ export function rollMeleeDice() {
     diceAnimationTimeouts = [];
     // Settle all remaining attacker dice
     const attCubes = attPool.getElementsByClassName('kt-dice-cube');
+    const skipAttEffTs = wizardState.weapon.ts + (wizardState.attacker.isInjured ? 1 : 0);
+    const skipDefEffTs = defMeleeWeapon.ts + (wizardState.defender.isInjured ? 1 : 0);
     for (let i = attSettleIndex; i < totalAttacks; i++) {
       const val = Math.floor(Math.random() * 6) + 1;
       finalAttRolls.push(val);
@@ -1356,7 +1514,7 @@ export function rollMeleeDice() {
         cube.classList.remove('rolling');
         cube.textContent = val;
         if (val === 6) cube.classList.add('crit-dice');
-        else if (val < wizardState.weapon.ts) cube.classList.add('fail-dice');
+        else if (val < skipAttEffTs) cube.classList.add('fail-dice');
       }
     }
     // Settle all remaining defender dice
@@ -1369,7 +1527,7 @@ export function rollMeleeDice() {
         cube.classList.remove('rolling');
         cube.textContent = val;
         if (val === 6) cube.classList.add('crit-dice');
-        else if (val < defMeleeWeapon.ts) cube.classList.add('fail-dice');
+        else if (val < skipDefEffTs) cube.classList.add('fail-dice');
       }
     }
     finishMeleeRolls();
@@ -1397,10 +1555,11 @@ export function rollMeleeDice() {
       cube.classList.remove('rolling');
       cube.textContent = val;
 
+      const attEffTs = wizardState.weapon.ts + (wizardState.attacker.isInjured ? 1 : 0);
       if (val === 6) {
         cube.classList.add('crit-dice');
         playSound('crit');
-      } else if (val < wizardState.weapon.ts) {
+      } else if (val < attEffTs) {
         cube.classList.add('fail-dice');
         playSound('click');
       } else {
@@ -1426,10 +1585,11 @@ export function rollMeleeDice() {
       cube.classList.remove('rolling');
       cube.textContent = val;
 
+      const defEffTs = defMeleeWeapon.ts + (wizardState.defender.isInjured ? 1 : 0);
       if (val === 6) {
         cube.classList.add('crit-dice');
         playSound('crit');
-      } else if (val < defMeleeWeapon.ts) {
+      } else if (val < defEffTs) {
         cube.classList.add('fail-dice');
         playSound('click');
       } else {
@@ -1445,12 +1605,18 @@ export function rollMeleeDice() {
 
   function finishMeleeRolls() {
     skipBtn.remove();
+    // Injured 命中惩罚: TS/WS +1 (6 永远是暴击)
+    const attInjuryPenalty = (wizardState.attacker && wizardState.attacker.isInjured) ? 1 : 0;
+    const defInjuryPenalty = (wizardState.defender && wizardState.defender.isInjured) ? 1 : 0;
+    const effectiveAttTs = wizardState.weapon.ts + attInjuryPenalty;
+    const effectiveDefTs = defMeleeWeapon.ts + defInjuryPenalty;
+
     wizardState.activeAttackerDice = finalAttRolls
-      .filter(val => val >= wizardState.weapon.ts)
+      .filter(val => val >= effectiveAttTs || val === 6)
       .map(val => ({ val, isCrit: val === 6, used: false }));
 
     wizardState.activeDefenderDice = finalDefRolls
-      .filter(val => val >= defMeleeWeapon.ts)
+      .filter(val => val >= effectiveDefTs || val === 6)
       .map(val => ({ val, isCrit: val === 6, used: false }));
 
     nextBtn.disabled = false;
@@ -1681,7 +1847,7 @@ export function resolveMeleeChoice(action) {
     const hasPoisonMelee = activeWeapon.hasRule && activeWeapon.hasRule('Poison');
     if (hasPoisonMelee && dmg > 0 && targetOpponent.poisonTokens < 1) {
       targetOpponent.poisonTokens = 1;
-      ui.addLog(`[Poison] ${targetOpponent.name} 获得了 1 个毒素标记！(来自近战)`);
+      ui.addLog(`[毒素] ${targetOpponent.name} 获得了 1 个毒素标记！(来自近战)`);
     }
 
     playSound('heavy_strike');

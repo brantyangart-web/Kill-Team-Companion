@@ -14,10 +14,12 @@ import {
   getAvatarHtml, renderRosterPickers, toggleSelectSM, toggleSelectPM,
   incrementWarrior, decrementWarrior,
   updateSelectionCounts, validateRostersAndDeploy, renderOperatives,
-  activateOperative, updateActivePanel, performMove, performCharge, toggleConceal,
+  updateMissionDesc,
+  selectOperative, confirmActivation, cancelSelection,
+  activateOperative, updateActivePanel, performMove, performCharge, performAdvance, performDash, performFallBack, toggleConceal,
   endActivation, startInitiativePhase, showPhaseOverlay, hidePhaseOverlay, hideCounteractOverlay,
   showCounteractOverlay, selectCounteractOperative, skipCounteractAction,
-  rollInitiativeOverlay, selectTurnOrder, startStrategyPhase, buyPloy,
+  rollInitiativeOverlay, selectTurnOrder, confirmTurnOrder, startStrategyPhase, buyPloy,
   proceedToFirefight, showRuleHelp, closeHelpModal,
   triggerOperativeDeathOverlay, confirmOperativeDeath, checkVictory, declareVictory,
   showTurnEndScoringOverlay, renderTurnEndScoringContent, toggleScoringChecklist,
@@ -33,7 +35,7 @@ import { skipCounteract } from './state.js';
 import {
   openModal, closeModal, nextModalStep,
   openShootWizard, renderShootStep, selectShootDefender, selectShootWeapon,
-  setQA, setRollMode, rollAttackDice, renderAttackDiceView, rerollSingleAttackDice,
+  setQA, setRollMode, rollAttackDice, renderAttackDiceView, rerollSingleAttackDice, brutalReroll,
   recalculateAttackStats, rollDefenseDice, renderDefenseDiceView, rerollSingleDefenseDice,
   recalculateDefenseStats, parseManualAttack, parseManualDefense, confirmShootResult,
   openFightWizard, selectFightDefender, selectFightWeapon, renderFightStep,
@@ -99,16 +101,23 @@ window.toggleSelectPM = toggleSelectPM;
 window.incrementWarrior = incrementWarrior;
 window.decrementWarrior = decrementWarrior;
 window.validateRostersAndDeploy = validateRostersAndDeploy;
+window.updateMissionDesc = updateMissionDesc;
 
 // Avatar Upload
 window.triggerAvatarUpload = triggerAvatarUpload;
 window.handleAvatarFileSelect = handleAvatarFileSelect;
 
 // Active Panel Actions
+window.selectOperative = selectOperative;
+window.confirmActivation = confirmActivation;
+window.cancelSelection = cancelSelection;
 window.activateOperative = activateOperative;
 window.toggleConceal = toggleConceal;
 window.performMove = performMove;
 window.performCharge = performCharge;
+window.performAdvance = performAdvance;
+window.performDash = performDash;
+window.performFallBack = performFallBack;
 window.openShootWizard = openShootWizard;
 window.openFightWizard = openFightWizard;
 window.endActivation = endActivation;
@@ -125,6 +134,7 @@ window.selectShootWeapon = selectShootWeapon;
 window.setQA = setQA;
 window.setRollMode = setRollMode;
 window.rollAttackDice = rollAttackDice;
+window.brutalReroll = brutalReroll;
 window.rollDefenseDice = rollDefenseDice;
 window.selectFightDefender = selectFightDefender;
 window.selectFightWeapon = selectFightWeapon;
@@ -136,6 +146,7 @@ window.cancelMeleeChoice = cancelMeleeChoice;
 // Phase Flow
 window.rollInitiativeOverlay = rollInitiativeOverlay;
 window.selectTurnOrder = selectTurnOrder;
+window.confirmTurnOrder = confirmTurnOrder;
 window.buyPloy = buyPloy;
 window.proceedToFirefight = proceedToFirefight;
 
