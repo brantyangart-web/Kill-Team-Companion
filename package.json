@@ -1,0 +1,12 @@
+{
+  "name": "kill-team-assistant-core",
+  "version": "1.0.0",
+  "description": "Core combat logic engine for Kill Team Assistant",
+  "type": "module",
+  "scripts": {
+    "demo": "node demo.js"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC"
+}
