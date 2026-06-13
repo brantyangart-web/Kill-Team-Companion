@@ -1,0 +1,311 @@
+<h2>增强版哥特设计</h2>
+<p class="subtitle">在原有基础上增加更多视觉层次与氛围</p>
+
+<div class="section">
+  <h3>新增视觉元素</h3>
+
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-top:16px;">
+
+    <!-- Enhancement 1 -->
+    <div style="background:#252830;border:1px solid #5a5d65;border-radius:6px;padding:16px;">
+      <div style="font-family:'Orbitron',sans-serif;font-size:0.8rem;color:#c9a84c;margin-bottom:12px;">① 纹理背景</div>
+      <div style="
+        height:100px;
+        background:
+          repeating-linear-gradient(45deg, transparent, transparent 2px, rgba(255,255,255,0.015) 2px, rgba(255,255,255,0.015) 4px),
+          linear-gradient(180deg, #2a2d35, #1e2128);
+        border-radius:4px;
+        border:1px solid #3a3d45;
+        display:flex;align-items:center;justify-content:center;
+        color:#7a7d85;font-size:0.7rem;
+      ">斜线金属纹理叠加</div>
+      <div style="font-size:0.7rem;color:#888;margin-top:8px;">CSS repeating-gradient 实现，无需图片</div>
+    </div>
+
+    <!-- Enhancement 2 -->
+    <div style="background:#252830;border:1px solid #5a5d65;border-radius:6px;padding:16px;">
+      <div style="font-family:'Orbitron',sans-serif;font-size:0.8rem;color:#c9a84c;margin-bottom:12px;">② 双层边框</div>
+      <div style="
+        height:100px;
+        background:#252830;
+        border:2px solid #5a5d65;
+        outline:1px solid #3a3d45;
+        outline-offset:3px;
+        border-radius:4px;
+        display:flex;align-items:center;justify-content:center;
+        color:#7a7d85;font-size:0.7rem;
+      ">内框 + 外框 = 铁箍感</div>
+      <div style="font-size:0.7rem;color:#888;margin-top:8px;">双重边框模拟装甲板铆接</div>
+    </div>
+
+    <!-- Enhancement 3 -->
+    <div style="background:#252830;border:1px solid #5a5d65;border-radius:6px;padding:16px;">
+      <div style="font-family:'Orbitron',sans-serif;font-size:0.8rem;color:#c9a84c;margin-bottom:12px;">③ 标题横幅</div>
+      <div style="
+        height:100px;
+        background:#1e2128;
+        border-radius:4px;
+        display:flex;align-items:center;justify-content:center;
+        position:relative;overflow:hidden;
+      ">
+        <div style="
+          position:absolute;
+          top:0;left:0;right:0;
+          height:32px;
+          background:linear-gradient(90deg,transparent 0%,#3a2510 15%,#5a3515 50%,#3a2510 85%,transparent 100%);
+          border-bottom:1px solid #8b5a2b;
+          display:flex;align-items:center;justify-content:center;
+        ">
+          <span style="font-family:'Orbitron',sans-serif;font-size:0.65rem;color:#e8d48b;letter-spacing:3px;text-transform:uppercase;">⚜ ANGELS OF DEATH ⚜</span>
+        </div>
+      </div>
+      <div style="font-size:0.7rem;color:#888;margin-top:8px;">阵营标题用皮革横幅条</div>
+    </div>
+
+    <!-- Enhancement 4 -->
+    <div style="background:#252830;border:1px solid #5a5d65;border-radius:6px;padding:16px;">
+      <div style="font-family:'Orbitron',sans-serif;font-size:0.8rem;color:#c9a84c;margin-bottom:12px;">④ 氛围光晕</div>
+      <div style="
+        height:100px;
+        background:#1e2128;
+        border-radius:4px;
+        display:flex;align-items:center;justify-content:center;
+        position:relative;overflow:hidden;
+        box-shadow: inset 0 0 30px rgba(201,168,76,0.08);
+      ">
+        <div style="
+          position:absolute;
+          top:-20px;left:50%;transform:translateX(-50%);
+          width:120px;height:60px;
+          background:radial-gradient(ellipse,rgba(201,168,76,0.15),transparent 70%);
+        "></div>
+        <span style="font-family:'Orbitron',sans-serif;color:#e8d48b;font-size:1.2rem;position:relative;">✠ 3 ✠</span>
+      </div>
+      <div style="font-size:0.7rem;color:#888;margin-top:8px;">金色径向渐变光晕增加神圣感</div>
+    </div>
+
+    <!-- Enhancement 5 -->
+    <div style="background:#252830;border:1px solid #5a5d65;border-radius:6px;padding:16px;">
+      <div style="font-family:'Orbitron',sans-serif;font-size:0.8rem;color:#c9a84c;margin-bottom:12px;">⑤ 刻痕分隔线</div>
+      <div style="
+        height:100px;
+        background:#1e2128;
+        border-radius:4px;
+        display:flex;align-items:center;justify-content:center;
+        padding:0 16px;
+      ">
+        <div style="width:100%;">
+          <div style="display:flex;align-items:center;gap:8px;">
+            <div style="flex:1;height:1px;background:linear-gradient(90deg,transparent,#5a5d65);"></div>
+            <span style="color:#c9a84c;font-size:10px;">⬥</span>
+            <div style="width:20px;height:1px;background:#c9a84c;"></div>
+            <span style="color:#c9a84c;font-size:16px;">✠</span>
+            <div style="width:20px;height:1px;background:#c9a84c;"></div>
+            <span style="color:#c9a84c;font-size:10px;">⬥</span>
+            <div style="flex:1;height:1px;background:linear-gradient(270deg,transparent,#5a5d65);"></div>
+          </div>
+        </div>
+      </div>
+      <div style="font-size:0.7rem;color:#888;margin-top:8px;">十字 + 菱形组合分隔符</div>
+    </div>
+
+    <!-- Enhancement 6 -->
+    <div style="background:#252830;border:1px solid #5a5d65;border-radius:6px;padding:16px;">
+      <div style="font-family:'Orbitron',sans-serif;font-size:0.8rem;color:#c9a84c;margin-bottom:12px;">⑥ 蚀刻边角</div>
+      <div style="
+        height:100px;
+        background:#252830;
+        border:2px solid #5a5d65;
+        border-radius:4px;
+        position:relative;
+        display:flex;align-items:center;justify-content:center;
+        color:#7a7d85;font-size:0.7rem;
+      ">
+        <!-- Etched corner lines -->
+        <div style="position:absolute;top:6px;left:6px;right:6px;bottom:6px;border:1px solid rgba(201,168,76,0.2);border-radius:2px;pointer-events:none;"></div>
+        <div style="position:absolute;top:3px;left:12px;right:12px;height:1px;background:linear-gradient(90deg,transparent,rgba(201,168,76,0.3),transparent);"></div>
+        <div style="position:absolute;bottom:3px;left:12px;right:12px;height:1px;background:linear-gradient(90deg,transparent,rgba(201,168,76,0.3),transparent);"></div>
+        内嵌金线框
+      </div>
+      <div style="font-size:0.7rem;color:#888;margin-top:8px;">面板内部蚀刻金线装饰</div>
+    </div>
+
+  </div>
+</div>
+
+<div class="section">
+  <h3>增强版完整面板效果</h3>
+
+  <div style="max-width:520px;margin:24px auto;">
+    <div style="
+      background:
+        repeating-linear-gradient(45deg, transparent, transparent 3px, rgba(255,255,255,0.01) 3px, rgba(255,255,255,0.01) 6px),
+        linear-gradient(180deg, #2a2d35 0%, #1e2128 100%);
+      border: 2px solid #5a5d65;
+      outline: 1px solid #3a3d45;
+      outline-offset: 3px;
+      border-radius: 6px;
+      padding: 24px 20px 20px;
+      position: relative;
+      box-shadow: 0 6px 24px rgba(0,0,0,0.5), inset 0 0 40px rgba(201,168,76,0.03);
+    ">
+      <!-- Gothic arch -->
+      <div style="
+        position:absolute;
+        top:-12px;left:50%;transform:translateX(-50%);
+        width:80px;height:24px;
+        background:#2a2d35;
+        border:2px solid #5a5d65;
+        border-bottom:none;
+        border-radius:40px 40px 0 0;
+        display:flex;align-items:center;justify-content:center;
+      ">
+        <span style="color:#c9a84c;font-size:10px;margin-top:4px;">✠</span>
+      </div>
+
+      <!-- Inner etched border -->
+      <div style="position:absolute;top:8px;left:8px;right:8px;bottom:8px;border:1px solid rgba(201,168,76,0.12);border-radius:3px;pointer-events:none;"></div>
+
+      <!-- Corner ornaments -->
+      <div style="position:absolute;top:12px;left:14px;color:#c9a84c;font-size:14px;opacity:0.6;">❧</div>
+      <div style="position:absolute;top:12px;right:14px;color:#c9a84c;font-size:14px;opacity:0.6;transform:scaleX(-1);">❧</div>
+
+      <!-- Ambient glow -->
+      <div style="position:absolute;top:0;left:50%;transform:translateX(-50%);width:200px;height:80px;background:radial-gradient(ellipse,rgba(201,168,76,0.08),transparent 70%);pointer-events:none;"></div>
+
+      <!-- Content -->
+      <div style="text-align:center;position:relative;padding-top:4px;">
+        <div style="font-family:'Orbitron',sans-serif;font-size:0.65rem;color:#c9a84c;text-transform:uppercase;letter-spacing:4px;opacity:0.8;">Turning Point</div>
+        <div style="font-family:'Orbitron',sans-serif;font-size:3rem;color:#e8d48b;text-shadow:0 0 20px rgba(201,168,76,0.25);line-height:1.1;margin:4px 0;">3</div>
+        <div style="font-size:0.8rem;color:#8a8d95;">⸻ Initiative Phase ⸻</div>
+      </div>
+
+      <!-- Enhanced divider -->
+      <div style="display:flex;align-items:center;gap:8px;margin:16px 0;">
+        <div style="flex:1;height:1px;background:linear-gradient(90deg,transparent,#5a5d65);"></div>
+        <span style="color:#c9a84c;font-size:8px;">⬥</span>
+        <div style="width:16px;height:1px;background:#c9a84c;"></div>
+        <span style="color:#c9a84c;font-size:14px;">✠</span>
+        <div style="width:16px;height:1px;background:#c9a84c;"></div>
+        <span style="color:#c9a84c;font-size:8px;">⬥</span>
+        <div style="flex:1;height:1px;background:linear-gradient(270deg,transparent,#5a5d65);"></div>
+      </div>
+
+      <!-- Score cards -->
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
+        <div style="
+          background:
+            repeating-linear-gradient(45deg, transparent, transparent 2px, rgba(255,255,255,0.008) 2px, rgba(255,255,255,0.008) 4px),
+            #1a1d24;
+          border:1px solid #4a4d55;
+          border-radius:4px;
+          padding:12px;
+          text-align:center;
+          position:relative;
+        ">
+          <div style="position:absolute;top:3px;left:8px;right:8px;height:1px;background:linear-gradient(90deg,transparent,rgba(201,168,76,0.2),transparent);"></div>
+          <div style="font-size:0.65rem;color:#7a7d85;text-transform:uppercase;letter-spacing:1px;">Victory Points</div>
+          <div style="font-family:'Orbitron',sans-serif;color:#e8d48b;font-size:1.8rem;margin-top:2px;">2</div>
+        </div>
+        <div style="
+          background:
+            repeating-linear-gradient(45deg, transparent, transparent 2px, rgba(255,255,255,0.008) 2px, rgba(255,255,255,0.008) 4px),
+            #1a1d24;
+          border:1px solid #4a4d55;
+          border-radius:4px;
+          padding:12px;
+          text-align:center;
+          position:relative;
+        ">
+          <div style="position:absolute;top:3px;left:8px;right:8px;height:1px;background:linear-gradient(90deg,transparent,rgba(201,168,76,0.2),transparent);"></div>
+          <div style="font-size:0.65rem;color:#7a7d85;text-transform:uppercase;letter-spacing:1px;">Command Points</div>
+          <div style="font-family:'Orbitron',sans-serif;color:#e8d48b;font-size:1.8rem;margin-top:2px;">4</div>
+        </div>
+      </div>
+
+      <!-- Bottom ornament -->
+      <div style="text-align:center;margin-top:14px;">
+        <span style="color:#c9a84c;font-size:10px;opacity:0.4;">⚜</span>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="section">
+  <h3>增强版阵营横幅</h3>
+
+  <div style="max-width:520px;margin:24px auto;">
+    <!-- Space Marine banner -->
+    <div style="
+      position:relative;
+      background:linear-gradient(90deg,transparent 0%,#1a2a45 15%,#1e3050 50%,#1a2a45 85%,transparent 100%);
+      border-top:2px solid #4a6a9a;
+      border-bottom:1px solid rgba(74,106,154,0.3);
+      padding:12px 20px;
+      margin-bottom:12px;
+      overflow:hidden;
+    ">
+      <div style="position:absolute;top:0;left:0;right:0;bottom:0;background:radial-gradient(ellipse at 50% 0%,rgba(74,106,154,0.15),transparent 60%);pointer-events:none;"></div>
+      <div style="display:flex;align-items:center;justify-content:space-between;position:relative;">
+        <span style="color:#c9a84c;font-size:12px;opacity:0.6;">⚜</span>
+        <span style="font-family:'Orbitron',sans-serif;font-size:0.8rem;color:#6a9ad4;letter-spacing:3px;text-transform:uppercase;">死亡天使 · Angels of Death</span>
+        <span style="color:#c9a84c;font-size:12px;opacity:0.6;">⚜</span>
+      </div>
+    </div>
+
+    <!-- Plague Marine banner -->
+    <div style="
+      position:relative;
+      background:linear-gradient(90deg,transparent 0%,#1a2d20 15%,#1e3525 50%,#1a2d20 85%,transparent 100%);
+      border-top:2px solid #4a7c59;
+      border-bottom:1px solid rgba(74,124,89,0.3);
+      padding:12px 20px;
+      overflow:hidden;
+    ">
+      <div style="position:absolute;top:0;left:0;right:0;bottom:0;background:radial-gradient(ellipse at 50% 0%,rgba(74,124,89,0.12),transparent 60%);pointer-events:none;"></div>
+      <div style="display:flex;align-items:center;justify-content:space-between;position:relative;">
+        <span style="color:#c9a84c;font-size:12px;opacity:0.6;">☠</span>
+        <span style="font-family:'Orbitron',sans-serif;font-size:0.8rem;color:#7ab88a;letter-spacing:3px;text-transform:uppercase;">瘟疫守卫 · Plague Marines</span>
+        <span style="color:#c9a84c;font-size:12px;opacity:0.6;">☠</span>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="section">
+  <h3>增强元素汇总</h3>
+  <div style="background:#252830;border:1px solid #5a5d65;border-radius:6px;padding:20px;margin-top:16px;">
+    <table style="width:100%;border-collapse:collapse;font-size:0.85rem;">
+      <tr style="border-bottom:1px solid #3a3d45;">
+        <td style="padding:8px;color:#c9a84c;font-weight:bold;">① 纹理背景</td>
+        <td style="padding:8px;color:#aaa;">CSS斜线渐变叠加，增加金属质感</td>
+        <td style="padding:8px;color:#666;">零性能损耗</td>
+      </tr>
+      <tr style="border-bottom:1px solid #3a3d45;">
+        <td style="padding:8px;color:#c9a84c;font-weight:bold;">② 双层边框</td>
+        <td style="padding:8px;color:#aaa;">border + outline 组合，铁箍装甲感</td>
+        <td style="padding:8px;color:#666;">零性能损耗</td>
+      </tr>
+      <tr style="border-bottom:1px solid #3a3d45;">
+        <td style="padding:8px;color:#c9a84c;font-weight:bold;">③ 阵营横幅</td>
+        <td style="padding:8px;color:#aaa;">渐变色条 + 阵营符号，区分双方</td>
+        <td style="padding:8px;color:#666;">纯CSS</td>
+      </tr>
+      <tr style="border-bottom:1px solid #3a3d45;">
+        <td style="padding:8px;color:#c9a84c;font-weight:bold;">④ 氛围光晕</td>
+        <td style="padding:8px;color:#aaa;">径向渐变金光，增加神圣深度</td>
+        <td style="padding:8px;color:#666;">极低开销</td>
+      </tr>
+      <tr style="border-bottom:1px solid #3a3d45;">
+        <td style="padding:8px;color:#c9a84c;font-weight:bold;">⑤ 组合分隔符</td>
+        <td style="padding:8px;color:#aaa;">✠十字 + ⬥菱形 + 渐变线</td>
+        <td style="padding:8px;color:#666;">Unicode符号</td>
+      </tr>
+      <tr>
+        <td style="padding:8px;color:#c9a84c;font-weight:bold;">⑥ 蚀刻内框</td>
+        <td style="padding:8px;color:#aaa;">面板内部金线描边，增加层次</td>
+        <td style="padding:8px;color:#666;">伪元素实现</td>
+      </tr>
+    </table>
+  </div>
+</div>

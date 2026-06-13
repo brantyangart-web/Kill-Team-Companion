@@ -109,7 +109,7 @@ export function endTurningPoint() {
   gameState.operatives.forEach(op => {
     if (!op.isDead) {
       op.hasActed = false;
-      op.apl = op.maxApl;
+      op.apl = op.currentApl;  // Injured 时 APL -1
       op.actionsPerformed = [];
     }
   });

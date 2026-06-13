@@ -973,7 +973,64 @@ git commit -m "style: add gothic ornaments to combat UI"
 
 ---
 
-### Task 8: Final Polish & Verification
+### Task 8: Custom Scrollbar Styling
+
+**Files:**
+- Modify: `src/styles/main.css` (append new section)
+
+- [ ] **Step 1: Add gothic-themed scrollbar CSS**
+
+Append the following CSS to `src/styles/main.css` (in the gothic frame section):
+
+```css
+/* ==========================================
+   Gothic Scrollbar
+   ========================================== */
+
+/* Webkit (Chrome, Safari, Edge) */
+::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+::-webkit-scrollbar-track {
+  background: #1a1d24;
+  border-left: 1px solid #3a3d45;
+}
+::-webkit-scrollbar-thumb {
+  background: linear-gradient(180deg, #4a4d55, #3a3d45);
+  border: 1px solid #5a5d65;
+  border-radius: 3px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: linear-gradient(180deg, #5a5d65, #4a4d55);
+  border-color: var(--imperial-gold);
+}
+::-webkit-scrollbar-corner {
+  background: #1a1d24;
+}
+
+/* Firefox */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: #4a4d55 #1a1d24;
+}
+```
+
+- [ ] **Step 2: Verify build**
+
+Run: `npm run build`
+Expected: Build succeeds with no errors.
+
+- [ ] **Step 3: Commit**
+
+```bash
+git add -A
+git commit -m "style: add gothic-themed scrollbar styling"
+```
+
+---
+
+### Task 9: Final Polish & Verification
 
 **Files:**
 - Modify: `src/styles/main.css` (fine-tuning)

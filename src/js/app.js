@@ -12,8 +12,9 @@ import { SM_TEMPLATES, PM_TEMPLATES, RULE_TEXTS } from './constants.js';
 import {
   addLog, updateScoresUI, adjustScore, confirmReset, updateGuidance,
   getAvatarHtml, renderRosterPickers, toggleSelectSM, toggleSelectPM,
+  incrementWarrior, decrementWarrior,
   updateSelectionCounts, validateRostersAndDeploy, renderOperatives,
-  activateOperative, updateActivePanel, performMove, performCharge,
+  activateOperative, updateActivePanel, performMove, performCharge, toggleConceal,
   endActivation, startInitiativePhase, showPhaseOverlay, hidePhaseOverlay,
   rollInitiativeOverlay, selectTurnOrder, startStrategyPhase, buyPloy,
   proceedToFirefight, showRuleHelp, closeHelpModal,
@@ -90,6 +91,8 @@ window.confirmReset = confirmReset;
 // Roster Selection
 window.toggleSelectSM = toggleSelectSM;
 window.toggleSelectPM = toggleSelectPM;
+window.incrementWarrior = incrementWarrior;
+window.decrementWarrior = decrementWarrior;
 window.validateRostersAndDeploy = validateRostersAndDeploy;
 
 // Avatar Upload
@@ -98,6 +101,7 @@ window.handleAvatarFileSelect = handleAvatarFileSelect;
 
 // Active Panel Actions
 window.activateOperative = activateOperative;
+window.toggleConceal = toggleConceal;
 window.performMove = performMove;
 window.performCharge = performCharge;
 window.openShootWizard = openShootWizard;

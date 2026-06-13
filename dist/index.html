@@ -8,12 +8,17 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;600;700;900&family=Outfit:wght@300;400;500;600;700&display=swap" rel="stylesheet">
-  <script type="module" crossorigin src="/assets/index-Z34uNRSn.js"></script>
-  <link rel="stylesheet" crossorigin href="/assets/index-DsWTQDpq.css">
+  <script type="module" crossorigin src="/Kill-Team-Companion/assets/index-DXSPcbQX.js"></script>
+  <link rel="stylesheet" crossorigin href="/Kill-Team-Companion/assets/index-DrBy3kHa.css">
 </head>
 <body>
 
-  <div class="app-container">
+  <a href="#main-content" class="skip-link">跳至主要内容 (Skip to main content)</a>
+  <div class="toast-container" id="toast-container" aria-live="polite" aria-atomic="true"></div>
+
+  <h1 class="sr-only">Kill Team Combat Assistant</h1>
+
+  <main id="main-content" class="app-container">
 
     <!-- 顶部状态 Dash -->
     <div class="global-dash" id="global-dash" style="display: none;">
@@ -31,17 +36,17 @@
               <div class="score-group">
                 <span class="label">胜利点 VP</span>
                 <div class="val-control">
-                  <button class="adjust-btn" onclick="adjustScore('sm', 'vp', -1)">-</button>
-                  <span class="val" id="sm-vp">0</span>
-                  <button class="adjust-btn" onclick="adjustScore('sm', 'vp', 1)">+</button>
+                  <button class="adjust-btn" aria-label="减少死亡天使胜利点" onclick="adjustScore('sm', 'vp', -1)">-</button>
+                  <span class="val" id="sm-vp" aria-live="polite">0</span>
+                  <button class="adjust-btn" aria-label="增加死亡天使胜利点" onclick="adjustScore('sm', 'vp', 1)">+</button>
                 </div>
               </div>
               <div class="score-group">
                 <span class="label">命令点 CP</span>
                 <div class="val-control">
-                  <button class="adjust-btn" onclick="adjustScore('sm', 'cp', -1)">-</button>
-                  <span class="val" id="sm-cp">2</span>
-                  <button class="adjust-btn" onclick="adjustScore('sm', 'cp', 1)">+</button>
+                  <button class="adjust-btn" aria-label="减少死亡天使命令点" onclick="adjustScore('sm', 'cp', -1)">-</button>
+                  <span class="val" id="sm-cp" aria-live="polite">2</span>
+                  <button class="adjust-btn" aria-label="增加死亡天使命令点" onclick="adjustScore('sm', 'cp', 1)">+</button>
                 </div>
               </div>
             </div>
@@ -56,17 +61,17 @@
               <div class="score-group">
                 <span class="label">胜利点 VP</span>
                 <div class="val-control">
-                  <button class="adjust-btn" onclick="adjustScore('pm', 'vp', -1)">-</button>
-                  <span class="val" id="pm-vp">0</span>
-                  <button class="adjust-btn" onclick="adjustScore('pm', 'vp', 1)">+</button>
+                  <button class="adjust-btn" aria-label="减少瘟疫守卫胜利点" onclick="adjustScore('pm', 'vp', -1)">-</button>
+                  <span class="val" id="pm-vp" aria-live="polite">0</span>
+                  <button class="adjust-btn" aria-label="增加瘟疫守卫胜利点" onclick="adjustScore('pm', 'vp', 1)">+</button>
                 </div>
               </div>
               <div class="score-group">
                 <span class="label">命令点 CP</span>
                 <div class="val-control">
-                  <button class="adjust-btn" onclick="adjustScore('pm', 'cp', -1)">-</button>
-                  <span class="val" id="pm-cp">2</span>
-                  <button class="adjust-btn" onclick="adjustScore('pm', 'cp', 1)">+</button>
+                  <button class="adjust-btn" aria-label="减少瘟疫守卫命令点" onclick="adjustScore('pm', 'cp', -1)">-</button>
+                  <span class="val" id="pm-cp" aria-live="polite">2</span>
+                  <button class="adjust-btn" aria-label="增加瘟疫守卫命令点" onclick="adjustScore('pm', 'cp', 1)">+</button>
                 </div>
               </div>
             </div>
@@ -82,8 +87,8 @@
     </div>
 
     <!-- 新手指令引导条 -->
-    <div class="guidance-banner" id="guidance-banner" style="display: none;">
-      <span class="guidance-icon">📡</span>
+    <div class="guidance-banner" id="guidance-banner" style="display: none;" role="status" aria-live="polite">
+      <span class="guidance-icon" aria-hidden="true">📡</span>
       <span class="guidance-text" id="guidance-text">请进行先攻判定。</span>
     </div>
 
@@ -111,10 +116,8 @@
             <span class="roster-picker-title">死亡天使 (Angels of Death)</span>
             <span class="roster-picker-limit" id="sm-roster-count">已选: 0 / 6 人</span>
           </div>
-          <p style="font-size:0.75rem; color:var(--text-muted); margin-bottom: 6px;">
-            ⚠️ 必须选择且仅选择 1 名 Leader 队长（Captain 或 Sergeant），其余 5 名专家将自动入选出战。
-          </p>
-          <div class="roster-picker-list" id="sm-roster-picker-list"></div>
+          <div id="sm-leader-section"></div>
+          <div id="sm-operator-section"></div>
         </div>
 
         <div class="roster-picker-card pm">
@@ -122,10 +125,8 @@
             <span class="roster-picker-title">瘟疫守卫 (Plague Marines)</span>
             <span class="roster-picker-limit" id="pm-roster-count">已选: 0 / 6 人</span>
           </div>
-          <p style="font-size:0.75rem; color:var(--text-muted); margin-bottom: 6px;">
-            ⚠️ 冠军队长 Champion 作为唯一 Leader 必选上场，请在其余 6 名专家中挑选 5 名出战。
-          </p>
-          <div class="roster-picker-list" id="pm-roster-picker-list"></div>
+          <div id="pm-leader-section"></div>
+          <div id="pm-operator-section"></div>
         </div>
 
       </div>
@@ -139,7 +140,7 @@
       <!-- 星际战士特工列表 -->
       <div class="operative-board sm-team">
         <div class="board-header">
-          <img src="/assets/faction_header_sm-DMABfrUP.png" class="board-header-img">
+          <img src="/Kill-Team-Companion/assets/faction_header_sm-DMABfrUP.png" class="board-header-img" alt="死亡天使战队旗帜 (Angels of Death Banner)" width="400" height="80">
           <div class="board-header-content">
             <span>死亡天使战队 (Angels of Death)</span>
             <span class="team-status" id="sm-alive-count">6/6 存活</span>
@@ -169,34 +170,34 @@
             <div class="active-actions-grid">
               <div class="action-btn-row">
                 <button class="combat-action-btn" id="action-move" onclick="performMove()">
-                  <span>🏃 移动 (Move)</span>
+                  <span><span aria-hidden="true">🏃</span> 移动 (Move)</span>
                   <span class="cost">1 APL</span>
                 </button>
-                <button class="help-icon-btn" onclick="showRuleHelp('move')">?</button>
+                <button class="help-icon-btn" aria-label="查看移动规则说明" onclick="showRuleHelp('move')">?</button>
               </div>
 
               <div class="action-btn-row">
                 <button class="combat-action-btn" id="action-charge" onclick="performCharge()">
-                  <span>⚡ 冲锋 (Charge)</span>
+                  <span><span aria-hidden="true">⚡</span> 冲锋 (Charge)</span>
                   <span class="cost">1 APL</span>
                 </button>
-                <button class="help-icon-btn" onclick="showRuleHelp('charge')">?</button>
+                <button class="help-icon-btn" aria-label="查看冲锋规则说明" onclick="showRuleHelp('charge')">?</button>
               </div>
 
               <div class="action-btn-row">
                 <button class="combat-action-btn" id="action-shoot" onclick="openShootWizard()">
-                  <span>💥 射击 (Shoot)</span>
+                  <span><span aria-hidden="true">💥</span> 射击 (Shoot)</span>
                   <span class="cost">1 APL</span>
                 </button>
-                <button class="help-icon-btn" onclick="showRuleHelp('shoot')">?</button>
+                <button class="help-icon-btn" aria-label="查看射击规则说明" onclick="showRuleHelp('shoot')">?</button>
               </div>
 
               <div class="action-btn-row">
                 <button class="combat-action-btn" id="action-fight" onclick="openFightWizard()">
-                  <span>⚔️ 近战 (Fight)</span>
+                  <span><span aria-hidden="true">⚔️</span> 近战 (Fight)</span>
                   <span class="cost">1 APL</span>
                 </button>
-                <button class="help-icon-btn" onclick="showRuleHelp('fight')">?</button>
+                <button class="help-icon-btn" aria-label="查看近战规则说明" onclick="showRuleHelp('fight')">?</button>
               </div>
             </div>
 
@@ -210,7 +211,7 @@
 
         <div class="battle-log-card">
           <div class="battle-log-title">实时战况仪 (Battle Logs)</div>
-          <div class="battle-log-lines" id="battle-log-lines"></div>
+          <div class="battle-log-lines" id="battle-log-lines" role="log" aria-live="polite" aria-relevant="additions"></div>
         </div>
 
       </div>
@@ -218,7 +219,7 @@
       <!-- 瘟疫战士特工列表 -->
       <div class="operative-board pm-team">
         <div class="board-header">
-          <img src="/assets/faction_header_pm-CaCzJ_DI.png" class="board-header-img">
+          <img src="/Kill-Team-Companion/assets/faction_header_pm-CaCzJ_DI.png" class="board-header-img" alt="瘟疫守卫战队旗帜 (Plague Marines Banner)" width="400" height="80">
           <div class="board-header-content">
             <span>瘟疫守卫战队 (Plague Marines)</span>
             <span class="team-status" id="pm-alive-count">5/5 存活</span>
@@ -229,10 +230,10 @@
 
     </div>
 
-  </div>
+  </main>
 
   <!-- 战斗判定引导弹窗 -->
-  <div class="modal-overlay" id="combat-modal">
+  <div class="modal-overlay" id="combat-modal" role="dialog" aria-modal="true" aria-labelledby="modal-title">
     <div class="modal-content">
       <div class="modal-header">
         <div class="modal-title" id="modal-title">射击行动结算</div>
@@ -246,7 +247,7 @@
   </div>
 
   <!-- 动作说明帮助弹窗 -->
-  <div class="modal-overlay" id="help-modal">
+  <div class="modal-overlay" id="help-modal" role="dialog" aria-modal="true" aria-labelledby="help-title">
     <div class="modal-content" style="max-width:480px; border-color:var(--sm-accent);">
       <div class="modal-header">
         <div class="modal-title" id="help-title" style="color:var(--sm-accent);">规则解释</div>
@@ -259,12 +260,12 @@
   </div>
 
   <!-- 严格阶段流程锁定挡板 -->
-  <div class="phase-lock-overlay" id="phase-overlay" style="display: none;">
+  <div class="phase-lock-overlay" id="phase-overlay" style="display: none;" role="dialog" aria-modal="true" aria-labelledby="phase-overlay-title">
     <div class="phase-lock-box" id="phase-overlay-content"></div>
   </div>
 
   <!-- 特工阵亡大屏提示与恶搞动画 -->
-  <div class="death-overlay" id="death-overlay">
+  <div class="death-overlay" id="death-overlay" role="alertdialog" aria-modal="true" aria-labelledby="death-title" aria-describedby="death-model-name">
     <div class="death-card">
       <div class="death-title">⚠️ 特工阵亡提示 ⚠️</div>
       <div class="death-model-name" id="death-model-name">特工名称</div>
@@ -275,14 +276,16 @@
       </p>
 
       <div class="death-anim-stage">
-        <svg viewBox="0 0 100 100" class="tombstone-svg">
+        <svg viewBox="0 0 100 100" class="tombstone-svg" aria-hidden="true">
+          <title>墓碑</title>
           <path d="M20,90 L20,40 C20,20 80,20 80,40 L80,90 Z" />
           <path d="M10,90 L90,90" stroke="#0f172a" stroke-width="6" stroke-linecap="round" />
           <path d="M50,35 L50,65 M38,45 L62,45" stroke="#0f172a" stroke-width="5" stroke-linecap="round" />
           <text x="50" y="80" font-size="10" font-weight="bold" text-anchor="middle" fill="#0f172a">R.I.P</text>
         </svg>
 
-        <svg viewBox="0 0 100 100" class="ghost-svg">
+        <svg viewBox="0 0 100 100" class="ghost-svg" aria-hidden="true">
+          <title>幽灵</title>
           <path d="M20,50 C20,30 35,15 50,15 C65,15 80,30 80,50 C80,65 85,80 75,80 C70,80 65,70 60,75 C55,80 50,70 45,75 C40,70 35,80 30,80 C20,80 20,65 20,50 Z" fill="#e2e8f0" />
           <circle cx="42" cy="40" r="4" fill="#0f172a" />
           <circle cx="58" cy="40" r="4" fill="#0f172a" />
@@ -301,6 +304,7 @@
   </div>
 
   <!-- 全局隐藏上传控件 -->
+  <label for="global-avatar-uploader" class="sr-only">上传特工头像照片</label>
   <input type="file" id="global-avatar-uploader" accept="image/*" style="display:none" onchange="handleAvatarFileSelect(event)">
 
 </body>

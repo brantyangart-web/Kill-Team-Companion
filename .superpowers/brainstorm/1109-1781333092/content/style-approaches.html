@@ -1,0 +1,233 @@
+<h2>帝国哥特风格方案</h2>
+<p class="subtitle">中度主题 · 战争锻造色调（偏亮） · 现有字体</p>
+
+<div class="section">
+  <h3>方案对比</h3>
+
+  <div class="cards">
+
+    <!-- Approach A -->
+    <div class="card" data-choice="a" onclick="toggleSelect(this)">
+      <div class="card-image" style="padding: 24px; background: linear-gradient(135deg, #1a1d24 0%, #2a2d35 50%, #1e2128 100%); min-height: 280px;">
+        <!-- Mock Panel A: Steel + Rivets -->
+        <div style="
+          background: linear-gradient(180deg, #3a3d45 0%, #2a2d35 100%);
+          border: 3px solid #5a5d65;
+          border-radius: 4px;
+          padding: 16px;
+          position: relative;
+          box-shadow: inset 0 1px 0 rgba(255,255,255,0.1), 0 4px 12px rgba(0,0,0,0.4);
+        ">
+          <!-- Rivets -->
+          <div style="position:absolute;top:6px;left:6px;width:8px;height:8px;background:radial-gradient(circle at 30% 30%, #888, #444);border-radius:50%;box-shadow:inset 0 1px 2px rgba(0,0,0,0.5);"></div>
+          <div style="position:absolute;top:6px;right:6px;width:8px;height:8px;background:radial-gradient(circle at 30% 30%, #888, #444);border-radius:50%;box-shadow:inset 0 1px 2px rgba(0,0,0,0.5);"></div>
+          <div style="position:absolute;bottom:6px;left:6px;width:8px;height:8px;background:radial-gradient(circle at 30% 30%, #888, #444);border-radius:50%;box-shadow:inset 0 1px 2px rgba(0,0,0,0.5);"></div>
+          <div style="position:absolute;bottom:6px;right:6px;width:8px;height:8px;background:radial-gradient(circle at 30% 30%, #888, #444);border-radius:50%;box-shadow:inset 0 1px 2px rgba(0,0,0,0.5);"></div>
+
+          <div style="font-family:'Orbitron',sans-serif;font-size:0.7rem;color:#c9a84c;text-transform:uppercase;letter-spacing:2px;margin-bottom:8px;text-align:center;">Turning Point</div>
+          <div style="font-family:'Orbitron',sans-serif;font-size:2rem;color:#e8d48b;text-align:center;text-shadow:0 0 10px rgba(201,168,76,0.4);">3</div>
+          <div style="height:1px;background:linear-gradient(90deg,transparent,#5a5d65,transparent);margin:12px 0;"></div>
+          <div style="display:flex;justify-content:space-between;gap:8px;">
+            <div style="flex:1;background:#1e2128;border:1px solid #4a4d55;border-radius:2px;padding:8px;text-align:center;">
+              <div style="font-size:0.6rem;color:#8a8d95;text-transform:uppercase;">VP</div>
+              <div style="font-family:'Orbitron',sans-serif;color:#e8d48b;font-size:1.2rem;">2</div>
+            </div>
+            <div style="flex:1;background:#1e2128;border:1px solid #4a4d55;border-radius:2px;padding:8px;text-align:center;">
+              <div style="font-size:0.6rem;color:#8a8d95;text-transform:uppercase;">CP</div>
+              <div style="font-family:'Orbitron',sans-serif;color:#e8d48b;font-size:1.2rem;">4</div>
+            </div>
+          </div>
+        </div>
+        <div style="text-align:center;margin-top:12px;color:#8a8d95;font-size:0.75rem;">铆钉金属面板示意</div>
+      </div>
+      <div class="card-body">
+        <h3>A. 装甲锻造 (Armored Forge)</h3>
+        <p>钢铁质感面板 + 四角铆钉装饰。边框为磨损金属感，按钮有铁质浮雕效果。</p>
+        <div class="pros-cons">
+          <div class="pros">
+            <h4>特点</h4>
+            <ul>
+              <li>金属拉丝/钢板纹理背景</li>
+              <li>面板四角铆钉装饰</li>
+              <li>按钮有凸起/浮雕铁质感</li>
+              <li>分隔线为金属焊接纹理</li>
+            </ul>
+          </div>
+          <div class="cons">
+            <h4>注意</h4>
+            <ul>
+              <li>CSS实现较复杂</li>
+              <li>可能需要SVG纹理</li>
+            </ul>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Approach B -->
+    <div class="card" data-choice="b" onclick="toggleSelect(this)">
+      <div class="card-image" style="padding: 24px; background: linear-gradient(135deg, #1a1d24 0%, #2a2d35 50%, #1e2128 100%); min-height: 280px;">
+        <!-- Mock Panel B: Gothic Frame -->
+        <div style="
+          background: linear-gradient(180deg, #2a2d35 0%, #1e2128 100%);
+          border: 2px solid #6a6d75;
+          border-radius: 8px 8px 2px 2px;
+          padding: 16px;
+          position: relative;
+          box-shadow: 0 4px 12px rgba(0,0,0,0.4);
+        ">
+          <!-- Gothic arch top -->
+          <div style="
+            position: absolute;
+            top: -8px;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 40px;
+            height: 16px;
+            background: #2a2d35;
+            border: 2px solid #6a6d75;
+            border-bottom: none;
+            border-radius: 20px 20px 0 0;
+          "></div>
+          <!-- Corner ornaments -->
+          <div style="position:absolute;top:4px;left:4px;color:#c9a84c;font-size:14px;">❧</div>
+          <div style="position:absolute;top:4px;right:4px;color:#c9a84c;font-size:14px;transform:scaleX(-1);">❧</div>
+
+          <div style="font-family:'Orbitron',sans-serif;font-size:0.7rem;color:#c9a84c;text-transform:uppercase;letter-spacing:2px;margin-bottom:8px;text-align:center;margin-top:8px;">Turning Point</div>
+          <div style="font-family:'Orbitron',sans-serif;font-size:2rem;color:#e8d48b;text-align:center;text-shadow:0 0 10px rgba(201,168,76,0.4);">3</div>
+          <div style="height:2px;background:linear-gradient(90deg,transparent,#c9a84c 20%,#c9a84c 80%,transparent);margin:12px 0;position:relative;">
+            <div style="position:absolute;left:50%;top:-3px;transform:translateX(-50);width:8px;height:8px;background:#c9a84c;clip-path:polygon(50% 0%,100% 50%,50% 100%,0% 50%);"></div>
+          </div>
+          <div style="display:flex;justify-content:space-between;gap:8px;">
+            <div style="flex:1;background:#1a1d24;border:1px solid #4a4d55;border-radius:4px;padding:8px;text-align:center;">
+              <div style="font-size:0.6rem;color:#8a8d95;text-transform:uppercase;">VP</div>
+              <div style="font-family:'Orbitron',sans-serif;color:#e8d48b;font-size:1.2rem;">2</div>
+            </div>
+            <div style="flex:1;background:#1a1d24;border:1px solid #4a4d55;border-radius:4px;padding:8px;text-align:center;">
+              <div style="font-size:0.6rem;color:#8a8d95;text-transform:uppercase;">CP</div>
+              <div style="font-family:'Orbitron',sans-serif;color:#e8d48b;font-size:1.2rem;">4</div>
+            </div>
+          </div>
+        </div>
+        <div style="text-align:center;margin-top:12px;color:#8a8d95;font-size:0.75rem;">哥特拱形 + 角饰面板示意</div>
+      </div>
+      <div class="card-body">
+        <h3>B. 哥特框架 (Gothic Frame) ⭐ 推荐</h3>
+        <p>哥特式拱形装饰 + 华丽角饰。边框简洁但有哥特感，分隔线带菱形装饰。</p>
+        <div class="pros-cons">
+          <div class="pros">
+            <h4>特点</h4>
+            <ul>
+              <li>面板顶部哥特拱形装饰</li>
+              <li>角饰使用Unicode花纹(❧ ✦)</li>
+              <li>金色点缀（边框高光/分隔线）</li>
+              <li>菱形/钻石形分隔符</li>
+            </ul>
+          </div>
+          <div class="cons">
+            <h4>注意</h4>
+            <ul>
+              <li>纯CSS实现，性能友好</li>
+              <li>装饰适度不影响可读性</li>
+            </ul>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Approach C -->
+    <div class="card" data-choice="c" onclick="toggleSelect(this)">
+      <div class="card-image" style="padding: 24px; background: linear-gradient(135deg, #1a1d24 0%, #2a2d35 50%, #1e2128 100%); min-height: 280px;">
+        <!-- Mock Panel C: Parchment + Metal -->
+        <div style="
+          background: linear-gradient(180deg, #3a3530 0%, #2a2520 100%);
+          border: 2px solid #6a5d50;
+          border-radius: 6px;
+          padding: 16px;
+          position: relative;
+          box-shadow: inset 0 0 20px rgba(0,0,0,0.3), 0 4px 12px rgba(0,0,0,0.4);
+        ">
+          <!-- Metal corners -->
+          <div style="position:absolute;top:-2px;left:-2px;width:20px;height:20px;border-top:3px solid #8a7d6a;border-left:3px solid #8a7d6a;border-radius:6px 0 0 0;"></div>
+          <div style="position:absolute;top:-2px;right:-2px;width:20px;height:20px;border-top:3px solid #8a7d6a;border-right:3px solid #8a7d6a;border-radius:0 6px 0 0;"></div>
+          <div style="position:absolute;bottom:-2px;left:-2px;width:20px;height:20px;border-bottom:3px solid #8a7d6a;border-left:3px solid #8a7d6a;border-radius:0 0 0 6px;"></div>
+          <div style="position:absolute;bottom:-2px;right:-2px;width:20px;height:20px;border-bottom:3px solid #8a7d6a;border-right:3px solid #8a7d6a;border-radius:0 0 6px 0;"></div>
+
+          <div style="font-family:'Orbitron',sans-serif;font-size:0.7rem;color:#d4a85c;text-transform:uppercase;letter-spacing:2px;margin-bottom:8px;text-align:center;">Turning Point</div>
+          <div style="font-family:'Orbitron',sans-serif;font-size:2rem;color:#f0d890;text-align:center;text-shadow:0 0 10px rgba(212,168,92,0.4);">3</div>
+          <div style="height:1px;background:linear-gradient(90deg,transparent,#8a7d6a,transparent);margin:12px 0;"></div>
+          <div style="display:flex;justify-content:space-between;gap:8px;">
+            <div style="flex:1;background:#1e1b18;border:1px solid #5a5040;border-radius:3px;padding:8px;text-align:center;">
+              <div style="font-size:0.6rem;color:#9a8d7a;text-transform:uppercase;">VP</div>
+              <div style="font-family:'Orbitron',sans-serif;color:#f0d890;font-size:1.2rem;">2</div>
+            </div>
+            <div style="flex:1;background:#1e1b18;border:1px solid #5a5040;border-radius:3px;padding:8px;text-align:center;">
+              <div style="font-size:0.6rem;color:#9a8d7a;text-transform:uppercase;">CP</div>
+              <div style="font-family:'Orbitron',sans-serif;color:#f0d890;font-size:1.2rem;">4</div>
+            </div>
+          </div>
+        </div>
+        <div style="text-align:center;margin-top:12px;color:#8a8d95;font-size:0.75rem;">羊皮纸 + 金属角饰面板示意</div>
+      </div>
+      <div class="card-body">
+        <h3>C. 古卷铁箍 (Scroll & Iron)</h3>
+        <p>暖色调羊皮纸质感底板 + 金属角饰加固。像帝国军务部的战报文书。</p>
+        <div class="pros-cons">
+          <div class="pros">
+            <h4>特点</h4>
+            <ul>
+              <li>偏暖棕色调（羊皮纸感）</li>
+              <li>金属角饰"箍"住面板</li>
+              <li>内阴影模拟纸张厚度</li>
+              <li>金色文字高对比</li>
+            </ul>
+          </div>
+          <div class="cons">
+            <h4>注意</h4>
+            <ul>
+              <li>色调偏暖，可能不够"钢铁"</li>
+              <li>与当前冷色调差异较大</li>
+            </ul>
+          </div>
+        </div>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<div class="section">
+  <h3>色彩方案预览</h3>
+  <p class="subtitle">战争锻造色调（偏亮）</p>
+
+  <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:16px;margin-top:16px;">
+    <div style="text-align:center;">
+      <div style="display:flex;gap:4px;margin-bottom:8px;">
+        <div style="flex:1;height:60px;background:#1e2128;border-radius:4px;display:flex;align-items:center;justify-content:center;font-size:0.7rem;color:#fff;">#1e2128</div>
+        <div style="flex:1;height:60px;background:#2a2d35;border-radius:4px;display:flex;align-items:center;justify-content:center;font-size:0.7rem;color:#fff;">#2a2d35</div>
+      </div>
+      <div style="font-size:0.75rem;color:#888;">钢铁灰底</div>
+    </div>
+    <div style="text-align:center;">
+      <div style="display:flex;gap:4px;margin-bottom:8px;">
+        <div style="flex:1;height:60px;background:#6a6d75;border-radius:4px;display:flex;align-items:center;justify-content:center;font-size:0.7rem;color:#fff;">#6a6d75</div>
+        <div style="flex:1;height:60px;background:#8a8d95;border-radius:4px;display:flex;align-items:center;justify-content:center;font-size:0.7rem;color:#111;">#8a8d95</div>
+      </div>
+      <div style="font-size:0.75rem;color:#888;">磨损边框</div>
+    </div>
+    <div style="text-align:center;">
+      <div style="display:flex;gap:4px;margin-bottom:8px;">
+        <div style="flex:1;height:60px;background:#c9a84c;border-radius:4px;display:flex;align-items:center;justify-content:center;font-size:0.7rem;color:#111;">#c9a84c</div>
+        <div style="flex:1;height:60px;background:#e8d48b;border-radius:4px;display:flex;align-items:center;justify-content:center;font-size:0.7rem;color:#111;">#e8d48b</div>
+      </div>
+      <div style="font-size:0.75rem;color:#888;">帝国金点缀</div>
+    </div>
+    <div style="text-align:center;">
+      <div style="display:flex;gap:4px;margin-bottom:8px;">
+        <div style="flex:1;height:60px;background:#8b4513;border-radius:4px;display:flex;align-items:center;justify-content:center;font-size:0.7rem;color:#fff;">#8b4513</div>
+        <div style="flex:1;height:60px;background:#b22222;border-radius:4px;display:flex;align-items:center;justify-content:center;font-size:0.7rem;color:#fff;">#b22222</div>
+      </div>
+      <div style="font-size:0.75rem;color:#888;">铁锈红强调</div>
+    </div>
+  </div>
+</div>

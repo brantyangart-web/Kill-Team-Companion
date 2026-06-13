@@ -1,41 +1,130 @@
 import { Weapon } from './models.js';
 
 // ==========================================
-//       官方 Starter Set 7个特工的原始数据库
+//   Kill Team 2024 官方数据 — Angels of Death
+//   数据来源: kt_team_rules_angels_of_death
 // ==========================================
 
 const SM_TEMPLATES = [
-  { id: 'sm_1', name: 'Angels Captain (船长)', wounds: 14, apl: 3, df: 3, sv: 3, isLeader: true, defaultAvatar: './assets/images/operatives/sm/sm_captain.png',
-    weapons: [new Weapon('等离子手枪 (Plasma Pistol)', 4, 2, 5, 6, true), new Weapon('动力剑 (Power Sword)', 5, 2, 4, 6, false)] },
-  { id: 'sm_2', name: 'Intercessor Sergeant (军士)', wounds: 14, apl: 3, df: 3, sv: 3, isLeader: true, defaultAvatar: './assets/images/operatives/sm/sm_sergeant.png',
-    weapons: [new Weapon('自动爆弹枪 (Bolt Rifle)', 4, 2, 3, 4, true), new Weapon('链锯剑 (Chainsword)', 5, 3, 4, 5, false)] },
-  { id: 'sm_3', name: 'Eliminator Sniper (狙击手)', wounds: 14, apl: 3, df: 3, sv: 3, isLeader: false, defaultAvatar: './assets/images/operatives/sm/sm_sniper.png',
-    weapons: [new Weapon('战术狙击枪 (Stalker Bolt Carbine)', 4, 2, 3, 3, true), new Weapon('战斗短刀 (Combat Blade)', 4, 3, 3, 4, false)] },
-  { id: 'sm_4', name: 'Heavy Gunner (重武器手)', wounds: 16, apl: 3, df: 3, sv: 3, isLeader: false, defaultAvatar: './assets/images/operatives/sm/sm_heavy_gunner.png',
-    weapons: [new Weapon('重型爆弹步枪 (Heavy Bolt Rifle)', 5, 3, 4, 5, true), new Weapon('军用铁拳 (Fists)', 4, 3, 3, 4, false)] },
-  { id: 'sm_5', name: 'Assault Warrior (突击战士)', wounds: 14, apl: 3, df: 3, sv: 3, isLeader: false, defaultAvatar: './assets/images/operatives/sm/sm_assault.png',
-    weapons: [new Weapon('重型爆弹手枪 (Heavy Bolt Pistol)', 4, 3, 3, 4, true), new Weapon('链锯剑 (Chainsword)', 5, 3, 4, 5, false)] },
-  { id: 'sm_6', name: 'Intercessor Warrior A (战士A)', wounds: 14, apl: 3, df: 3, sv: 3, isLeader: false, defaultAvatar: './assets/images/operatives/sm/sm_warrior_a.png',
-    weapons: [new Weapon('自动爆弹步枪 (Auto Bolt Rifle)', 4, 3, 3, 4, true), new Weapon('军用重拳 (Fists)', 4, 3, 3, 4, false)] },
-  { id: 'sm_7', name: 'Intercessor Warrior B (战士B)', wounds: 14, apl: 3, df: 3, sv: 3, isLeader: false, defaultAvatar: './assets/images/operatives/sm/sm_warrior_b.png',
-    weapons: [new Weapon('标准爆弹步枪 (Bolt Rifle)', 4, 3, 3, 4, true), new Weapon('军用重拳 (Fists)', 4, 3, 3, 4, false)] }
+  // --- LEADER 选项 ---
+  { id: 'sm_1', name: 'Space Marine Captain (SM 船长)', wounds: 15, apl: 3, df: 3, sv: 3, isLeader: true, move: 6,
+    defaultAvatar: './assets/images/operatives/sm/sm_captain.png',
+    weapons: [
+      new Weapon('Master-crafted Bolt Rifle (精铸爆弹步枪)', 4, 3, 4, 5, true, 24, ['Indirect Fire']),
+      new Weapon('Relic Blade (遗物利刃)', 5, 3, 5, 6, false, null, ['Severe'])
+    ]
+  },
+  { id: 'sm_2', name: 'Assault Intercessor Sergeant (突击军士)', wounds: 15, apl: 3, df: 3, sv: 3, isLeader: true, move: 6,
+    defaultAvatar: './assets/images/operatives/sm/sm_sergeant.png',
+    weapons: [
+      new Weapon('Hand Flamer (手持火焰喷射器)', 4, 2, 3, 3, true, 6, ['Saturate', 'Torrent 1"']),
+      new Weapon('Chainsword (链锯剑)', 5, 3, 4, 5, false, null, [])
+    ]
+  },
+  { id: 'sm_3', name: 'Intercessor Sergeant (战术军士)', wounds: 15, apl: 3, df: 3, sv: 3, isLeader: true, move: 6,
+    defaultAvatar: './assets/images/operatives/sm/sm_sergeant.png',
+    weapons: [
+      new Weapon('Bolt Rifle (爆弹步枪)', 4, 3, 3, 4, true, null, ['Piercing Crits 1']),
+      new Weapon('Chainsword (链锯剑)', 4, 3, 4, 5, false, null, [])
+    ]
+  },
+
+  // --- OPERATOR 选项 (5选, 除 Warrior 外不可重复) ---
+  { id: 'sm_4', name: 'Eliminator Sniper (Eliminator 狙击手)', wounds: 14, apl: 3, df: 3, sv: 3, isLeader: false, move: 6,
+    defaultAvatar: './assets/images/operatives/sm/sm_sniper.png',
+    weapons: [
+      new Weapon('Bolt Sniper Rifle (爆弹狙击步枪)', 4, 2, 3, 4, true, null, ['Heavy (Dash only)', 'Saturate', 'Seek Light', 'Silent']),
+      new Weapon('Fists (铁拳)', 4, 3, 3, 4, false, null, [])
+    ]
+  },
+  { id: 'sm_5', name: 'Heavy Intercessor Gunner (重型火力手)', wounds: 18, apl: 3, df: 3, sv: 3, isLeader: false, move: 5,
+    defaultAvatar: './assets/images/operatives/sm/sm_heavy_gunner.png',
+    weapons: [
+      new Weapon('Heavy Bolter (重型爆弹枪)', 5, 3, 4, 5, true, null, ['Piercing Crits 1']),
+      new Weapon('Fists (铁拳)', 4, 3, 3, 4, false, null, [])
+    ]
+  },
+  { id: 'sm_8', name: 'Intercessor Gunner (战术火力手)', wounds: 14, apl: 3, df: 3, sv: 3, isLeader: false, move: 6,
+    defaultAvatar: './assets/images/operatives/sm/sm_warrior_b.png',
+    weapons: [
+      new Weapon('Auto Bolt Rifle (自动爆弹步枪)', 4, 3, 3, 4, true, null, ['Torrent 1"']),
+      new Weapon('Fists (铁拳)', 4, 3, 3, 4, false, null, [])
+    ]
+  },
+  { id: 'sm_6', name: 'Assault Intercessor Warrior (突击战士)', wounds: 14, apl: 3, df: 3, sv: 3, isLeader: false, isWarrior: true, move: 6,
+    defaultAvatar: './assets/images/operatives/sm/sm_assault.png',
+    weapons: [
+      new Weapon('Heavy Bolt Pistol (重型爆弹手枪)', 4, 3, 3, 4, true, 8, ['Piercing Crits 1']),
+      new Weapon('Chainsword (链锯剑)', 5, 3, 4, 5, false, null, [])
+    ]
+  },
+  { id: 'sm_7', name: 'Intercessor Warrior (战术战士)', wounds: 14, apl: 3, df: 3, sv: 3, isLeader: false, isWarrior: true, move: 6,
+    defaultAvatar: './assets/images/operatives/sm/sm_warrior_a.png',
+    weapons: [
+      new Weapon('Bolt Rifle (爆弹步枪)', 4, 3, 3, 4, true, null, ['Piercing Crits 1']),
+      new Weapon('Fists (铁拳)', 4, 3, 3, 4, false, null, [])
+    ]
+  }
 ];
 
+// ======================================================
+//   Kill Team 2024 官方数据 — Plague Marines (瘟疫守卫)
+//   数据来源: kt_team_rules_plague_marines
+// ======================================================
+
 const PM_TEMPLATES = [
-  { id: 'pm_1', name: 'Plague Champion (冠军队长)', wounds: 13, apl: 2, df: 3, sv: 3, isLeader: true, defaultAvatar: './assets/images/operatives/pm/pm_champion.png',
-    weapons: [new Weapon('等离子手枪 (Plasma Pistol)', 4, 3, 5, 6, true), new Weapon('瘟疫利刃 (Plague Knife)', 5, 3, 4, 6, false)] },
-  { id: 'pm_2', name: 'Malignant Plaguecaster (施法者)', wounds: 12, apl: 2, df: 3, sv: 3, isLeader: false, defaultAvatar: './assets/images/operatives/pm/pm_caster.png',
-    weapons: [new Weapon('奥术瘟疫风暴 (Plague Wind)', 4, 3, 3, 4, true), new Weapon('腐化法杖 (Corrupted Staff)', 4, 3, 4, 5, false)] },
-  { id: 'pm_3', name: 'Plague Icon Bearer (圣像手)', wounds: 12, apl: 2, df: 3, sv: 3, isLeader: false, defaultAvatar: './assets/images/operatives/pm/pm_icon.png',
-    weapons: [new Weapon('瘟疫爆弹步枪 (Plague Boltgun)', 4, 3, 3, 4, true), new Weapon('瘟疫重拳 (Fists)', 3, 3, 3, 4, false)] },
-  { id: 'pm_4', name: 'Plague Fighter (搏击斗士)', wounds: 12, apl: 2, df: 3, sv: 3, isLeader: false, defaultAvatar: './assets/images/operatives/pm/pm_fighter.png',
-    weapons: [new Weapon('爆弹手枪 (Bolt Pistol)', 4, 3, 3, 4, true), new Weapon('瘟疫巨镰 (Plague Cleaver)', 5, 3, 4, 6, false)] },
-  { id: 'pm_5', name: 'Plague Heavy Gunner (重炮手)', wounds: 12, apl: 2, df: 3, sv: 3, isLeader: false, defaultAvatar: './assets/images/operatives/pm/pm_heavy.png',
-    weapons: [new Weapon('枯萎发射器 (Blight Launcher)', 4, 3, 4, 6, true), new Weapon('瘟疫重拳 (Fists)', 3, 3, 3, 4, false)] },
-  { id: 'pm_6', name: 'Plague Gunner (特种枪手)', wounds: 12, apl: 2, df: 3, sv: 3, isLeader: false, defaultAvatar: './assets/images/operatives/pm/pm_gunner.png',
-    weapons: [new Weapon('热熔突击枪 (Meltagun)', 4, 3, 6, 3, true), new Weapon('瘟疫重拳 (Fists)', 3, 3, 3, 4, false)] },
-  { id: 'pm_7', name: 'Plague Warrior (普通战士)', wounds: 12, apl: 2, df: 3, sv: 3, isLeader: false, defaultAvatar: './assets/images/operatives/pm/pm_warrior.png',
-    weapons: [new Weapon('瘟疫爆弹步枪 (Plague Boltgun)', 4, 3, 3, 4, true), new Weapon('瘟疫重拳 (Fists)', 3, 3, 3, 4, false)] }
+  // --- LEADER ---
+  { id: 'pm_1', name: 'Plague Marine Champion (瘟疫冠军)', wounds: 15, apl: 3, df: 3, sv: 3, isLeader: true, move: 5,
+    defaultAvatar: './assets/images/operatives/pm/pm_champion.png',
+    weapons: [
+      new Weapon('Plague Sword (瘟疫之剑)', 5, 3, 4, 5, false, null, ['Severe', 'Poison', 'Toxic'])
+    ]
+  },
+
+  // --- OPERATOR 选项 (6选5, Warrior 可复选) ---
+  { id: 'pm_2', name: 'Malignant Plaguecaster (恶性瘟疫术士)', wounds: 14, apl: 3, df: 3, sv: 3, isLeader: false, move: 5,
+    defaultAvatar: './assets/images/operatives/pm/pm_caster.png',
+    weapons: [
+      new Weapon('Entropy (熵能术)', 4, 3, 3, 7, true, 7, ['PSYCHIC', 'Saturate', 'Severe', 'Poison']),
+      new Weapon('Plague Wind (瘟疫之风)', 6, 3, 2, 3, true, null, ['PSYCHIC', 'Saturate', 'Severe', 'Torrent 1"', 'Poison']),
+      new Weapon('Corrupted Staff (腐蚀法杖)', 4, 3, 3, 4, false, null, ['PSYCHIC', 'Severe', 'Shock', 'Stun', 'Poison'])
+    ]
+  },
+  { id: 'pm_3', name: 'Plague Marine Bombardier (瘟疫掷弹兵)', wounds: 14, apl: 3, df: 3, sv: 3, isLeader: false, move: 5,
+    defaultAvatar: './assets/images/operatives/pm/pm_gunner.png',
+    weapons: [
+      new Weapon('Boltgun (爆弹枪)', 4, 3, 3, 4, true, null, ['Toxic']),
+      new Weapon('Fists (铁拳)', 4, 3, 3, 4, false, null, [])
+    ]
+  },
+  { id: 'pm_4', name: 'Plague Marine Fighter (瘟疫搏击手)', wounds: 14, apl: 3, df: 3, sv: 3, isLeader: false, move: 5,
+    defaultAvatar: './assets/images/operatives/pm/pm_fighter.png',
+    weapons: [
+      new Weapon('Bolt Pistol (爆弹手枪)', 4, 3, 3, 4, true, 8, []),
+      new Weapon('Flail of Corruption (腐化之链枷)', 5, 3, 4, 5, false, null, ['Brutal', 'Severe', 'Shock', 'Poison'])
+    ]
+  },
+  { id: 'pm_5', name: 'Plague Marine Heavy Gunner (瘟疫重炮手)', wounds: 14, apl: 3, df: 3, sv: 3, isLeader: false, move: 5,
+    defaultAvatar: './assets/images/operatives/pm/pm_heavy.png',
+    weapons: [
+      new Weapon('Plague Spewer (瘟疫喷射器)', 5, 2, 3, 3, true, 7, ['Saturate', 'Severe', 'Torrent 2"', 'Poison']),
+      new Weapon('Fists (铁拳)', 4, 3, 3, 4, false, null, [])
+    ]
+  },
+  { id: 'pm_6', name: 'Plague Marine Icon Bearer (瘟疫圣像手)', wounds: 14, apl: 3, df: 3, sv: 3, isLeader: false, move: 5,
+    defaultAvatar: './assets/images/operatives/pm/pm_icon.png',
+    weapons: [
+      new Weapon('Bolt Pistol (爆弹手枪)', 4, 3, 3, 4, true, 8, []),
+      new Weapon('Plague Knife (瘟疫匕首)', 5, 3, 3, 4, false, null, ['Severe', 'Poison'])
+    ]
+  },
+  { id: 'pm_7', name: 'Plague Marine Warrior (瘟疫战士)', wounds: 14, apl: 3, df: 3, sv: 3, isLeader: false, isWarrior: true, move: 5,
+    defaultAvatar: './assets/images/operatives/pm/pm_warrior.png',
+    weapons: [
+      new Weapon('Boltgun (爆弹枪)', 4, 3, 3, 4, true, null, ['Toxic']),
+      new Weapon('Plague Knife (瘟疫匕首)', 4, 3, 3, 4, false, null, ['Severe', 'Poison'])
+    ]
+  }
 ];
 
 // ==========================================

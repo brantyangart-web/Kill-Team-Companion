@@ -3,6 +3,192 @@ import { playSound } from './audio.js';
 import { SM_TEMPLATES, PM_TEMPLATES, RULE_TEXTS } from './constants.js';
 import { Weapon, Operative } from './models.js';
 
+// Accessibility: check reduced motion preference
+const prefersReducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)');
+
+// ==========================================
+//           Toast Notification System
+// ==========================================
+
+let toastIdCounter = 0;
+
+export function showToast(message, type = 'info', duration = 4000) {
+  const container = document.getElementById('toast-container');
+  if (!container) {
+    // Fallback if container doesn't exist
+    console.warn(`[Toast ${type}]:`, message);
+    return;
+  }
+
+  const toast = document.createElement('div');
+  toast.className = `toast toast-${type}`;
+  toast.setAttribute('role', type === 'error' ? 'alert' : 'status');
+  toast.textContent = message;
+  toast.id = `toast-${++toastIdCounter}`;
+
+  container.appendChild(toast);
+
+  // Auto-dismiss
+  const timer = setTimeout(() => {
+    toast.classList.add('toast-exit');
+    setTimeout(() => toast.remove(), 300);
+  }, duration);
+
+  // Click to dismiss
+  toast.addEventListener('click', () => {
+    clearTimeout(timer);
+    toast.classList.add('toast-exit');
+    setTimeout(() => toast.remove(), 300);
+  });
+}
+
+export function showConfirmDialog(message, onConfirm) {
+  // Create a styled confirm dialog instead of native confirm()
+  const overlay = document.createElement('div');
+  overlay.className = 'modal-overlay';
+  overlay.style.display = 'flex';
+  overlay.setAttribute('role', 'alertdialog');
+  overlay.setAttribute('aria-modal', 'true');
+  overlay.setAttribute('aria-label', '确认操作');
+
+  overlay.innerHTML = `
+    <div class="modal-content" style="max-width: 420px;">
+      <div class="modal-header">
+        <div class="modal-title">⚠️ 确认操作</div>
+      </div>
+      <div class="modal-body">
+        <p style="font-size: 0.95rem; line-height: 1.6;">${message}</p>
+      </div>
+      <div class="modal-footer">
+        <button class="modal-btn" id="confirm-dialog-cancel">取消</button>
+        <button class="modal-btn primary" id="confirm-dialog-ok" style="background: linear-gradient(135deg, var(--red), #991b1b); border-color: #f43f5e;">确认</button>
+      </div>
+    </div>
+  `;
+
+  document.body.appendChild(overlay);
+  trapFocus(overlay);
+
+  const cleanup = () => {
+    releaseFocusTrap();
+    overlay.remove();
+  };
+
+  overlay.querySelector('#confirm-dialog-cancel').addEventListener('click', () => {
+    cleanup();
+  });
+
+  overlay.querySelector('#confirm-dialog-ok').addEventListener('click', () => {
+    cleanup();
+    if (onConfirm) onConfirm();
+  });
+
+  // Close on Escape
+  const escHandler = (e) => {
+    if (e.key === 'Escape') {
+      cleanup();
+      document.removeEventListener('keydown', escHandler);
+    }
+  };
+  document.addEventListener('keydown', escHandler);
+}
+
+// ==========================================
+//           Focus Trap Utility
+// ==========================================
+
+let currentFocusTrap = null;
+let previousFocusElement = null;
+
+function getFocusableElements(container) {
+  return container.querySelectorAll(
+    'button:not([disabled]):not([tabindex="-1"]), ' +
+    'input:not([disabled]):not([tabindex="-1"]), ' +
+    'select:not([disabled]):not([tabindex="-1"]), ' +
+    'textarea:not([disabled]):not([tabindex="-1"]), ' +
+    'a[href]:not([tabindex="-1"]), ' +
+    '[tabindex]:not([tabindex="-1"])'
+  );
+}
+
+export function trapFocus(element) {
+  previousFocusElement = document.activeElement;
+  currentFocusTrap = element;
+
+  const focusable = getFocusableElements(element);
+  if (focusable.length > 0) {
+    focusable[0].focus();
+  }
+
+  element._focusTrapHandler = (e) => {
+    if (e.key === 'Tab') {
+      const focusableEls = getFocusableElements(element);
+      if (focusableEls.length === 0) return;
+      const firstEl = focusableEls[0];
+      const lastEl = focusableEls[focusableEls.length - 1];
+
+      if (e.shiftKey) {
+        if (document.activeElement === firstEl) {
+          e.preventDefault();
+          lastEl.focus();
+        }
+      } else {
+        if (document.activeElement === lastEl) {
+          e.preventDefault();
+          firstEl.focus();
+        }
+      }
+    }
+  };
+  element.addEventListener('keydown', element._focusTrapHandler);
+}
+
+export function releaseFocusTrap() {
+  if (currentFocusTrap && currentFocusTrap._focusTrapHandler) {
+    currentFocusTrap.removeEventListener('keydown', currentFocusTrap._focusTrapHandler);
+    delete currentFocusTrap._focusTrapHandler;
+  }
+  currentFocusTrap = null;
+
+  if (previousFocusElement && previousFocusElement.focus) {
+    previousFocusElement.focus();
+  }
+  previousFocusElement = null;
+}
+
+// ==========================================
+//           Global Keyboard Handler
+// ==========================================
+
+document.addEventListener('keydown', (e) => {
+  if (e.key === 'Escape') {
+    // Close help modal
+    const helpModal = document.getElementById('help-modal');
+    if (helpModal && helpModal.style.display === 'flex') {
+      closeHelpModal();
+      return;
+    }
+
+    // Close combat modal
+    const combatModal = document.getElementById('combat-modal');
+    if (combatModal && combatModal.style.display === 'flex') {
+      combat.closeModal();
+      return;
+    }
+
+    // Close death overlay
+    const deathOverlay = document.getElementById('death-overlay');
+    if (deathOverlay && deathOverlay.style.display === 'flex') {
+      confirmOperativeDeath();
+      return;
+    }
+  }
+});
+
+// Warrior duplicate counts (faction → { templateId → count })
+const selectedSMCounts = {};
+const selectedPMCounts = {};
+
 // Combat callbacks - initialized from combat module
 const combat = {};
 export function initCombatCallbacks(callbacks) {
@@ -80,7 +266,7 @@ export function adjustScore(faction, type, amount) {
 }
 
 export function confirmReset() {
-  if (confirm('确定要重置当前对局吗？所有进度和选择将被清空。')) {
+  showConfirmDialog('确定要重置当前对局吗？所有进度和选择将被清空。', () => {
     playSound('click');
     gameState.turningPoint = 1;
     gameState.phase = 'Initiative';
@@ -103,7 +289,7 @@ export function confirmReset() {
     document.getElementById('battle-log-lines').innerHTML = '';
 
     renderRosterPickers();
-  }
+  });
 }
 
 export function updateGuidance(text) {
@@ -119,6 +305,8 @@ export function getAvatarHtml(opId, faction) {
   let fallbackUrl = faction === 'Space Marine' ? 'assets/images/defaults/default_sm_avatar.png' : 'assets/images/defaults/default_pm_avatar.png';
 
   const activeOp = gameState.operatives.find(o => o.id === opId);
+  const opName = activeOp ? activeOp.name : (SM_TEMPLATES.concat(PM_TEMPLATES).find(t => t.id === opId)?.name || opId);
+
   if (activeOp && activeOp.defaultAvatar) {
     fallbackUrl = activeOp.defaultAvatar;
   } else {
@@ -129,210 +317,441 @@ export function getAvatarHtml(opId, faction) {
   }
 
   const imgUrl = avatarUrl || fallbackUrl;
-  return `<div class="op-avatar-slot main-avatar-${opId}" onclick="triggerAvatarUpload(event, '${opId}')">
-            <img src="${imgUrl}" class="op-avatar-img" />
+  return `<div class="op-avatar-slot main-avatar-${opId}">
+            <img src="${imgUrl}" class="op-avatar-img" alt="${opName} 头像" loading="lazy" />
           </div>`;
 }
 
-export function renderRosterPickers() {
-  const smContainer = document.getElementById('sm-roster-picker-list');
-  const pmContainer = document.getElementById('pm-roster-picker-list');
+// ==========================================
+//         Roster Picker (选兵阶段)
+//   KT 2024 规则: 1 Leader + 5 Operators = 6 人
+//   Leader: 单选 (radio)
+//   Operator: 多选 (checkbox), 上限 5, Warrior 可复选
+// ==========================================
 
-  smContainer.innerHTML = '';
-  pmContainer.innerHTML = '';
-
-  // 渲染 SM (死亡天使)
-  SM_TEMPLATES.forEach(tmpl => {
-    const item = document.createElement('div');
-    item.className = 'roster-pick-row';
-    item.id = `picker-row-${tmpl.id}`;
-
-    const isLeader = tmpl.isLeader;
-    const leaderBadge = isLeader ? '<span class="role-badge leader">LEADER</span>' : '<span class="role-badge">SPECIALIST</span>';
-    const weaponNames = tmpl.weapons.map(w => w.name.split(' ')[0]).join(' / ');
-
-    const checkedAttr = !isLeader ? 'checked disabled' : '';
-    if (!isLeader) {
-      item.classList.add('selected');
-    }
-
-    const avatarHtml = getAvatarHtml(tmpl.id, 'Space Marine');
-
-    item.innerHTML = `
-      <input type="checkbox" class="roster-checkbox" id="check-${tmpl.id}" ${checkedAttr} onchange="toggleSelectSM('${tmpl.id}')">
-      ${avatarHtml}
-      <div class="roster-op-info">
-        <div class="roster-op-name">${tmpl.name} ${leaderBadge}</div>
-        <div class="roster-op-weapons">HP: ${tmpl.wounds} | 武器: ${weaponNames}</div>
-      </div>
-    `;
-
-    // 绑定点击整行勾选
-    if (isLeader) {
-      item.onclick = (e) => {
-        if (e.target.className !== 'roster-checkbox' && !e.target.closest('.op-avatar-slot')) {
-          const cb = document.getElementById(`check-${tmpl.id}`);
-          cb.checked = !cb.checked;
-          toggleSelectSM(tmpl.id);
-        }
-      };
-    }
-
-    smContainer.appendChild(item);
-  });
-
-  // 渲染 PM (瘟疫战士)
-  PM_TEMPLATES.forEach(tmpl => {
-    const item = document.createElement('div');
-    item.className = 'roster-pick-row';
-    item.id = `picker-row-${tmpl.id}`;
-
-    const isLeader = tmpl.isLeader;
-    const leaderBadge = isLeader ? '<span class="role-badge leader" style="border-color:var(--pm-accent); color:var(--pm-accent); background:rgba(132,204,22,0.15)">LEADER</span>' : '<span class="role-badge">SPECIALIST</span>';
-    const weaponNames = tmpl.weapons.map(w => w.name.split(' ')[0]).join(' / ');
-
-    // Champion 必选
-    const checkedAttr = isLeader ? 'checked disabled' : '';
-    if (isLeader) {
-      item.classList.add('selected');
-    }
-
-    const avatarHtml = getAvatarHtml(tmpl.id, 'Plague Marine');
-
-    item.innerHTML = `
-      <input type="checkbox" class="roster-checkbox" id="check-${tmpl.id}" ${checkedAttr} onchange="toggleSelectPM('${tmpl.id}')">
-      ${avatarHtml}
-      <div class="roster-op-info">
-        <div class="roster-op-name">${tmpl.name} ${leaderBadge}</div>
-        <div class="roster-op-weapons">HP: ${tmpl.wounds} | 武器: ${weaponNames}</div>
-      </div>
-    `;
-
-    if (!isLeader) {
-      item.onclick = (e) => {
-        if (e.target.className !== 'roster-checkbox' && !e.target.closest('.op-avatar-slot')) {
-          const cb = document.getElementById(`check-${tmpl.id}`);
-          cb.checked = !cb.checked;
-          toggleSelectPM(tmpl.id);
-        }
-      };
-    }
-
-    pmContainer.appendChild(item);
-  });
-
-  // 初始化计数
-  updateSelectionCounts();
+function buildWeaponSummary(tmpl) {
+  return tmpl.weapons.map(w => {
+    const shortName = w.name.split(' ')[0];
+    const rulesTag = w.rules && w.rules.length > 0 ? ` [${w.rules.join(',')}]` : '';
+    return shortName + rulesTag;
+  }).join(' / ');
 }
 
+function buildRosterRowHtml(tmpl, faction, isLeader, checked, disabled, toggleFn, badgeStyle) {
+  const badge = isLeader
+    ? `<span class="role-badge leader" ${badgeStyle ? `style="${badgeStyle}"` : ''}>LEADER</span>`
+    : `<span class="role-badge">OPERATOR</span>`;
+  const checkedAttr = checked ? 'checked' : '';
+  const disabledAttr = disabled ? 'disabled' : '';
+  const avatarHtml = getAvatarHtml(tmpl.id, faction);
+  const warriorTag = tmpl.isWarrior ? ' <span style="color:#fbbf24; font-size:0.65rem;">[Warrior]</span>' : '';
+
+  // Warrior 使用计数器（可复选多个同型单位），其他使用复选框
+  let controlHtml;
+  if (tmpl.isWarrior) {
+    controlHtml = `
+      <div class="warrior-counter" data-warrior-id="${tmpl.id}">
+        <button class="warrior-counter-btn minus" onclick="event.stopPropagation(); decrementWarrior('${tmpl.id}')" aria-label="减少数量">−</button>
+        <span class="warrior-counter-value" id="warrior-count-${tmpl.id}">0</span>
+        <button class="warrior-counter-btn plus" onclick="event.stopPropagation(); incrementWarrior('${tmpl.id}')" aria-label="增加数量">+</button>
+      </div>
+    `;
+  } else {
+    controlHtml = `<input type="checkbox" class="roster-checkbox" id="check-${tmpl.id}" ${checkedAttr} ${disabledAttr} onchange="${toggleFn}('${tmpl.id}')">`;
+  }
+
+  return `
+    ${controlHtml}
+    ${avatarHtml}
+    <div class="roster-op-info">
+      <div class="roster-op-name">${tmpl.name} ${badge}${warriorTag}</div>
+      <div class="roster-op-weapons">Move: ${tmpl.move || 6}" | HP: ${tmpl.wounds} | APL: ${tmpl.apl}</div>
+      <div style="font-size:0.65rem; color:#94a3b8; margin-top:2px;">武器: ${buildWeaponSummary(tmpl)}</div>
+    </div>
+  `;
+}
+
+function attachRowClickHandler(rowEl, tmplId, toggleFn, isWarrior = false) {
+  rowEl.onclick = (e) => {
+    // Skip if clicking on interactive elements
+    if (e.target.className !== 'roster-checkbox'
+        && !e.target.closest('.op-avatar-slot')
+        && !e.target.closest('.warrior-counter')) {
+      if (isWarrior) {
+        // Clicking row body of a warrior increments by 1
+        incrementWarrior(tmplId);
+      } else {
+        const cb = document.getElementById(`check-${tmplId}`);
+        if (cb && !cb.disabled) {
+          cb.checked = !cb.checked;
+          toggleFn(tmplId);
+        }
+      }
+    }
+  };
+}
+
+// ---- Warrior 计数器: 增加 / 减少 ----
+export function incrementWarrior(id) {
+  playSound('click');
+  const isSM = SM_TEMPLATES.some(t => t.id === id);
+  const faction = isSM ? 'sm' : 'pm';
+  const templates = isSM ? SM_TEMPLATES : PM_TEMPLATES;
+  const counts = isSM ? selectedSMCounts : selectedPMCounts;
+  const tmpl = templates.find(t => t.id === id);
+  if (!tmpl || !tmpl.isWarrior) return;
+
+  // Operator 上限为 5 (Leader 必占 1 位, 总人数 6)
+  const currentOpCount = getOperatorCount(faction);
+  if (currentOpCount >= 5) {
+    showToast('Operator 数量已达上限 (5 名)！请先减少其他 Operator。', 'warning');
+    return;
+  }
+
+  counts[id] = (counts[id] || 0) + 1;
+  const countEl = document.getElementById(`warrior-count-${id}`);
+  if (countEl) countEl.textContent = counts[id];
+
+  const row = document.getElementById(`picker-row-${id}`);
+  if (row) {
+    if (counts[id] > 0) row.classList.add('selected');
+    else row.classList.remove('selected');
+  }
+
+  updateSelectionCounts();
+  updateOperatorAvailability(faction);
+}
+
+export function decrementWarrior(id) {
+  playSound('click');
+  const isSM = SM_TEMPLATES.some(t => t.id === id);
+  const faction = isSM ? 'sm' : 'pm';
+  const counts = isSM ? selectedSMCounts : selectedPMCounts;
+  if (!counts[id] || counts[id] <= 0) return;
+
+  counts[id]--;
+  const countEl = document.getElementById(`warrior-count-${id}`);
+  if (countEl) countEl.textContent = counts[id];
+
+  const row = document.getElementById(`picker-row-${id}`);
+  if (row && counts[id] <= 0) row.classList.remove('selected');
+
+  updateSelectionCounts();
+  updateOperatorAvailability(faction);
+}
+
+// ---- 计算当前已选 Operator 数量 (不含 Leader) ----
+function getOperatorCount(faction) {
+  const templates = faction === 'sm' ? SM_TEMPLATES : PM_TEMPLATES;
+  const counts = faction === 'sm' ? selectedSMCounts : selectedPMCounts;
+  let count = 0;
+
+  // 非 Warrior Operator (checkbox)
+  templates.filter(t => !t.isLeader && !t.isWarrior).forEach(t => {
+    if (document.getElementById(`check-${t.id}`)?.checked) count++;
+  });
+
+  // Warrior counts
+  templates.filter(t => !t.isLeader && t.isWarrior).forEach(t => {
+    count += (counts[t.id] || 0);
+  });
+
+  return count;
+}
+
+// ---- 计算当前已选总人数 (含 Leader) ----
+function getSelectedTotal(faction) {
+  const templates = faction === 'sm' ? SM_TEMPLATES : PM_TEMPLATES;
+  let leaderCount = 0;
+
+  templates.filter(t => t.isLeader).forEach(t => {
+    if (faction === 'pm') leaderCount = 1; // PM Champion 锁定
+    else if (document.getElementById(`check-${t.id}`)?.checked) leaderCount++;
+  });
+
+  return leaderCount + getOperatorCount(faction);
+}
+
+export function renderRosterPickers() {
+  // 重置计数
+  Object.keys(selectedSMCounts).forEach(k => delete selectedSMCounts[k]);
+  Object.keys(selectedPMCounts).forEach(k => delete selectedPMCounts[k]);
+
+  // ---- SM (死亡天使): 1 Leader + 5 Operators ----
+  const smLeaders = SM_TEMPLATES.filter(t => t.isLeader);
+  const smOperators = SM_TEMPLATES.filter(t => !t.isLeader);
+
+  const smLeaderSection = document.getElementById('sm-leader-section');
+  const smOperatorSection = document.getElementById('sm-operator-section');
+  smLeaderSection.innerHTML = '';
+  smOperatorSection.innerHTML = '';
+
+  // Leader 分组标题
+  smLeaderSection.innerHTML = `
+    <div style="font-size:0.8rem; font-weight:600; color:#60a5fa; margin-bottom:6px; padding-left:4px;">
+      🎖️ LEADER — 单选 1 名 (3 选 1)
+    </div>
+  `;
+  smLeaders.forEach(tmpl => {
+    const row = document.createElement('div');
+    row.className = 'roster-pick-row';
+    row.id = `picker-row-${tmpl.id}`;
+    row.innerHTML = buildRosterRowHtml(tmpl, 'Space Marine', true, false, false, 'toggleSelectSM');
+    attachRowClickHandler(row, tmpl.id, toggleSelectSM, false);
+    smLeaderSection.appendChild(row);
+  });
+
+  // Operator 分组标题
+  smOperatorSection.innerHTML = `
+    <div style="font-size:0.8rem; font-weight:600; color:#60a5fa; margin:12px 0 6px 4px; display:flex; justify-content:space-between; align-items:center;">
+      <span>🎯 OPERATORS — 共选 5 名 (Warrior 可用计数器重复选取)</span>
+      <span id="sm-op-count" style="font-size:0.75rem; color:#94a3b8; font-family:'Orbitron',sans-serif;">0 / 5</span>
+    </div>
+    <p style="font-size:0.7rem; color:var(--text-muted); margin-bottom:8px; padding-left:4px;">
+      ⚠️ 非 Warrior 每种只能带一名。Warrior [Warrior] 可用 +/− 按钮选取最多 5 名同型单位。
+    </p>
+  `;
+  smOperators.forEach(tmpl => {
+    const row = document.createElement('div');
+    row.className = 'roster-pick-row';
+    row.id = `picker-row-${tmpl.id}`;
+    row.innerHTML = buildRosterRowHtml(tmpl, 'Space Marine', false, false, false, 'toggleSelectSM');
+    attachRowClickHandler(row, tmpl.id, toggleSelectSM, tmpl.isWarrior);
+    smOperatorSection.appendChild(row);
+  });
+
+  // ---- PM (瘟疫守卫): 1 Champion (locked) + 5 Operators ----
+  const pmLeaders = PM_TEMPLATES.filter(t => t.isLeader);
+  const pmOperators = PM_TEMPLATES.filter(t => !t.isLeader);
+
+  const pmLeaderSection = document.getElementById('pm-leader-section');
+  const pmOperatorSection = document.getElementById('pm-operator-section');
+  pmLeaderSection.innerHTML = '';
+  pmOperatorSection.innerHTML = '';
+
+  // Leader (Champion 必选)
+  pmLeaderSection.innerHTML = `
+    <div style="font-size:0.8rem; font-weight:600; color:var(--pm-accent); margin-bottom:6px; padding-left:4px;">
+      🎖️ LEADER — 必选
+    </div>
+  `;
+  const pmBadgeStyle = 'border-color:var(--pm-accent); color:var(--pm-accent); background:rgba(132,204,22,0.15)';
+  pmLeaders.forEach(tmpl => {
+    const row = document.createElement('div');
+    row.className = 'roster-pick-row selected';
+    row.id = `picker-row-${tmpl.id}`;
+    row.innerHTML = buildRosterRowHtml(tmpl, 'Plague Marine', true, true, true, 'toggleSelectPM', pmBadgeStyle);
+    pmLeaderSection.appendChild(row);
+  });
+
+  // Operators
+  pmOperatorSection.innerHTML = `
+    <div style="font-size:0.8rem; font-weight:600; color:var(--pm-accent); margin:12px 0 6px 4px; display:flex; justify-content:space-between; align-items:center;">
+      <span>🎯 OPERATORS — 共选 5 名 (6 类型, Warrior 可重复)</span>
+      <span id="pm-op-count" style="font-size:0.75rem; color:#94a3b8; font-family:'Orbitron',sans-serif;">0 / 5</span>
+    </div>
+    <p style="font-size:0.7rem; color:var(--text-muted); margin-bottom:8px; padding-left:4px;">
+      ⚠️ 非 Warrior 每种只能带一名。Warrior [Warrior] 可用 +/− 按钮选取多名同型单位。
+    </p>
+  `;
+  pmOperators.forEach(tmpl => {
+    const row = document.createElement('div');
+    row.className = 'roster-pick-row';
+    row.id = `picker-row-${tmpl.id}`;
+    row.innerHTML = buildRosterRowHtml(tmpl, 'Plague Marine', false, false, false, 'toggleSelectPM', pmBadgeStyle);
+    attachRowClickHandler(row, tmpl.id, toggleSelectPM, tmpl.isWarrior);
+    pmOperatorSection.appendChild(row);
+  });
+
+  updateSelectionCounts();
+  updateOperatorAvailability('sm');
+  updateOperatorAvailability('pm');
+}
+
+// ---- SM Toggle (leader 单选互斥; 非 warrior operator 上限检查) ----
 export function toggleSelectSM(id) {
   playSound('click');
-  const op = SM_TEMPLATES.find(o => o.id === id);
+  const tmpl = SM_TEMPLATES.find(t => t.id === id);
   const cb = document.getElementById(`check-${id}`);
+  const row = document.getElementById(`picker-row-${id}`);
 
-  // 队长互斥限制 (Captain vs Sergeant)
-  if (op.isLeader && cb.checked) {
-    const otherLeaderId = id === 'sm_1' ? 'sm_2' : 'sm_1';
-    const otherCb = document.getElementById(`check-${otherLeaderId}`);
-    if (otherCb.checked) {
-      otherCb.checked = false;
-      // 视觉上移除其他队长的被选状态
-      document.getElementById(`picker-row-${otherLeaderId}`).classList.remove('selected');
+  if (!tmpl || !cb) return;
+
+  if (tmpl.isLeader) {
+    // Leader 单选互斥: 选中时取消其他 leader
+    if (cb.checked) {
+      SM_TEMPLATES.filter(t => t.isLeader && t.id !== id).forEach(other => {
+        const otherCb = document.getElementById(`check-${other.id}`);
+        if (otherCb) {
+          otherCb.checked = false;
+          document.getElementById(`picker-row-${other.id}`)?.classList.remove('selected');
+        }
+      });
+    }
+  } else if (cb.checked) {
+    // 非 Warrior operator: 检查 Operator 上限 5 (Leader 必占 1 位)
+    const currentOpCount = getOperatorCount('sm');
+    if (currentOpCount > 5) {
+      cb.checked = false;
+      showToast('Operator 数量已达上限 (5 名)！请先减少其他 Operator。', 'warning');
+      updateSelectionCounts();
+      return;
     }
   }
 
-  const row = document.getElementById(`picker-row-${id}`);
   if (cb.checked) row.classList.add('selected');
   else row.classList.remove('selected');
 
   updateSelectionCounts();
+  updateOperatorAvailability('sm');
 }
 
+// ---- PM Toggle (非 warrior operator 上限检查) ----
 export function toggleSelectPM(id) {
   playSound('click');
-  const row = document.getElementById(`picker-row-${id}`);
+  const tmpl = PM_TEMPLATES.find(t => t.id === id);
   const cb = document.getElementById(`check-${id}`);
+  const row = document.getElementById(`picker-row-${id}`);
+
+  if (!tmpl || !cb) return;
+  if (tmpl.isLeader) return; // Champion 锁定, 不可切换
+
+  if (cb.checked) {
+    // Operator 上限 5 (Champion 必占 1 位)
+    const currentOpCount = getOperatorCount('pm');
+    if (currentOpCount > 5) {
+      cb.checked = false;
+      showToast('Operator 数量已达上限 (5 名)！请先减少其他 Operator。', 'warning');
+      updateSelectionCounts();
+      return;
+    }
+  }
+
   if (cb.checked) row.classList.add('selected');
   else row.classList.remove('selected');
 
   updateSelectionCounts();
+  updateOperatorAvailability('pm');
 }
 
-export function updateSelectionCounts() {
-  // 统计 SM
-  let smSelected = 0;
-  SM_TEMPLATES.forEach(t => {
-    if (document.getElementById(`check-${t.id}`).checked) smSelected++;
-  });
-  document.getElementById('sm-roster-count').textContent = `已选: ${smSelected} / 6 人`;
+// ---- 动态禁用: Operator 满 5 个时禁掉未选中的非 Warrior 复选框, Warrior + 按钮也限制 ----
+function updateOperatorAvailability(faction) {
+  const templates = faction === 'sm' ? SM_TEMPLATES : PM_TEMPLATES;
+  const counts = faction === 'sm' ? selectedSMCounts : selectedPMCounts;
+  const opCount = getOperatorCount(faction);
+  const atOpLimit = opCount >= 5;
 
-  // 统计 PM
-  let pmSelected = 0;
-  PM_TEMPLATES.forEach(t => {
-    if (document.getElementById(`check-${t.id}`).checked) pmSelected++;
+  templates.filter(t => !t.isLeader).forEach(tmpl => {
+    if (tmpl.isWarrior) {
+      const plusBtn = document.querySelector(`#picker-row-${tmpl.id} .warrior-counter-btn.plus`);
+      const minusBtn = document.querySelector(`#picker-row-${tmpl.id} .warrior-counter-btn.minus`);
+      const currentCount = counts[tmpl.id] || 0;
+      if (plusBtn) plusBtn.disabled = atOpLimit;
+      if (minusBtn) minusBtn.disabled = currentCount <= 0;
+    } else {
+      const cb = document.getElementById(`check-${tmpl.id}`);
+      if (!cb) return;
+      if (atOpLimit && !cb.checked) {
+        cb.disabled = true;
+      } else {
+        cb.disabled = false;
+      }
+    }
   });
-  document.getElementById('pm-roster-count').textContent = `已选: ${pmSelected} / 6 人`;
+}
+
+// ---- 计数显示 ----
+export function updateSelectionCounts() {
+  const smTotal = getSelectedTotal('sm');
+  const smOpCount = getOperatorCount('sm');
+  document.getElementById('sm-roster-count').textContent = `已选: ${smTotal} / 6 人`;
+  const smOpEl = document.getElementById('sm-op-count');
+  if (smOpEl) smOpEl.textContent = `${smOpCount} / 5`;
+
+  const pmTotal = getSelectedTotal('pm');
+  const pmOpCount = getOperatorCount('pm');
+  document.getElementById('pm-roster-count').textContent = `已选: ${pmTotal} / 6 人`;
+  const pmOpEl = document.getElementById('pm-op-count');
+  if (pmOpEl) pmOpEl.textContent = `${pmOpCount} / 5`;
 }
 
 export function validateRostersAndDeploy() {
   playSound('click');
 
-  const smSelectedIds = [];
+  // 收集 SM 选中的模板和数量（warrior 可 > 1）
+  const smEntries = []; // { tmpl, count }
   let smLeaderCount = 0;
   SM_TEMPLATES.forEach(t => {
-    if (document.getElementById(`check-${t.id}`).checked) {
-      smSelectedIds.push(t.id);
+    if (t.isWarrior) {
+      const count = selectedSMCounts[t.id] || 0;
+      if (count > 0) {
+        smEntries.push({ tmpl: t, count });
+      }
+    } else if (document.getElementById(`check-${t.id}`)?.checked) {
+      smEntries.push({ tmpl: t, count: 1 });
       if (t.isLeader) smLeaderCount++;
     }
   });
+  const smTotal = smEntries.reduce((sum, e) => sum + e.count, 0);
 
-  const pmSelectedIds = [];
-  let pmLeaderCount = 0;
+  // 收集 PM 选中的模板和数量
+  const pmEntries = [];
   PM_TEMPLATES.forEach(t => {
-    if (document.getElementById(`check-${t.id}`).checked) {
-      pmSelectedIds.push(t.id);
-      if (t.isLeader) pmLeaderCount++;
+    if (t.isWarrior) {
+      const count = selectedPMCounts[t.id] || 0;
+      if (count > 0) {
+        pmEntries.push({ tmpl: t, count });
+      }
+    } else if (document.getElementById(`check-${t.id}`)?.checked) {
+      pmEntries.push({ tmpl: t, count: 1 });
     }
   });
+  const pmTotal = pmEntries.reduce((sum, e) => sum + e.count, 0);
 
   // 校验 SM
-  if (smSelectedIds.length !== 6) {
+  if (smTotal !== 6) {
     playSound('alert');
-    alert(`星际战士 (死亡天使) 必须刚好选择 6 人！当前选择了 ${smSelectedIds.length} 人。`);
+    showToast(`星际战士 (死亡天使) 必须刚好选择 6 人！当前选择了 ${smTotal} 人。`, 'error');
     return;
   }
   if (smLeaderCount !== 1) {
     playSound('alert');
-    alert(`星际战士 必须选择且仅选择 1 名队长（Captain 或 Sergeant 二选一）！`);
+    showToast(`星际战士 必须选择且仅选择 1 名队长！`, 'error');
     return;
   }
 
   // 校验 PM
-  if (pmSelectedIds.length !== 6) {
+  if (pmTotal !== 6) {
     playSound('alert');
-    alert(`瘟疫守卫 必须刚好选择 6 人！当前选择了 ${pmSelectedIds.length} 人。`);
+    showToast(`瘟疫守卫 必须刚好选择 6 人！当前选择了 ${pmTotal} 人。`, 'error');
     return;
   }
-  const pmChampionChecked = document.getElementById('check-pm_1').checked;
+  const pmChampionChecked = document.getElementById('check-pm_1')?.checked;
   if (!pmChampionChecked) {
     playSound('alert');
-    alert(`瘟疫守卫 的 冠军队长 (Plague Champion) 是强制出战的 Leader 角色！`);
+    showToast(`瘟疫守卫 的 冠军队长 (Plague Champion) 是强制出战的 Leader 角色！`, 'error');
     return;
   }
 
   // 校验通过，载入特工列表
   gameState.operatives = [];
 
-  // 加载 SM
-  smSelectedIds.forEach(id => {
-    const tmpl = SM_TEMPLATES.find(t => t.id === id);
-    gameState.operatives.push(new Operative(tmpl.id, tmpl.name, 'Space Marine', tmpl.wounds, tmpl.apl, tmpl.df, tmpl.sv, tmpl.weapons, tmpl.defaultAvatar));
+  // 加载 SM（Warrior count > 1 时生成多个独立 Operative，id 加后缀区分）
+  smEntries.forEach(({ tmpl, count }) => {
+    for (let i = 0; i < count; i++) {
+      const uniqueId = count > 1 ? `${tmpl.id}_${i + 1}` : tmpl.id;
+      const displayName = count > 1 ? `${tmpl.name} #${i + 1}` : tmpl.name;
+      gameState.operatives.push(new Operative(uniqueId, displayName, 'Space Marine', tmpl.wounds, tmpl.apl, tmpl.df, tmpl.sv, tmpl.weapons, tmpl.defaultAvatar, tmpl.move || 6));
+    }
   });
 
   // 加载 PM
-  pmSelectedIds.forEach(id => {
-    const tmpl = PM_TEMPLATES.find(t => t.id === id);
-    gameState.operatives.push(new Operative(tmpl.id, tmpl.name, 'Plague Marine', tmpl.wounds, tmpl.apl, tmpl.df, tmpl.sv, tmpl.weapons, tmpl.defaultAvatar));
+  pmEntries.forEach(({ tmpl, count }) => {
+    for (let i = 0; i < count; i++) {
+      const uniqueId = count > 1 ? `${tmpl.id}_${i + 1}` : tmpl.id;
+      const displayName = count > 1 ? `${tmpl.name} #${i + 1}` : tmpl.name;
+      gameState.operatives.push(new Operative(uniqueId, displayName, 'Plague Marine', tmpl.wounds, tmpl.apl, tmpl.df, tmpl.sv, tmpl.weapons, tmpl.defaultAvatar, tmpl.move || 5));
+    }
   });
 
   // 进入先攻阶段
@@ -381,11 +800,29 @@ export function renderOperatives() {
     const weaponNames = op.weapons.map(w => w.name.split(' ')[0]).join(' / ');
 
     let tagHtml = '';
-    if (isSm && gameState.smActivePloys.includes('bolter_discipline') && !op.isDead) {
-      tagHtml = '<span class="card-ploy-tag">双重射击</span>';
-    } else if (!isSm && gameState.pmActivePloys.includes('contagious_resilience') && !op.isDead) {
+    if (!isSm && gameState.pmActivePloys.includes('contagious_resilience') && !op.isDead) {
       tagHtml = '<span class="card-ploy-tag" style="border-color:var(--pm-accent); color:var(--pm-accent); background:rgba(132,204,22,0.15);">减伤重投</span>';
     }
+
+    // 状态标记：Conceal / Injured / Poison Token
+    let statusTagsHtml = '';
+    if (!op.isDead) {
+      if (op.hasConceal) {
+        statusTagsHtml += '<span class="card-ploy-tag" style="border-color:#818cf8; color:#818cf8; background:rgba(129,140,248,0.15); font-size:0.6rem;">隐蔽</span>';
+      }
+      if (op.isInjured) {
+        statusTagsHtml += '<span class="card-ploy-tag" style="border-color:var(--red); color:var(--red); background:rgba(239,68,68,0.15); font-size:0.6rem;">重伤</span>';
+      }
+      if (op.poisonTokens > 0) {
+        statusTagsHtml += '<span class="card-ploy-tag" style="border-color:#a3e635; color:#a3e635; background:rgba(163,230,53,0.15); font-size:0.6rem;">毒素×' + op.poisonTokens + '</span>';
+      }
+    }
+
+    // Conceal 切换按钮（仅当特工属于当前回合阵营且未死亡/未激活时可用）
+    const canToggleConceal = !op.isDead && !op.hasActed && gameState.phase === 'Firefight' && gameState.activeTurn === op.faction;
+    const concealBtnHtml = canToggleConceal
+      ? `<button class="conceal-toggle-btn" onclick="event.stopPropagation(); toggleConceal('${op.id}')" title="切换隐蔽状态" style="font-size:0.65rem; padding:2px 6px; margin-left:4px; background:${op.hasConceal ? 'rgba(129,140,248,0.3)' : 'transparent'}; border:1px solid #818cf8; color:#818cf8; border-radius:4px; cursor:pointer;">${op.hasConceal ? '🛡️隐蔽' : '🛡️'}</button>`
+      : '';
 
     const avatarHtml = getAvatarHtml(op.id, op.faction);
 
@@ -393,9 +830,9 @@ export function renderOperatives() {
       <div class="op-card-top">
         <div class="op-avatar-row">
           ${avatarHtml}
-          <span class="op-card-title">${op.name} ${tagHtml}</span>
+          <span class="op-card-title">${op.name} ${tagHtml} ${statusTagsHtml} ${concealBtnHtml}</span>
         </div>
-        <span class="op-card-tag">${op.maxApl} APL</span>
+        <span class="op-card-tag">${op.currentApl} APL${op.isInjured ? ' <span style="color:var(--red); font-size:0.6rem;">(-1)</span>' : ''}</span>
       </div>
       <div class="op-card-hp">
         <span>HP (Wounds):</span>
@@ -405,6 +842,7 @@ export function renderOperatives() {
         <div class="op-hp-bar" style="width: ${hpPercent}%; background-color: ${hpPercent < 40 ? 'var(--red)' : 'var(--green)'}"></div>
       </div>
       <div class="op-card-stats">
+        <span>Move: <strong>${op.currentMove}"</strong>${op.isInjured ? ' <span style="color:var(--red); font-size:0.55rem;">(-2)</span>' : ''}</span>
         <span>DF: <strong>${op.df}</strong></span>
         <span>SV: <strong>${op.sv}+</strong></span>
         <span style="font-size: 0.65rem; color: #64748b; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 120px;">
@@ -413,10 +851,18 @@ export function renderOperatives() {
       </div>
     `;
 
+    // Add accessibility attributes
+    card.setAttribute('role', 'button');
+    card.setAttribute('tabindex', '0');
+    card.setAttribute('aria-label', `${op.name}，HP: ${op.wounds}/${op.maxWounds}，${op.isDead ? '已阵亡' : op.hasActed ? '已激活' : '可激活'}`);
+
     if (!op.isDead && !op.hasActed && gameState.phase === 'Firefight' && gameState.activeTurn === op.faction && !gameState.activeAgent) {
       card.onclick = () => activateOperative(op.id);
+      card.onkeydown = (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); activateOperative(op.id); } };
     } else {
       card.onclick = null;
+      card.onkeydown = null;
+      if (op.isDead) card.setAttribute('aria-disabled', 'true');
     }
 
     if (isSm) smList.appendChild(card);
@@ -425,6 +871,19 @@ export function renderOperatives() {
 
   document.getElementById('sm-alive-count').textContent = `${smAlive} / 6 存活`;
   document.getElementById('pm-alive-count').textContent = `${pmAlive} / 6 存活`;
+}
+
+// ==========================================
+//           Conceal Order
+// ==========================================
+
+export function toggleConceal(opId) {
+  playSound('click');
+  const op = gameState.operatives.find(o => o.id === opId);
+  if (!op || op.isDead || op.hasActed) return;
+  op.toggleConceal();
+  addLog(`[隐蔽] ${op.name} ${op.hasConceal ? '进入隐蔽状态 (Conceal Order)，不可被指定为射击/近战目标。' : '解除了隐蔽状态。'}`);
+  renderOperatives();
 }
 
 // ==========================================
@@ -437,10 +896,24 @@ export function activateOperative(opId) {
   if (!op || op.isDead || op.hasActed) return;
 
   gameState.activeAgent = op;
-  op.apl = op.maxApl;
   op.actionsPerformed = [];
 
-  addLog(`[激活] ${op.name} 开始激活，获得 ${op.apl} APL！`);
+  // Poison Token 伤害：携带毒素标记的特工在激活开始时受到 1 点伤害
+  if (op.poisonTokens > 0) {
+    addLog(`[Poison] ${op.name} 携带毒素标记，激活开始受到 1 点伤害！`);
+    op.applyWounds(1);
+    // 如果因此阵亡则不再继续激活
+    if (op.isDead) {
+      renderOperatives();
+      updateActivePanel();
+      return;
+    }
+  }
+
+  // Injured 时 APL -1（使用 currentApl getter）
+  op.apl = op.currentApl;
+
+  addLog(`[激活] ${op.name} 开始激活，获得 ${op.apl} APL！${op.isInjured ? ' (Injured: APL -1)' : ''}`);
 
   renderOperatives();
   updateActivePanel();
@@ -480,33 +953,56 @@ export function updateActivePanel() {
     const hasCharged = op.actionsPerformed.includes('Charge');
 
     const shootCount = op.actionsPerformed.filter(a => a === 'Shoot').length;
-    const maxShoots = (op.faction === 'Space Marine' && gameState.smActivePloys.includes('bolter_discipline')) ? 2 : 1;
-    const hasShotLimit = shootCount >= maxShoots;
+    const fightCount = op.actionsPerformed.filter(a => a === 'Fight').length;
+    const hasShot = shootCount > 0;
+    const hasFought = fightCount > 0;
 
-    const hasFought = op.actionsPerformed.includes('Fight');
+    // Astartes 双重行动规则: 可选择 2 Shoot 或 2 Fight (但不能混合)
+    const isAstartes = true; // 所有 SM 和 PM 都是 Astartes
+    const maxShoots = isAstartes ? 2 : 1;
+    const maxFights = isAstartes ? 2 : 1;
+
+    // 互斥约束：做了 Shoot 就不能 Fight，做了 Fight 就不能 Shoot
+    const shootLocked = isAstartes && hasFought;    // 已近战, 锁定射击
+    const fightLocked = isAstartes && hasShot;       // 已射击, 锁定近战
+    const shootLimitReached = shootCount >= maxShoots;
+    const fightLimitReached = fightCount >= maxFights;
 
     document.getElementById('action-move').disabled = op.apl < 1 || hasMoved || hasCharged;
     document.getElementById('action-charge').disabled = op.apl < 1 || hasMoved || hasCharged || hasFought;
-    document.getElementById('action-shoot').disabled = op.apl < 1 || hasShotLimit || hasCharged;
-    document.getElementById('action-fight').disabled = op.apl < 1 || hasFought;
+    document.getElementById('action-shoot').disabled = op.apl < 1 || shootLimitReached || shootLocked || hasCharged;
+    document.getElementById('action-fight').disabled = op.apl < 1 || fightLimitReached || fightLocked;
 
-    const hasBolterDiscipline = op.faction === 'Space Marine' && gameState.smActivePloys.includes('bolter_discipline');
     const hasContagiousResilience = op.faction === 'Plague Marine' && gameState.pmActivePloys.includes('contagious_resilience');
 
     const ployDisplay = document.getElementById('active-ploys-display');
     if (ployDisplay) {
         const ploysText = [];
-        if (hasBolterDiscipline) ploysText.push('<span style="color:gold;">🔥 爆弹惩戒生效中</span>');
+        if (hasShot) ploysText.push(`<span style="color:#60a5fa;">💥 Astartes: 已射击×${shootCount}，锁定近战</span>`);
+        if (hasFought) ploysText.push(`<span style="color:#f87171;">⚔️ Astartes: 已近战×${fightCount}，锁定射击</span>`);
         if (hasContagiousResilience) ploysText.push('<span style="color:var(--pm-accent);">🛡️ 传染韧性生效中</span>');
         ployDisplay.innerHTML = ploysText.length > 0 ? ploysText.join(' | ') : '';
     }
 
     const shootBtnText = document.querySelector('#action-shoot span:first-child');
     if (shootBtnText) {
-        if (hasBolterDiscipline) {
-            shootBtnText.innerHTML = `💥 射击 [${shootCount < 2 ? 2 - shootCount : 0}次剩余]`;
+        if (isAstartes) {
+            const remaining = maxShoots - shootCount;
+            const lockedNote = shootLocked ? ' (已锁定)' : '';
+            shootBtnText.innerHTML = `💥 射击 [${remaining > 0 ? remaining : 0}次剩余${lockedNote}]`;
         } else {
             shootBtnText.innerHTML = `💥 射击 (Shoot)`;
+        }
+    }
+
+    const fightBtnText = document.querySelector('#action-fight span:first-child');
+    if (fightBtnText) {
+        if (isAstartes) {
+            const remaining = maxFights - fightCount;
+            const lockedNote = fightLocked ? ' (已锁定)' : '';
+            fightBtnText.innerHTML = `⚔️ 近战 [${remaining > 0 ? remaining : 0}次剩余${lockedNote}]`;
+        } else {
+            fightBtnText.innerHTML = `⚔️ 近战 (Fight)`;
         }
     }
 
@@ -607,11 +1103,14 @@ export function startInitiativePhase() {
 }
 
 export function showPhaseOverlay() {
-  document.getElementById('phase-overlay').style.display = 'flex';
+  const overlay = document.getElementById('phase-overlay');
+  overlay.style.display = 'flex';
+  trapFocus(overlay);
 }
 
 export function hidePhaseOverlay() {
   document.getElementById('phase-overlay').style.display = 'none';
+  releaseFocusTrap();
 }
 
 export function rollInitiativeOverlay() {
@@ -658,15 +1157,16 @@ export function rollInitiativeOverlay() {
         addLog(`  - 【${winnerCN}】赢得了投骰，准备选择先攻权归属。`);
 
         const overlayBox = document.getElementById('phase-overlay-content');
-        overlayBox.innerHTML += `
-          <div style="border-top:1px solid var(--panel-border); margin-top:16px; padding-top:16px; width:100%;">
+        const turnOrderDiv = document.createElement('div');
+        turnOrderDiv.style.cssText = 'border-top:1px solid var(--panel-border); margin-top:16px; padding-top:16px; width:100%;';
+        turnOrderDiv.innerHTML = `
             <p style="color:var(--sm-accent); font-weight:bold; margin-bottom:10px;">👑 【${winnerCN}】选择首发玩家：</p>
             <div style="display:flex; gap:10px;">
               <button class="qa-btn" onclick="selectTurnOrder('Space Marine')">死亡天使先攻 (Astartes First)</button>
               <button class="qa-btn" onclick="selectTurnOrder('Plague Marine')">瘟疫守卫先攻 (Death Guard First)</button>
             </div>
-          </div>
         `;
+        overlayBox.appendChild(turnOrderDiv);
         updateGuidance(`【选择先后】王座归属：【${winnerCN}】玩家获胜，请点击按钮指定本回合先攻。`);
       }
     }, 300);
@@ -696,7 +1196,7 @@ export function startStrategyPhase() {
     </p>
 
     <div style="display:grid; grid-template-columns:1fr 1fr; gap:16px; width:100%; text-align:left; margin-bottom:16px;">
-      <div class="ploy-choice-card ${gameState.smActivePloys.includes('bolter_discipline') ? 'selected' : ''}" onclick="buyPloy('sm')">
+      <div class="ploy-choice-card ${gameState.smActivePloys.includes('bolter_discipline') ? 'selected' : ''}" role="button" tabindex="0" onclick="buyPloy('sm')" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();buyPloy('sm')}">
         <div class="ploy-title">
           <span>🔥 爆弹惩戒 (1 CP)</span>
           <span style="font-size:0.75rem; color:#60a5fa;">Astartes</span>
@@ -709,7 +1209,7 @@ export function startStrategyPhase() {
         </div>
       </div>
 
-      <div class="ploy-choice-card ${gameState.pmActivePloys.includes('contagious_resilience') ? 'selected' : ''}" onclick="buyPloy('pm')">
+      <div class="ploy-choice-card ${gameState.pmActivePloys.includes('contagious_resilience') ? 'selected' : ''}" role="button" tabindex="0" onclick="buyPloy('pm')" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();buyPloy('pm')}">
         <div class="ploy-title">
           <span>🛡️ 传染韧性 (1 CP)</span>
           <span style="font-size:0.75rem; color:var(--pm-accent);">Death Guard</span>
@@ -738,7 +1238,7 @@ export function buyPloy(faction) {
       gameState.smActivePloys = [];
       gameState.smCp += 1;
     } else {
-      if (gameState.smCp < 1) { playSound('alert'); alert('死亡天使 CP 不足！'); return; }
+      if (gameState.smCp < 1) { playSound('alert'); showToast('死亡天使 CP 不足！', 'warning'); return; }
       playSound('crit');
       gameState.smActivePloys.push('bolter_discipline');
       gameState.smCp -= 1;
@@ -750,7 +1250,7 @@ export function buyPloy(faction) {
       gameState.pmActivePloys = [];
       gameState.pmCp += 1;
     } else {
-      if (gameState.pmCp < 1) { playSound('alert'); alert('瘟疫守卫 CP 不足！'); return; }
+      if (gameState.pmCp < 1) { playSound('alert'); showToast('瘟疫守卫 CP 不足！', 'warning'); return; }
       playSound('crit');
       gameState.pmActivePloys.push('contagious_resilience');
       gameState.pmCp -= 1;
@@ -784,12 +1284,15 @@ export function showRuleHelp(actionKey) {
   if (!rule) return;
   document.getElementById('help-title').textContent = rule.title;
   document.getElementById('help-body').innerHTML = rule.body;
-  document.getElementById('help-modal').style.display = 'flex';
+  const helpModal = document.getElementById('help-modal');
+  helpModal.style.display = 'flex';
+  trapFocus(helpModal);
 }
 
 export function closeHelpModal() {
   playSound('click');
   document.getElementById('help-modal').style.display = 'none';
+  releaseFocusTrap();
 }
 
 // ==========================================
@@ -812,6 +1315,7 @@ export function triggerOperativeDeathOverlay(op) {
     gagText.textContent = GAG_MESSAGES[randIdx];
 
     overlay.style.display = 'flex';
+    trapFocus(overlay);
   }
 
   addLog(`[阵亡提示] 特工 ${op.name} 已阵亡！请在物理沙盘中移除模型。`);
@@ -822,6 +1326,7 @@ export function confirmOperativeDeath() {
   const overlay = document.getElementById('death-overlay');
   if (overlay) {
     overlay.style.display = 'none';
+    releaseFocusTrap();
   }
   checkVictory();
 }
@@ -1138,13 +1643,15 @@ export function handleAvatarFileSelect(event) {
 // ==========================================
 
 export function triggerCombatVisual(text, type = 'normal') {
-  // 1. 触发震屏
-  document.body.classList.remove('intense-shake');
-  void document.body.offsetWidth; // 触发回流以重新播放 CSS 动画
-  document.body.classList.add('intense-shake');
-  setTimeout(() => {
+  // 1. 触发震屏 (skip if user prefers reduced motion)
+  if (!prefersReducedMotion.matches) {
     document.body.classList.remove('intense-shake');
-  }, 400);
+    void document.body.offsetWidth; // 触发回流以重新播放 CSS 动画
+    document.body.classList.add('intense-shake');
+    setTimeout(() => {
+      document.body.classList.remove('intense-shake');
+    }, 400);
+  }
 
   // 2. 创建悬浮飘字元素
   const el = document.createElement('div');
