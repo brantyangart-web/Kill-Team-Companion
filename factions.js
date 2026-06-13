@@ -1,4 +1,4 @@
-﻿﻿﻿    window.Weapon = class Weapon {
+﻿﻿﻿﻿    window.Weapon = class Weapon {
       constructor(name, attacks, targetSkill, normalDmg, criticalDmg, isRanged = true) {
         this.name = name;
         this.attacks = attacks;
@@ -226,7 +226,7 @@
         templates: LEGIONARY_TEMPLATES,
         themeColor: "#facc15",
         diceClass: "leg-dice",
-        headerImg: "faction_header_leg_1781371239474.png",
+        headerImg: "faction_header_leg.png",
         ploys: [
           { id: 'wrath_of_gods', name: '黑暗诸神之怒 (Wrath of the Gods)', type: 'Strategic', cp: 1, desc: '本回合近战暴击判定+1（5+即算暴击）。' },
           { id: 'shoot_twice', name: '恶意齐射 (Malicious Volleys)', type: 'Strategic', cp: 1, desc: '所有装备爆弹枪的特工可执行两次射击。' },
