@@ -1,4 +1,4 @@
-﻿﻿    window.Weapon = class Weapon {
+﻿﻿﻿    window.Weapon = class Weapon {
       constructor(name, attacks, targetSkill, normalDmg, criticalDmg, isRanged = true) {
         this.name = name;
         this.attacks = attacks;
@@ -200,7 +200,7 @@
         templates: SM_TEMPLATES,
         themeColor: "#60a5fa",
         diceClass: "sm-dice",
-        headerImg: "url('./faction_header_sm_1781315989603.png')",
+        headerImg: "faction_header_sm.png",
         ploys: [
           { id: 'shoot_twice', name: '风暴开火 (Bolter Discipline)', type: 'Strategic', cp: 1, desc: '特工在使用爆弹类武器时可进行第二次射击行动。' },
           { name: '震慑突击 (Shock Assault)', type: 'Strategic', cp: 1, desc: '冲锋后近战搏斗时获得额外重投。' },
@@ -213,7 +213,7 @@
         templates: PM_TEMPLATES,
         themeColor: "#4ade80",
         diceClass: "pm-dice",
-        headerImg: "url('./faction_header_pm_1781316000042.png')",
+        headerImg: "faction_header_pm.png",
         ploys: [
           { name: '无尽行军 (Inexorable Advance)', type: 'Strategic', cp: 1, desc: '忽略移动减损惩罚，强行推进。' },
           { id: 'shoot_twice', name: '剧毒喷洒 (Malicious Volleys)', type: 'Strategic', cp: 1, desc: '爆弹武器即使移动过也能双击。' },
@@ -226,7 +226,7 @@
         templates: LEGIONARY_TEMPLATES,
         themeColor: "#facc15",
         diceClass: "leg-dice",
-        headerImg: "url('./faction_header_leg_1781371239474.png')",
+        headerImg: "faction_header_leg_1781371239474.png",
         ploys: [
           { id: 'wrath_of_gods', name: '黑暗诸神之怒 (Wrath of the Gods)', type: 'Strategic', cp: 1, desc: '本回合近战暴击判定+1（5+即算暴击）。' },
           { id: 'shoot_twice', name: '恶意齐射 (Malicious Volleys)', type: 'Strategic', cp: 1, desc: '所有装备爆弹枪的特工可执行两次射击。' },
