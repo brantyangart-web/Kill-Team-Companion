@@ -16,6 +16,7 @@ export const gameState = {
   initiative: 'Space Marine',
   activeTurn: 'Space Marine',
   activeAgent: null,
+  pendingActivation: null,  // 预选中的特工 (两步激活: 选择 → 确认)
 
   smVp: 0,
   smCp: 2,
@@ -97,9 +98,7 @@ export function endTurningPoint() {
   gameState.turningPoint += 1;
   gameState.phase = 'Initiative';
 
-  // CP gains at start of TP
-  gameState.smCp += 1;
-  gameState.pmCp += 1;
+  // CP gains moved to startStrategyPhase (rules: gains happen at Strategy phase)
 
   // Reset active ploys
   gameState.smActivePloys = [];
@@ -119,26 +118,84 @@ export function endTurningPoint() {
 
   ui.addLog(`\n========================================`);
   ui.addLog(`>>> Turning Point ${gameState.turningPoint} 开始！`);
-  ui.addLog(`>>> 双方各获得 1 CP。`);
   ui.addLog(`========================================`);
 
   ui.startInitiativePhase();
 }
 
+// ---- 判断是否有可用于 Counteract 的特工 (已耗尽 + Engage 标记, 即 hasConceal=false) ----
+export function hasCounteractOperatives(faction) {
+  return gameState.operatives.some(op =>
+    op.faction === faction && !op.isDead && op.hasActed && !op.hasConceal
+  );
+}
+
 export function switchSides() {
   const nextFaction = gameState.activeTurn === 'Space Marine' ? 'Plague Marine' : 'Space Marine';
-  const nextHasUsable = hasUsableOperatives(nextFaction);
-  const currentHasUsable = hasUsableOperatives(gameState.activeTurn);
+  const nextHasReady = hasUsableOperatives(nextFaction);
+  const currentHasReady = hasUsableOperatives(gameState.activeTurn);
+  const factionName = f => f === 'Space Marine' ? '死亡天使' : '瘟疫守卫';
 
-  if (nextHasUsable) {
+  if (nextHasReady) {
+    // Normal alternation
     gameState.activeTurn = nextFaction;
-    ui.addLog(`>>> 交替轮转：轮到【${nextFaction === 'Space Marine' ? '死亡天使' : '瘟疫守卫'}】选择特工激活。`);
-  } else if (currentHasUsable) {
-    ui.addLog(`>>> 【${nextFaction === 'Space Marine' ? '死亡天使' : '瘟疫守卫'}】已无可用特工。继续激活【${gameState.activeTurn === 'Space Marine' ? '死亡天使' : '瘟疫守卫'}】。`);
+    ui.addLog(`>>> 交替轮转：轮到【${factionName(nextFaction)}】选择特工激活。`);
+  } else if (currentHasReady) {
+    // Next has no ready, current still has ready → next may counteract
+    gameState.activeTurn = nextFaction;
+    if (hasCounteractOperatives(nextFaction)) {
+      ui.addLog(`>>> 【${factionName(nextFaction)}】无可用特工，但可发动反击 (Counteract)！`);
+      ui.showCounteractOverlay(nextFaction);
+    } else {
+      ui.addLog(`>>> 【${factionName(nextFaction)}】已无可用特工且无法反击。轮到【${factionName(gameState.activeTurn === nextFaction ? gameState.activeTurn : nextFaction)}】继续。`);
+      // Turn passes to opponent (who still has ready units)
+      gameState.activeTurn = nextFaction === 'Space Marine' ? 'Plague Marine' : 'Space Marine';
+    }
   } else {
+    // Neither side has ready operatives
     ui.addLog(`>>> 双方全部特工激活完毕。准备开始回合得分结算。`);
     ui.showTurnEndScoringOverlay();
   }
+  ui.renderOperatives();
+  ui.updateActivePanel();
+}
+
+// ---- 玩家跳过 Counteract ----
+export function skipCounteract() {
+  const passingFaction = gameState.activeTurn;
+  const opponentFaction = passingFaction === 'Space Marine' ? 'Plague Marine' : 'Space Marine';
+  const factionName = f => f === 'Space Marine' ? '死亡天使' : '瘟疫守卫';
+
+  ui.addLog(`>>> 【${factionName(passingFaction)}】选择跳过反击。`);
+
+  if (hasUsableOperatives(opponentFaction)) {
+    // Opponent continues
+    gameState.activeTurn = opponentFaction;
+    ui.addLog(`>>> 轮到【${factionName(opponentFaction)}】继续激活。`);
+  } else {
+    // Opponent also has no ready → turn ends
+    ui.addLog(`>>> 双方均已无法激活。回合得分结算开始。`);
+    ui.showTurnEndScoringOverlay();
+  }
+  ui.renderOperatives();
+  ui.updateActivePanel();
+}
+
+// ---- 开始 Counteract 激活 (选定特工后调用) ----
+export function startCounteractActivation(opId) {
+  const op = gameState.operatives.find(o => o.id === opId);
+  if (!op) return;
+
+  // Mark as temporarily "not acted" so it can be activated
+  op.hasActed = false;
+  op.apl = 1; // Counteract gives exactly 1AP
+  op.counteracting = true; // Flag to enforce counteract restrictions
+  op.actionsPerformed = [];
+
+  gameState.activeAgent = op;
+
+  ui.addLog(`>>> 【${op.name}】发动反击！获得 1 AP（移动不超过 2"）。`);
+  ui.hideCounteractOverlay();
   ui.renderOperatives();
   ui.updateActivePanel();
 }

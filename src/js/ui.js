@@ -1149,7 +1149,7 @@ export function showCounteractOverlay(faction) {
   const overlay = document.getElementById('counteract-overlay');
   const content = document.getElementById('counteract-content');
   const factionName = faction === 'Space Marine' ? '死亡天使' : '瘟疫守卫';
-  const color = faction === 'Space Marine' ? '#60a5fa' : 'var(--pm-accent)';
+  const color = faction === 'Space Marine' ? '#6a9ad4' : 'var(--pm-accent)';
 
   // 找到所有已耗尽 + Engage 标记的特工
   const eligibleOps = gameState.operatives.filter(op =>

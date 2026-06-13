@@ -15,7 +15,8 @@ import {
   incrementWarrior, decrementWarrior,
   updateSelectionCounts, validateRostersAndDeploy, renderOperatives,
   activateOperative, updateActivePanel, performMove, performCharge, toggleConceal,
-  endActivation, startInitiativePhase, showPhaseOverlay, hidePhaseOverlay,
+  endActivation, startInitiativePhase, showPhaseOverlay, hidePhaseOverlay, hideCounteractOverlay,
+  showCounteractOverlay, selectCounteractOperative, skipCounteractAction,
   rollInitiativeOverlay, selectTurnOrder, startStrategyPhase, buyPloy,
   proceedToFirefight, showRuleHelp, closeHelpModal,
   triggerOperativeDeathOverlay, confirmOperativeDeath, checkVictory, declareVictory,
@@ -26,6 +27,8 @@ import {
   rollDicePool, evaluateAttackRolls, evaluateDefenseRolls,
   initCombatCallbacks
 } from './ui.js';
+
+import { skipCounteract } from './state.js';
 
 import {
   openModal, closeModal, nextModalStep,
@@ -52,7 +55,9 @@ initUiCallbacks({
   updateActivePanel,
   startInitiativePhase,
   showTurnEndScoringOverlay,
+  showCounteractOverlay,
   hidePhaseOverlay,
+  hideCounteractOverlay,
 });
 
 // Models module needs UI functions
@@ -133,6 +138,12 @@ window.rollInitiativeOverlay = rollInitiativeOverlay;
 window.selectTurnOrder = selectTurnOrder;
 window.buyPloy = buyPloy;
 window.proceedToFirefight = proceedToFirefight;
+
+// Counteract
+window.showCounteractOverlay = showCounteractOverlay;
+window.selectCounteractOperative = selectCounteractOperative;
+window.skipCounteract = skipCounteract;
+window.skipCounteractAction = skipCounteractAction;
 
 // Death & Victory
 window.confirmOperativeDeath = confirmOperativeDeath;

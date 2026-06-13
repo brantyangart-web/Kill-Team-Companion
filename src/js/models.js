@@ -57,6 +57,8 @@ export class Operative {
     this.poisonTokens = 0;
     // Conceal Order
     this.hasConceal = false;
+    // Counteract 标记 (反击激活时为 true, 激活结束后重置)
+    this.counteracting = false;
   }
 
   /** Injured: HP 低于一半时 Move -2", 武器 Hit -1, APL -1 */
@@ -88,6 +90,7 @@ export class Operative {
     this.actionsPerformed = [];
     this.poisonTokens = 0;
     this.hasConceal = false;
+    this.counteracting = false;
   }
 
   /**
