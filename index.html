@@ -2593,52 +2593,52 @@
       `;
 
       // Render faction A ploys
-      html += \`<div style="display:flex; flex-direction:column; gap:8px;">\`;
+      html += `<div style="display:flex; flex-direction:column; gap:8px;">`;
       facA.ploys.forEach(ploy => {
         if (ploy.id) {
           const isActive = gameState.factionAPloys.includes(ploy.id);
-          html += \`
-            <div class="ploy-choice-card \${isActive ? 'selected' : ''}" onclick="buyPloy('A', '\${ploy.id}', '\${ploy.name}')" style="border-color:\${facA.themeColor};">
+          html += `
+            <div class="ploy-choice-card ${isActive ? 'selected' : ''}" onclick="buyPloy('A', '${ploy.id}', '${ploy.name}')" style="border-color:${facA.themeColor};">
               <div class="ploy-title">
-                <span>⚡ \${ploy.name} (\${ploy.cp} CP)</span>
-                <span style="font-size:0.75rem; color:\${facA.themeColor};">\${facA.id}</span>
+                <span>⚡ ${ploy.name} (${ploy.cp} CP)</span>
+                <span style="font-size:0.75rem; color:${facA.themeColor};">${facA.id}</span>
               </div>
-              <div class="ploy-desc">\${ploy.desc}</div>
-              <div style="margin-top:6px; font-weight:bold; font-size:0.75rem; color:\${facA.themeColor};">
-                \${isActive ? '● 生效中' : '点击启用'}
+              <div class="ploy-desc">${ploy.desc}</div>
+              <div style="margin-top:6px; font-weight:bold; font-size:0.75rem; color:${facA.themeColor};">
+                ${isActive ? '● 生效中' : '点击启用'}
               </div>
             </div>
-          \`;
+          `;
         }
       });
-      html += \`</div>\`;
+      html += `</div>`;
 
       // Render faction B ploys
-      html += \`<div style="display:flex; flex-direction:column; gap:8px;">\`;
+      html += `<div style="display:flex; flex-direction:column; gap:8px;">`;
       facB.ploys.forEach(ploy => {
         if (ploy.id) {
           const isActive = gameState.factionBPloys.includes(ploy.id);
-          html += \`
-            <div class="ploy-choice-card \${isActive ? 'selected' : ''}" onclick="buyPloy('B', '\${ploy.id}', '\${ploy.name}')" style="border-color:\${facB.themeColor};">
+          html += `
+            <div class="ploy-choice-card ${isActive ? 'selected' : ''}" onclick="buyPloy('B', '${ploy.id}', '${ploy.name}')" style="border-color:${facB.themeColor};">
               <div class="ploy-title">
-                <span>⚡ \${ploy.name} (\${ploy.cp} CP)</span>
-                <span style="font-size:0.75rem; color:\${facB.themeColor};">\${facB.id}</span>
+                <span>⚡ ${ploy.name} (${ploy.cp} CP)</span>
+                <span style="font-size:0.75rem; color:${facB.themeColor};">${facB.id}</span>
               </div>
-              <div class="ploy-desc">\${ploy.desc}</div>
-              <div style="margin-top:6px; font-weight:bold; font-size:0.75rem; color:\${facB.themeColor};">
-                \${isActive ? '● 生效中' : '点击启用'}
+              <div class="ploy-desc">${ploy.desc}</div>
+              <div style="margin-top:6px; font-weight:bold; font-size:0.75rem; color:${facB.themeColor};">
+                ${isActive ? '● 生效中' : '点击启用'}
               </div>
             </div>
-          \`;
+          `;
         }
       });
-      html += \`</div></div>\`;
+      html += `</div></div>`;
 
-      html += \`
+      html += `
         <button class="btn-large" onclick="proceedToFirefight()" style="padding: 10px 40px; font-size:0.9rem; background:linear-gradient(135deg, var(--green), #065f46); border-color:#059669; box-shadow:none;">
           进入战斗阶段 (Proceed to Firefight)
         </button>
-      \`;
+      `;
 
       overlayBox.innerHTML = html;
       updateGuidance('【策略阶段】双方轮流消费 1 CP 采购策略 Ploys。按 Proceed 按钮进入实际交火战斗。');
@@ -2655,7 +2655,7 @@
           playSound('crit');
           gameState.factionAPloys.push(ployId);
           gameState.factionACp -= 1;
-          addLog(\`  - \${FACTIONS_DB[gameState.factionA].name} 激活策略：【\${ployName}】！\`);
+          addLog(`  - ${FACTIONS_DB[gameState.factionA].name} 激活策略：【${ployName}】！`);
         }
       } else {
         if (gameState.factionBPloys.includes(ployId)) {
@@ -2667,7 +2667,7 @@
           playSound('crit');
           gameState.factionBPloys.push(ployId);
           gameState.factionBCp -= 1;
-          addLog(\`  - \${FACTIONS_DB[gameState.factionB].name} 激活策略：【\${ployName}】！\`);
+          addLog(`  - ${FACTIONS_DB[gameState.factionB].name} 激活策略：【${ployName}】！`);
         }
       }
       startStrategyPhase();
@@ -5193,5 +5193,6 @@
   <input type="file" id="global-avatar-uploader" accept="image/*" style="display:none" onchange="handleAvatarFileSelect(event)">
 </body>
 </html>
+
 
 
