@@ -505,7 +505,7 @@ export function renderRosterPickers() {
   smOperatorSection.innerHTML = `
     <div style="font-size:0.8rem; font-weight:600; color:#60a5fa; margin:12px 0 6px 4px; display:flex; justify-content:space-between; align-items:center;">
       <span>🎯 OPERATORS — 共选 5 名 (Warrior 可用计数器重复选取)</span>
-      <span id="sm-op-count" style="font-size:0.75rem; color:#94a3b8; font-family:'Orbitron',sans-serif;">0 / 5</span>
+      <span id="sm-op-count" style="font-size:0.75rem; color:#94a3b8; font-family:'Pirata One',serif;">0 / 5</span>
     </div>
     <p style="font-size:0.7rem; color:var(--text-muted); margin-bottom:8px; padding-left:4px;">
       ⚠️ 非 Warrior 每种只能带一名。Warrior [Warrior] 可用 +/− 按钮选取最多 5 名同型单位。
@@ -548,7 +548,7 @@ export function renderRosterPickers() {
   pmOperatorSection.innerHTML = `
     <div style="font-size:0.8rem; font-weight:600; color:var(--pm-accent); margin:12px 0 6px 4px; display:flex; justify-content:space-between; align-items:center;">
       <span>🎯 OPERATORS — 共选 5 名 (6 类型, Warrior 可重复)</span>
-      <span id="pm-op-count" style="font-size:0.75rem; color:#94a3b8; font-family:'Orbitron',sans-serif;">0 / 5</span>
+      <span id="pm-op-count" style="font-size:0.75rem; color:#94a3b8; font-family:'Pirata One',serif;">0 / 5</span>
     </div>
     <p style="font-size:0.7rem; color:var(--text-muted); margin-bottom:8px; padding-left:4px;">
       ⚠️ 非 Warrior 每种只能带一名。Warrior [Warrior] 可用 +/− 按钮选取多名同型单位。
@@ -1428,7 +1428,7 @@ export function renderTurnEndScoringContent() {
 
       <!-- SM 结算 -->
       <div class="init-team-col sm" style="align-items:stretch; background: rgba(59,130,246,0.02); border: 1px solid rgba(59,130,246,0.1);">
-        <h4 style="color:#60a5fa; font-size:0.95rem; border-bottom:1px solid rgba(255,255,255,0.08); padding-bottom:6px; margin-bottom:10px; text-align:center; font-family:'Orbitron',sans-serif;">
+        <h4 style="color:#60a5fa; font-size:0.95rem; border-bottom:1px solid rgba(255,255,255,0.08); padding-bottom:6px; margin-bottom:10px; text-align:center; font-family:'Pirata One',serif;">
           死亡天使 (SM)
         </h4>
         <div style="font-size:0.85rem; display:flex; flex-direction:column; gap:12px;">
@@ -1478,7 +1478,7 @@ export function renderTurnEndScoringContent() {
 
       <!-- PM 结算 -->
       <div class="init-team-col pm" style="align-items:stretch; background: rgba(34,197,94,0.02); border: 1px solid rgba(34,197,94,0.1);">
-        <h4 style="color:var(--pm-accent); font-size:0.95rem; border-bottom:1px solid rgba(255,255,255,0.08); padding-bottom:6px; margin-bottom:10px; text-align:center; font-family:'Orbitron',sans-serif;">
+        <h4 style="color:var(--pm-accent); font-size:0.95rem; border-bottom:1px solid rgba(255,255,255,0.08); padding-bottom:6px; margin-bottom:10px; text-align:center; font-family:'Pirata One',serif;">
           瘟疫守卫 (PM)
         </h4>
         <div style="font-size:0.85rem; display:flex; flex-direction:column; gap:12px;">

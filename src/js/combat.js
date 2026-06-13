@@ -1227,7 +1227,7 @@ export function renderFightStep() {
       choiceCardHtml = `
         <div class="melee-choice-card" style="background: rgba(30, 41, 59, 0.95); border: 2px solid ${turnColor}; border-radius: 12px; padding: 16px; margin-bottom: 16px; text-align: center; box-shadow: 0 0 20px rgba(0,0,0,0.5);">
           <div style="font-weight: bold; font-size: 0.95rem; margin-bottom: 12px; color: #fff;">
-            🎯 已选中点数 <span style="display:inline-block; padding: 2px 8px; border-radius: 4px; background: ${side === 'attacker' ? 'rgba(59,130,246,0.3)' : 'rgba(34,197,94,0.3)'}; color: ${side === 'attacker' ? '#60a5fa' : 'var(--pm-accent)'}; font-weight: 900; font-family:'Orbitron',sans-serif;">${dice.val}${dice.isCrit ? ' (⚡暴击)' : ''}</span>，请选择分配动作：
+            🎯 已选中点数 <span style="display:inline-block; padding: 2px 8px; border-radius: 4px; background: ${side === 'attacker' ? 'rgba(59,130,246,0.3)' : 'rgba(34,197,94,0.3)'}; color: ${side === 'attacker' ? '#60a5fa' : 'var(--pm-accent)'}; font-weight: 900; font-family:'Pirata One',serif;">${dice.val}${dice.isCrit ? ' (⚡暴击)' : ''}</span>，请选择分配动作：
           </div>
 
           <div style="display: flex; gap: 16px; justify-content: center;">
@@ -1543,27 +1543,27 @@ export function getMeleeDuelHeaderHtml() {
       <div style="display:flex; flex-direction:column; align-items:center; flex:1; gap:6px; min-width: 0;">
         ${getDuelAvatarHtml(att.id, att.faction)}
         <div style="font-weight:bold; font-size:0.85rem; color:#60a5fa; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; max-width:100%;" title="${att.name}">${att.name}</div>
-        <div style="font-size:0.7rem; color:var(--text-muted); font-family:'Orbitron',sans-serif; text-transform:uppercase;">攻击方</div>
+        <div style="font-size:0.7rem; color:var(--text-muted); font-family:'Pirata One',serif; text-transform:uppercase;">攻击方</div>
         <!-- HP bar -->
         <div style="width:100%; background:rgba(255,255,255,0.08); height:6px; border-radius:3px; overflow:hidden; margin-top:4px;">
           <div style="background:var(--red); width:${attHpPct}%; height:100%; transition:width 0.3s ease;"></div>
         </div>
-        <div style="font-size:0.8rem; font-weight:bold; font-family:'Orbitron',sans-serif; color:var(--red);">${Math.max(0, att.wounds)} / ${att.maxWounds} HP</div>
+        <div style="font-size:0.8rem; font-weight:bold; font-family:'Pirata One',serif; color:var(--red);">${Math.max(0, att.wounds)} / ${att.maxWounds} HP</div>
       </div>
 
       <!-- VS icon -->
-      <div style="font-size:1.2rem; font-weight:900; color:var(--text-muted); padding:0 8px; font-family:'Orbitron',sans-serif; font-style:italic;">VS</div>
+      <div style="font-size:1.2rem; font-weight:900; color:var(--text-muted); padding:0 8px; font-family:'Pirata One',serif; font-style:italic;">VS</div>
 
       <!-- Defender Panel -->
       <div style="display:flex; flex-direction:column; align-items:center; flex:1; gap:6px; min-width: 0;">
         ${getDuelAvatarHtml(def.id, def.faction)}
         <div style="font-weight:bold; font-size:0.85rem; color:var(--pm-accent); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; max-width:100%;" title="${def.name}">${def.name}</div>
-        <div style="font-size:0.7rem; color:var(--text-muted); font-family:'Orbitron',sans-serif; text-transform:uppercase;">防守方</div>
+        <div style="font-size:0.7rem; color:var(--text-muted); font-family:'Pirata One',serif; text-transform:uppercase;">防守方</div>
         <!-- HP bar -->
         <div style="width:100%; background:rgba(255,255,255,0.08); height:6px; border-radius:3px; overflow:hidden; margin-top:4px;">
           <div style="background:var(--red); width:${defHpPct}%; height:100%; transition:width 0.3s ease;"></div>
         </div>
-        <div style="font-size:0.8rem; font-weight:bold; font-family:'Orbitron',sans-serif; color:var(--red);">${Math.max(0, def.wounds)} / ${def.maxWounds} HP</div>
+        <div style="font-size:0.8rem; font-weight:bold; font-family:'Pirata One',serif; color:var(--red);">${Math.max(0, def.wounds)} / ${def.maxWounds} HP</div>
       </div>
     </div>
   `;
@@ -1582,27 +1582,27 @@ export function getShootDuelHeaderHtml() {
       <div style="display:flex; flex-direction:column; align-items:center; flex:1; gap:6px; min-width: 0;">
         ${getDuelAvatarHtml(att.id, att.faction)}
         <div style="font-weight:bold; font-size:0.85rem; color:#60a5fa; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; max-width:100%;" title="${att.name}">${att.name}</div>
-        <div style="font-size:0.7rem; color:var(--text-muted); font-family:'Orbitron',sans-serif; text-transform:uppercase;">射击方</div>
+        <div style="font-size:0.7rem; color:var(--text-muted); font-family:'Pirata One',serif; text-transform:uppercase;">射击方</div>
         <!-- HP bar -->
         <div style="width:100%; background:rgba(255,255,255,0.08); height:6px; border-radius:3px; overflow:hidden; margin-top:4px;">
           <div style="background:var(--red); width:${attHpPct}%; height:100%; transition:width 0.3s ease;"></div>
         </div>
-        <div style="font-size:0.8rem; font-weight:bold; font-family:'Orbitron',sans-serif; color:var(--red);">${Math.max(0, att.wounds)} / ${att.maxWounds} HP</div>
+        <div style="font-size:0.8rem; font-weight:bold; font-family:'Pirata One',serif; color:var(--red);">${Math.max(0, att.wounds)} / ${att.maxWounds} HP</div>
       </div>
 
       <!-- VS icon -->
-      <div style="font-size:1.2rem; font-weight:900; color:var(--text-muted); padding:0 8px; font-family:'Orbitron',sans-serif; font-style:italic;">VS</div>
+      <div style="font-size:1.2rem; font-weight:900; color:var(--text-muted); padding:0 8px; font-family:'Pirata One',serif; font-style:italic;">VS</div>
 
       <!-- Defender Panel -->
       <div style="display:flex; flex-direction:column; align-items:center; flex:1; gap:6px; min-width: 0;">
         ${getDuelAvatarHtml(def.id, def.faction)}
         <div style="font-weight:bold; font-size:0.85rem; color:var(--pm-accent); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; max-width:100%;" title="${def.name}">${def.name}</div>
-        <div style="font-size:0.7rem; color:var(--text-muted); font-family:'Orbitron',sans-serif; text-transform:uppercase;">防守方</div>
+        <div style="font-size:0.7rem; color:var(--text-muted); font-family:'Pirata One',serif; text-transform:uppercase;">防守方</div>
         <!-- HP bar -->
         <div style="width:100%; background:rgba(255,255,255,0.08); height:6px; border-radius:3px; overflow:hidden; margin-top:4px;">
           <div style="background:var(--red); width:${defHpPct}%; height:100%; transition:width 0.3s ease;"></div>
         </div>
-        <div style="font-size:0.8rem; font-weight:bold; font-family:'Orbitron',sans-serif; color:var(--red);">${Math.max(0, def.wounds)} / ${def.maxWounds} HP</div>
+        <div style="font-size:0.8rem; font-weight:bold; font-family:'Pirata One',serif; color:var(--red);">${Math.max(0, def.wounds)} / ${def.maxWounds} HP</div>
       </div>
     </div>
   `;

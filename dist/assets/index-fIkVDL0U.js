@@ -76,7 +76,7 @@
   `,e.forEach(d=>{const p=document.createElement("div");p.className="roster-pick-row",p.id=`picker-row-${d.id}`,p.innerHTML=te(d,"Space Marine",!0,!1,!1,"toggleSelectSM"),re(p,d.id,me,!1),i.appendChild(p)}),l.innerHTML=`
     <div style="font-size:0.8rem; font-weight:600; color:#60a5fa; margin:12px 0 6px 4px; display:flex; justify-content:space-between; align-items:center;">
       <span>🎯 OPERATORS — 共选 5 名 (Warrior 可用计数器重复选取)</span>
-      <span id="sm-op-count" style="font-size:0.75rem; color:#94a3b8; font-family:'Orbitron',sans-serif;">0 / 5</span>
+      <span id="sm-op-count" style="font-size:0.75rem; color:#94a3b8; font-family:'Pirata One',serif;">0 / 5</span>
     </div>
     <p style="font-size:0.7rem; color:var(--text-muted); margin-bottom:8px; padding-left:4px;">
       ⚠️ 非 Warrior 每种只能带一名。Warrior [Warrior] 可用 +/− 按钮选取最多 5 名同型单位。
@@ -88,7 +88,7 @@
   `;const m="border-color:var(--pm-accent); color:var(--pm-accent); background:rgba(132,204,22,0.15)";n.forEach(d=>{const p=document.createElement("div");p.className="roster-pick-row selected",p.id=`picker-row-${d.id}`,p.innerHTML=te(d,"Plague Marine",!0,!0,!0,"toggleSelectPM",m),r.appendChild(p)}),o.innerHTML=`
     <div style="font-size:0.8rem; font-weight:600; color:var(--pm-accent); margin:12px 0 6px 4px; display:flex; justify-content:space-between; align-items:center;">
       <span>🎯 OPERATORS — 共选 5 名 (6 类型, Warrior 可重复)</span>
-      <span id="pm-op-count" style="font-size:0.75rem; color:#94a3b8; font-family:'Orbitron',sans-serif;">0 / 5</span>
+      <span id="pm-op-count" style="font-size:0.75rem; color:#94a3b8; font-family:'Pirata One',serif;">0 / 5</span>
     </div>
     <p style="font-size:0.7rem; color:var(--text-muted); margin-bottom:8px; padding-left:4px;">
       ⚠️ 非 Warrior 每种只能带一名。Warrior [Warrior] 可用 +/− 按钮选取多名同型单位。
@@ -204,7 +204,7 @@
 
       <!-- SM 结算 -->
       <div class="init-team-col sm" style="align-items:stretch; background: rgba(59,130,246,0.02); border: 1px solid rgba(59,130,246,0.1);">
-        <h4 style="color:#60a5fa; font-size:0.95rem; border-bottom:1px solid rgba(255,255,255,0.08); padding-bottom:6px; margin-bottom:10px; text-align:center; font-family:'Orbitron',sans-serif;">
+        <h4 style="color:#60a5fa; font-size:0.95rem; border-bottom:1px solid rgba(255,255,255,0.08); padding-bottom:6px; margin-bottom:10px; text-align:center; font-family:'Pirata One',serif;">
           死亡天使 (SM)
         </h4>
         <div style="font-size:0.85rem; display:flex; flex-direction:column; gap:12px;">
@@ -254,7 +254,7 @@
 
       <!-- PM 结算 -->
       <div class="init-team-col pm" style="align-items:stretch; background: rgba(34,197,94,0.02); border: 1px solid rgba(34,197,94,0.1);">
-        <h4 style="color:var(--pm-accent); font-size:0.95rem; border-bottom:1px solid rgba(255,255,255,0.08); padding-bottom:6px; margin-bottom:10px; text-align:center; font-family:'Orbitron',sans-serif;">
+        <h4 style="color:var(--pm-accent); font-size:0.95rem; border-bottom:1px solid rgba(255,255,255,0.08); padding-bottom:6px; margin-bottom:10px; text-align:center; font-family:'Pirata One',serif;">
           瘟疫守卫 (PM)
         </h4>
         <div style="font-size:0.85rem; display:flex; flex-direction:column; gap:12px;">
@@ -513,7 +513,7 @@
       `,i.textContent="完成近战结算",i.disabled=!1,i.onclick=Rt,l.style.display="none";return}const m=a.attacker.faction==="Space Marine"?"sm-dice":"pm-dice",d=a.defender.faction==="Space Marine"?"sm-dice":"pm-dice";let p="";a.activeAttackerDice.forEach((x,M)=>{let h=`melee-dice-btn ${m}`;x.isCrit&&(h+=" crit"),x.used&&(h+=" used");const b=a.selectedMeleeDice&&a.selectedMeleeDice.side==="attacker"&&a.selectedMeleeDice.idx===M?"outline: 3px solid #60a5fa; transform: scale(1.15); box-shadow: 0 0 15px rgba(96,165,250,0.8); z-index: 2;":"";p+=`<button class="${h}" style="${b}" onclick="chooseMeleeDice('attacker', ${M})">${x.val}</button>`}),a.activeAttackerDice.length===0&&(p='<span style="color:var(--text-muted); font-size:0.8rem;">无成功骰</span>');let g="";a.activeDefenderDice.forEach((x,M)=>{let h=`melee-dice-btn ${d}`;x.isCrit&&(h+=" crit"),x.used&&(h+=" used");const b=a.selectedMeleeDice&&a.selectedMeleeDice.side==="defender"&&a.selectedMeleeDice.idx===M?"outline: 3px solid var(--pm-accent); transform: scale(1.15); box-shadow: 0 0 15px rgba(34,197,94,0.8); z-index: 2;":"";g+=`<button class="${h}" style="${b}" onclick="chooseMeleeDice('defender', ${M})">${x.val}</button>`}),a.activeDefenderDice.length===0&&(g='<span style="color:var(--text-muted); font-size:0.8rem;">无成功骰</span>');const v=a.meleeTurn==="attacker"?"攻击方":"防守方",k=a.meleeTurn==="attacker"?"#60a5fa":"var(--pm-accent)";let $="";if(a.selectedMeleeDice){const{side:x,idx:M}=a.selectedMeleeDice,S=(x==="attacker"?a.activeAttackerDice:a.activeDefenderDice)[M];let b;x==="attacker"?b=a.weapon:b=a.defender.weapons.filter(O=>!O.isRanged)[0]||new w("重拳 (Fists)",4,3,3,4,!1,null,[]);const P=S.isCrit?b.criticalDamage:b.normalDamage,E=(x==="attacker"?a.activeDefenderDice:a.activeAttackerDice).some(O=>!O.used);$=`
         <div class="melee-choice-card" style="background: rgba(30, 41, 59, 0.95); border: 2px solid ${k}; border-radius: 12px; padding: 16px; margin-bottom: 16px; text-align: center; box-shadow: 0 0 20px rgba(0,0,0,0.5);">
           <div style="font-weight: bold; font-size: 0.95rem; margin-bottom: 12px; color: #fff;">
-            🎯 已选中点数 <span style="display:inline-block; padding: 2px 8px; border-radius: 4px; background: ${x==="attacker"?"rgba(59,130,246,0.3)":"rgba(34,197,94,0.3)"}; color: ${x==="attacker"?"#60a5fa":"var(--pm-accent)"}; font-weight: 900; font-family:'Orbitron',sans-serif;">${S.val}${S.isCrit?" (⚡暴击)":""}</span>，请选择分配动作：
+            🎯 已选中点数 <span style="display:inline-block; padding: 2px 8px; border-radius: 4px; background: ${x==="attacker"?"rgba(59,130,246,0.3)":"rgba(34,197,94,0.3)"}; color: ${x==="attacker"?"#60a5fa":"var(--pm-accent)"}; font-weight: 900; font-family:'Pirata One',serif;">${S.val}${S.isCrit?" (⚡暴击)":""}</span>，请选择分配动作：
           </div>
 
           <div style="display: flex; gap: 16px; justify-content: center;">
@@ -581,27 +581,27 @@
       <div style="display:flex; flex-direction:column; align-items:center; flex:1; gap:6px; min-width: 0;">
         ${ie(e.id,e.faction)}
         <div style="font-weight:bold; font-size:0.85rem; color:#60a5fa; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; max-width:100%;" title="${e.name}">${e.name}</div>
-        <div style="font-size:0.7rem; color:var(--text-muted); font-family:'Orbitron',sans-serif; text-transform:uppercase;">攻击方</div>
+        <div style="font-size:0.7rem; color:var(--text-muted); font-family:'Pirata One',serif; text-transform:uppercase;">攻击方</div>
         <!-- HP bar -->
         <div style="width:100%; background:rgba(255,255,255,0.08); height:6px; border-radius:3px; overflow:hidden; margin-top:4px;">
           <div style="background:var(--red); width:${i}%; height:100%; transition:width 0.3s ease;"></div>
         </div>
-        <div style="font-size:0.8rem; font-weight:bold; font-family:'Orbitron',sans-serif; color:var(--red);">${Math.max(0,e.wounds)} / ${e.maxWounds} HP</div>
+        <div style="font-size:0.8rem; font-weight:bold; font-family:'Pirata One',serif; color:var(--red);">${Math.max(0,e.wounds)} / ${e.maxWounds} HP</div>
       </div>
 
       <!-- VS icon -->
-      <div style="font-size:1.2rem; font-weight:900; color:var(--text-muted); padding:0 8px; font-family:'Orbitron',sans-serif; font-style:italic;">VS</div>
+      <div style="font-size:1.2rem; font-weight:900; color:var(--text-muted); padding:0 8px; font-family:'Pirata One',serif; font-style:italic;">VS</div>
 
       <!-- Defender Panel -->
       <div style="display:flex; flex-direction:column; align-items:center; flex:1; gap:6px; min-width: 0;">
         ${ie(t.id,t.faction)}
         <div style="font-weight:bold; font-size:0.85rem; color:var(--pm-accent); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; max-width:100%;" title="${t.name}">${t.name}</div>
-        <div style="font-size:0.7rem; color:var(--text-muted); font-family:'Orbitron',sans-serif; text-transform:uppercase;">防守方</div>
+        <div style="font-size:0.7rem; color:var(--text-muted); font-family:'Pirata One',serif; text-transform:uppercase;">防守方</div>
         <!-- HP bar -->
         <div style="width:100%; background:rgba(255,255,255,0.08); height:6px; border-radius:3px; overflow:hidden; margin-top:4px;">
           <div style="background:var(--red); width:${l}%; height:100%; transition:width 0.3s ease;"></div>
         </div>
-        <div style="font-size:0.8rem; font-weight:bold; font-family:'Orbitron',sans-serif; color:var(--red);">${Math.max(0,t.wounds)} / ${t.maxWounds} HP</div>
+        <div style="font-size:0.8rem; font-weight:bold; font-family:'Pirata One',serif; color:var(--red);">${Math.max(0,t.wounds)} / ${t.maxWounds} HP</div>
       </div>
     </div>
   `}function de(){const e=a.attacker,t=a.defender,i=Math.max(0,e.wounds/e.maxWounds*100),l=Math.max(0,t.wounds/t.maxWounds*100);return`
@@ -610,27 +610,27 @@
       <div style="display:flex; flex-direction:column; align-items:center; flex:1; gap:6px; min-width: 0;">
         ${ie(e.id,e.faction)}
         <div style="font-weight:bold; font-size:0.85rem; color:#60a5fa; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; max-width:100%;" title="${e.name}">${e.name}</div>
-        <div style="font-size:0.7rem; color:var(--text-muted); font-family:'Orbitron',sans-serif; text-transform:uppercase;">射击方</div>
+        <div style="font-size:0.7rem; color:var(--text-muted); font-family:'Pirata One',serif; text-transform:uppercase;">射击方</div>
         <!-- HP bar -->
         <div style="width:100%; background:rgba(255,255,255,0.08); height:6px; border-radius:3px; overflow:hidden; margin-top:4px;">
           <div style="background:var(--red); width:${i}%; height:100%; transition:width 0.3s ease;"></div>
         </div>
-        <div style="font-size:0.8rem; font-weight:bold; font-family:'Orbitron',sans-serif; color:var(--red);">${Math.max(0,e.wounds)} / ${e.maxWounds} HP</div>
+        <div style="font-size:0.8rem; font-weight:bold; font-family:'Pirata One',serif; color:var(--red);">${Math.max(0,e.wounds)} / ${e.maxWounds} HP</div>
       </div>
 
       <!-- VS icon -->
-      <div style="font-size:1.2rem; font-weight:900; color:var(--text-muted); padding:0 8px; font-family:'Orbitron',sans-serif; font-style:italic;">VS</div>
+      <div style="font-size:1.2rem; font-weight:900; color:var(--text-muted); padding:0 8px; font-family:'Pirata One',serif; font-style:italic;">VS</div>
 
       <!-- Defender Panel -->
       <div style="display:flex; flex-direction:column; align-items:center; flex:1; gap:6px; min-width: 0;">
         ${ie(t.id,t.faction)}
         <div style="font-weight:bold; font-size:0.85rem; color:var(--pm-accent); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; max-width:100%;" title="${t.name}">${t.name}</div>
-        <div style="font-size:0.7rem; color:var(--text-muted); font-family:'Orbitron',sans-serif; text-transform:uppercase;">防守方</div>
+        <div style="font-size:0.7rem; color:var(--text-muted); font-family:'Pirata One',serif; text-transform:uppercase;">防守方</div>
         <!-- HP bar -->
         <div style="width:100%; background:rgba(255,255,255,0.08); height:6px; border-radius:3px; overflow:hidden; margin-top:4px;">
           <div style="background:var(--red); width:${l}%; height:100%; transition:width 0.3s ease;"></div>
         </div>
-        <div style="font-size:0.8rem; font-weight:bold; font-family:'Orbitron',sans-serif; color:var(--red);">${Math.max(0,t.wounds)} / ${t.maxWounds} HP</div>
+        <div style="font-size:0.8rem; font-weight:bold; font-family:'Pirata One',serif; color:var(--red);">${Math.max(0,t.wounds)} / ${t.maxWounds} HP</div>
       </div>
     </div>
   `}function Dt(e,t){if(e!==a.meleeTurn){u("alert");return}(e==="attacker"?a.activeAttackerDice:a.activeDefenderDice)[t].used||(a.selectedMeleeDice={side:e,idx:t},F())}function Bt(e){if(!a.selectedMeleeDice)return;const{side:t,idx:i}=a.selectedMeleeDice,n=(t==="attacker"?a.activeAttackerDice:a.activeDefenderDice)[i];if(n.used)return;const c=t==="attacker"?a.defender:a.attacker,r=t==="attacker"?a.activeDefenderDice:a.activeAttackerDice;let o;if(t==="attacker"?o=a.weapon:o=a.defender.weapons.filter(y=>!y.isRanged)[0]||new w("重拳 (Fists)",4,3,3,4,!1,null,[]),a.meleeLogs||(a.meleeLogs=""),e==="strike"){n.used=!0;let y=o.normalDamage,x=o.criticalDamage;o.hasRule&&o.hasRule("Toxic")&&c.poisonTokens>0&&(y+=1,x+=1);const h=n.isCrit?x:y,S=`> ${t==="attacker"?"攻击方":"防守方"} 执行打击 (Strike)，分配了 ${h} 伤害！<br>`;a.meleeLogs+=S,c.applyWounds(h),o.hasRule&&o.hasRule("Poison")&&h>0&&c.poisonTokens<1&&(c.poisonTokens=1,C.addLog(`[Poison] ${c.name} 获得了 1 个毒素标记！(来自近战)`)),u("heavy_strike"),C.triggerCombatVisual("⚔️ STRIKE! -"+h,"strike")}else{let y=-1;if(n.isCrit?(y=r.findIndex(M=>!M.used&&M.isCrit),y===-1&&(y=r.findIndex(M=>!M.used))):y=r.findIndex(M=>!M.used&&!M.isCrit),y===-1){u("alert");return}n.used=!0,r[y].used=!0;const x=`> ${t==="attacker"?"攻击方":"防守方"} 执行格挡 (Parry)，消去对方一个骰子 [${r[y].val}]！<br>`;a.meleeLogs+=x,u("metal_clash"),C.triggerCombatVisual("🛡️ PARRY!","parry")}const m=t==="attacker"?"defender":"attacker",d=m==="attacker"?a.attacker.wounds:a.defender.wounds,g=(m==="attacker"?a.activeAttackerDice:a.activeDefenderDice).some(y=>!y.used)&&d>0,v=t==="attacker"?a.attacker.wounds:a.defender.wounds,$=(t==="attacker"?a.activeAttackerDice:a.activeDefenderDice).some(y=>!y.used)&&v>0;g&&$||g?a.meleeTurn=m:$&&(a.meleeTurn=t),a.selectedMeleeDice=null,F(),e==="strike"&&C.triggerAvatarHitEffect(c.id,"melee")}function It(){u("click"),a.selectedMeleeDice=null,F()}function Rt(){u("click");const e=a.attacker,t=a.defender;C.addLog(`

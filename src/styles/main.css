@@ -88,9 +88,9 @@
   }
 
   .tp-num {
-    font-family: 'Orbitron', sans-serif;
+    font-family: 'Pirata One', serif;
     font-size: 1.8rem;
-    font-weight: 900;
+    font-weight: 400;
     color: var(--sm-accent);
     line-height: 1.2;
   }
@@ -103,9 +103,9 @@
   }
 
   .phase-badge {
-    font-family: 'Orbitron', sans-serif;
+    font-family: 'Pirata One', serif;
     font-size: 0.8rem;
-    font-weight: 700;
+    font-weight: 400;
     background: rgba(217, 119, 6, 0.15);
     border: 1px solid var(--gold);
     color: var(--sm-accent);
@@ -160,7 +160,7 @@
   .score-group { display: flex; flex-direction: column; }
   .score-group .label { font-size: 0.75rem; color: var(--text-muted); text-transform: uppercase; }
   .score-group .val-control { display: flex; align-items: center; gap: 8px; margin-top: 2px; }
-  .score-group .val { font-family: 'Orbitron', sans-serif; font-size: 1.2rem; font-weight: bold; min-width: 24px; text-align: center; }
+  .score-group .val { font-family: 'Pirata One', serif; font-size: 1.2rem; font-weight: bold; min-width: 24px; text-align: center; }
 
   .adjust-btn {
     width: 44px; height: 44px; border-radius: 4px; border: 1px solid #475569;
@@ -178,7 +178,7 @@
   .system-btn {
     background: #1e293b; border: 1px solid #334155; color: #fff;
     padding: 6px 12px; border-radius: 6px; font-size: 0.75rem; font-weight: 600;
-    cursor: pointer; font-family: 'Orbitron', sans-serif;
+    cursor: pointer; font-family: 'Pirata One', serif;
   }
   .system-btn:hover { background: #334155; }
 
@@ -209,7 +209,7 @@
   }
 
   .start-screen h2 {
-    font-family: 'Orbitron', sans-serif;
+    font-family: 'Pirata One', serif;
     font-size: 1.6rem;
     margin-bottom: 8px;
     text-transform: uppercase;
@@ -263,7 +263,7 @@
   }
 
   .roster-picker-title {
-    font-family: 'Orbitron', sans-serif;
+    font-family: 'Pirata One', serif;
     font-size: 1.05rem;
     font-weight: 700;
   }
@@ -368,7 +368,7 @@
   }
 
   .warrior-counter-value {
-    font-family: 'Orbitron', sans-serif;
+    font-family: 'Pirata One', serif;
     font-weight: 700;
     font-size: 0.95rem;
     color: #fbbf24;
@@ -399,7 +399,7 @@
 
   .role-badge {
     font-size: 0.75rem;
-    font-family: 'Orbitron', sans-serif;
+    font-family: 'Pirata One', serif;
     padding: 1px 5px;
     border-radius: 3px;
     border: 1px solid rgba(255,255,255,0.15);
@@ -439,7 +439,7 @@
   }
 
   .phase-lock-overlay h3 {
-    font-family: 'Orbitron', sans-serif;
+    font-family: 'Pirata One', serif;
     font-size: 1.4rem;
     margin-bottom: 12px;
     text-transform: uppercase;
@@ -472,7 +472,7 @@
   }
 
   .board-header {
-    font-family: 'Orbitron', sans-serif;
+    font-family: 'Pirata One', serif;
     font-size: 1rem;
     font-weight: 700;
     border-bottom: 1px solid var(--panel-border);
@@ -540,7 +540,7 @@
     content: '✓ 已激活';
     position: absolute;
     right: 12px; top: 12px;
-    font-family: 'Orbitron', sans-serif;
+    font-family: 'Pirata One', serif;
     font-size: 0.7rem; font-weight: bold;
     color: var(--text-muted);
   }
@@ -560,7 +560,7 @@
     background: rgba(234, 179, 8, 0.15); border: 1px solid var(--sm-accent); color: var(--sm-accent);
   }
   .op-card-tag {
-    font-size: 0.75rem; font-family: 'Orbitron', sans-serif;
+    font-size: 0.75rem; font-family: 'Pirata One', serif;
     padding: 2px 6px; border-radius: 3px; border: 1px solid rgba(255,255,255,0.1); background: rgba(255,255,255,0.05);
   }
   .op-card-hp { display: flex; justify-content: space-between; font-size: 0.75rem; margin-bottom: 4px; color: var(--text-muted); }
@@ -568,7 +568,7 @@
   .op-hp-bar { height: 100%; width: 100%; background: var(--green); transition: width 0.3s; }
   .op-card.dead .op-hp-bar { width: 0% !important; }
   .op-card-stats { display: flex; gap: 12px; font-size: 0.75rem; color: var(--text-muted); }
-  .op-card-stats strong { color: #fff; font-family: 'Orbitron', sans-serif; }
+  .op-card-stats strong { color: #fff; font-family: 'Pirata One', serif; }
 
   /* 中间操作 */
   .activation-center { display: flex; flex-direction: column; gap: 20px; }
@@ -580,7 +580,7 @@
   }
   .active-card.sm-active { border-color: var(--sm-blue); box-shadow: 0 0 15px var(--sm-glow); }
   .active-card.pm-active { border-color: var(--pm-green); box-shadow: 0 0 15px var(--pm-glow); }
-  .active-card-title { font-family: 'Orbitron', sans-serif; font-size: 0.8rem; color: var(--sm-accent); font-weight: 700; }
+  .active-card-title { font-family: 'Pirata One', serif; font-size: 0.8rem; color: var(--sm-accent); font-weight: 700; }
   .active-agent-name { font-size: 1.2rem; font-weight: 700; color: #fff; }
   .active-agent-faction { font-size: 0.75rem; color: var(--text-muted); }
   .active-actions-grid { display: flex; flex-direction: column; gap: 8px; margin-top: 8px; }
@@ -594,7 +594,7 @@
   .combat-action-btn:hover:not(:disabled) { background: #334155; border-color: #475569; }
   .combat-action-btn:active:not(:disabled) { transform: scale(0.98); background: #475569; }
   .combat-action-btn:disabled { opacity: 0.3; cursor: not-allowed; }
-  .combat-action-btn .cost { margin-left: auto; font-family: 'Orbitron', sans-serif; font-size: 0.75rem; background: rgba(0,0,0,0.3); padding: 1px 5px; border-radius: 3px; color: var(--sm-accent); }
+  .combat-action-btn .cost { margin-left: auto; font-family: 'Pirata One', serif; font-size: 0.75rem; background: rgba(0,0,0,0.3); padding: 1px 5px; border-radius: 3px; color: var(--sm-accent); }
 
   .help-icon-btn {
     width: 44px; height: 44px; border-radius: 8px; background: rgba(255, 255, 255, 0.05);
@@ -606,7 +606,7 @@
 
   .btn-end-activation {
     background: var(--red); border: 1px solid #f43f5e; color: #fff;
-    padding: 12px; border-radius: 8px; font-family: 'Orbitron', sans-serif;
+    padding: 12px; border-radius: 8px; font-family: 'Pirata One', serif;
     font-weight: bold; font-size: 0.85rem; cursor: pointer; margin-top: 10px;
   }
   .btn-end-activation:hover { background: #f43f5e; box-shadow: 0 0 10px rgba(244, 63, 94, 0.4); }
@@ -616,7 +616,7 @@
     border-radius: 16px; padding: 16px; flex-grow: 1; display: flex;
     flex-direction: column; gap: 10px; max-height: 250px;
   }
-  .battle-log-title { font-family: 'Orbitron', sans-serif; font-size: 0.85rem; font-weight: 700; color: #fff; border-bottom: 1px solid var(--panel-border); padding-bottom: 6px; }
+  .battle-log-title { font-family: 'Pirata One', serif; font-size: 0.85rem; font-weight: 700; color: #fff; border-bottom: 1px solid var(--panel-border); padding-bottom: 6px; }
   .battle-log-lines { flex-grow: 1; overflow-y: auto; font-family: 'Consolas', monospace; font-size: 0.8rem; line-height: 1.4; color: #10b981; }
 
   /* 弹窗 */
@@ -633,14 +633,14 @@
     flex-direction: column; gap: 16px; position: relative;
   }
   .modal-header { border-bottom: 1px solid var(--panel-border); padding-bottom: 12px; }
-  .modal-title { font-family: 'Orbitron', sans-serif; font-size: 1.2rem; font-weight: bold; color: #fff; }
+  .modal-title { font-family: 'Pirata One', serif; font-size: 1.2rem; font-weight: 400; color: #fff; }
   .modal-body { max-height: 450px; overflow-y: auto; font-size: 0.9rem; display: flex; flex-direction: column; gap: 16px; }
   .modal-footer { border-top: 1px solid var(--panel-border); padding-top: 16px; display: flex; justify-content: flex-end; gap: 16px; }
 
   .modal-btn {
     padding: 14px 28px;
     font-size: 1.1rem;
-    font-family: 'Orbitron', sans-serif;
+    font-family: 'Pirata One', serif;
     font-weight: 700;
     border-radius: 12px;
     cursor: pointer;
@@ -677,7 +677,7 @@
 
   .ploy-choice-card { background: var(--dark-card); border: 1px solid var(--panel-border); border-radius: 10px; padding: 16px; cursor: pointer; }
   .ploy-choice-card.selected { border-color: var(--sm-accent); background: rgba(234, 179, 8, 0.04); }
-  .ploy-title { font-family: 'Orbitron', sans-serif; font-size: 1rem; font-weight: bold; color: #fff; display: flex; justify-content: space-between; }
+  .ploy-title { font-family: 'Pirata One', serif; font-size: 1rem; font-weight: 400; color: #fff; display: flex; justify-content: space-between; }
   .ploy-desc { font-size: 0.8rem; color: var(--text-muted); margin-top: 8px; line-height: 1.4; }
 
   .weapon-picker-list { display: flex; flex-direction: column; gap: 8px; }
@@ -685,7 +685,7 @@
   .weapon-pick-item:hover { border-color: #475569; }
   .weapon-pick-item.selected { border-color: var(--sm-accent); background: rgba(234, 179, 8, 0.05); }
   .weapon-pick-name { font-weight: bold; color: #fff; }
-  .weapon-pick-stats { font-family: 'Orbitron', sans-serif; font-size: 0.75rem; color: var(--text-muted); }
+  .weapon-pick-stats { font-family: 'Pirata One', serif; font-size: 0.75rem; color: var(--text-muted); }
 
   /* ==========================================
      持久化高对比拟真 3D 骰子
@@ -729,7 +729,7 @@
       0 6px 12px rgba(0,0,0,0.4),
       inset 0 -5px 0 #cbd5e1,
       inset 0 3px 0 #fff;
-    font-family: 'Orbitron', sans-serif;
+    font-family: 'Pirata One', serif;
     user-select: none;
     position: relative;
     transition: transform 0.15s, border-color 0.2s, box-shadow 0.2s;
@@ -836,7 +836,7 @@
   .melee-pool-title { font-size: 0.8rem; font-weight: bold; color: #fff; border-bottom: 1px solid rgba(255,255,255,0.05); padding-bottom: 4px; }
   .melee-dice-pool { display: flex; flex-wrap: wrap; gap: 6px; }
   .melee-dice-btn {
-    width: 44px; height: 44px; border-radius: 6px; font-family: 'Orbitron', sans-serif;
+    width: 44px; height: 44px; border-radius: 6px; font-family: 'Pirata One', serif;
     font-size: 1.1rem; font-weight: bold; display: flex; align-items: center; justify-content: center;
     cursor: pointer; border: 1px solid #475569; background: #1e293b; color: #fff;
   }
@@ -857,7 +857,7 @@
     color: #fff;
     padding: 12px 30px;
     border-radius: 8px;
-    font-family: 'Orbitron', sans-serif;
+    font-family: 'Pirata One', serif;
     font-weight: bold;
     font-size: 0.9rem;
     cursor: pointer;
@@ -901,7 +901,7 @@
     font-size: 0.8rem;
     font-weight: 800;
     color: var(--text-muted);
-    font-family: 'Orbitron', sans-serif;
+    font-family: 'Pirata One', serif;
   }
   .op-avatar-row {
     display: flex;
@@ -943,7 +943,7 @@
     to { transform: scale(1); opacity: 1; }
   }
   .death-title {
-    font-family: 'Orbitron', sans-serif;
+    font-family: 'Pirata One', serif;
     color: var(--red);
     font-size: 1.8rem;
     font-weight: 900;
@@ -1045,7 +1045,7 @@
     top: 45%;
     left: 50%;
     transform: translate(-50%, -50%) scale(0.5);
-    font-family: 'Orbitron', sans-serif;
+    font-family: 'Pirata One', serif;
     font-size: 3.2rem;
     font-weight: 900;
     color: var(--sm-accent);
