@@ -7,11 +7,12 @@ import '../styles/main.css';
 import { gameState, wizardState, initUiCallbacks, hasUsableOperatives, GAG_MESSAGES } from './state.js';
 import { audioCtx, playSound } from './audio.js';
 import { Weapon, Operative, initModelCallbacks } from './models.js';
-import { SM_TEMPLATES, PM_TEMPLATES, RULE_TEXTS } from './constants.js';
+import { SM_TEMPLATES, PM_TEMPLATES, LEG_TEMPLATES, RULE_TEXTS } from './constants.js';
+import { injectTemplates } from '../rules/faction.js';
 
 import {
   addLog, updateScoresUI, adjustScore, confirmReset, updateGuidance,
-  getAvatarHtml, renderRosterPickers, toggleSelectSM, toggleSelectPM,
+  getAvatarHtml, renderRosterPickers, toggleSelect, handleFactionChange,
   incrementWarrior, decrementWarrior,
   updateSelectionCounts, validateRostersAndDeploy, renderOperatives,
   updateMissionDesc, updateRulesVersion,
@@ -39,7 +40,7 @@ import {
   recalculateAttackStats, rollDefenseDice, renderDefenseDiceView, rerollSingleDefenseDice,
   recalculateDefenseStats, parseManualAttack, parseManualDefense, confirmShootResult,
   openFightWizard, selectFightDefender, selectFightWeapon, renderFightStep,
-  rollMeleeDice, renderMeleeRollsView,
+  rollMeleeDice, rerollMeleeDice, renderMeleeRollsView,
   getDuelAvatarHtml, getMeleeDuelHeaderHtml, getShootDuelHeaderHtml,
   chooseMeleeDice, resolveMeleeChoice, cancelMeleeChoice, confirmFightResult,
   initCombatUiCallbacks
@@ -96,8 +97,8 @@ window.adjustScore = adjustScore;
 window.confirmReset = confirmReset;
 
 // Roster Selection
-window.toggleSelectSM = toggleSelectSM;
-window.toggleSelectPM = toggleSelectPM;
+window.toggleSelect = toggleSelect;
+window.handleFactionChange = handleFactionChange;
 window.incrementWarrior = incrementWarrior;
 window.decrementWarrior = decrementWarrior;
 window.validateRostersAndDeploy = validateRostersAndDeploy;
@@ -139,6 +140,7 @@ window.rollDefenseDice = rollDefenseDice;
 window.selectFightDefender = selectFightDefender;
 window.selectFightWeapon = selectFightWeapon;
 window.rollMeleeDice = rollMeleeDice;
+window.rerollMeleeDice = rerollMeleeDice;
 window.chooseMeleeDice = chooseMeleeDice;
 window.resolveMeleeChoice = resolveMeleeChoice;
 window.cancelMeleeChoice = cancelMeleeChoice;
@@ -170,6 +172,11 @@ window.confirmTurnEndScoring = confirmTurnEndScoring;
 // ==========================================
 
 document.addEventListener('DOMContentLoaded', () => {
+  // 注入各方阵营模板数据（避免循环依赖）
+  injectTemplates('Space Marine', SM_TEMPLATES);
+  injectTemplates('Plague Marine', PM_TEMPLATES);
+  injectTemplates('Legionary', LEG_TEMPLATES);
+
   renderRosterPickers();
   updateRulesVersion(); // 初始化规则版本（默认 lite，隐藏 Advance）
 });

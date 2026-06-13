@@ -1,5 +1,6 @@
 import { playSound } from './audio.js';
 import { gameState } from './state.js';
+import { hasFactionTrait, getActivePloys, getFactionDisplayName } from '../rules/faction.js';
 
 // UI callbacks - set during app initialization to avoid circular deps
 const ui = {};
@@ -57,10 +58,11 @@ export class Weapon {
 }
 
 export class Operative {
-  constructor(id, name, faction, wounds, apl, df, sv, weapons = [], defaultAvatar = '', move = 6) {
+  constructor(id, name, faction, wounds, apl, df, sv, weapons = [], defaultAvatar = '', move = 6, teamSlot = -1) {
     this.id = id;
     this.name = name;
     this.faction = faction;
+    this.teamSlot = teamSlot; // 0 or 1, for mirror-match disambiguation
     this.maxWounds = wounds;
     this.wounds = wounds;
     this.maxApl = apl;
@@ -130,7 +132,7 @@ export class Operative {
   applyWounds(amountOrAttacks, manualDrRolls = null) {
     if (this.isDead) return 0;
 
-    const isPlagueMarine = this.faction === 'Plague Marine';
+    const hasDr = hasFactionTrait(this.faction, 'disgustingResilience');
     let totalIncoming = 0;
     let attackBreakdown = [];
 
@@ -146,9 +148,9 @@ export class Operative {
 
     let actualDamage = 0;
 
-    if (isPlagueMarine) {
-      const hasPloyActive = gameState.pmActivePloys.includes('contagious_resilience');
-      ui.addLog(`[特性] 触发瘟疫守卫专属【恶心作呕 (DR 4+)】 ${hasPloyActive ? '(已开启传染韧性，允许首个失败重投)' : ''}：`);
+    if (hasDr) {
+      const hasPloyActive = getActivePloys(this.faction).includes('contagious_resilience');
+      ui.addLog(`[特性] 触发${getFactionDisplayName(this.faction)}专属【恶心作呕 (DR 4+)】 ${hasPloyActive ? '(已开启传染韧性，允许首个失败重投)' : ''}：`);
 
       let drRollIndex = 0;
       let hasRerolled = false;

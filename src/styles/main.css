@@ -29,6 +29,11 @@
     --pm-glow: rgba(74, 124, 89, 0.12);
     --pm-accent: #7ab88a;
 
+    /* Faction: Legionary */
+    --leg-red: #8b1a1a;
+    --leg-glow: rgba(139, 26, 26, 0.15);
+    --leg-accent: #c94444;
+
     /* Utility (backward compat aliases) */
     --gold: #c9a84c;
     --gold-glow: rgba(201, 168, 76, 0.15);
@@ -161,6 +166,11 @@
     border-color: rgba(74, 124, 89, 0.4);
     color: #b0d4ba;
   }
+  .ploy-tag.leg {
+    background: rgba(139, 26, 26, 0.2);
+    border-color: rgba(139, 26, 26, 0.4);
+    color: #e08080;
+  }
 
   /* 积分看板 */
   .faction-scores {
@@ -194,6 +204,10 @@
     border-color: var(--pm-green);
     box-shadow: inset 0 0 20px rgba(0,0,0,0.2), 0 0 10px var(--pm-glow);
   }
+  .score-card.leg {
+    border-color: var(--leg-red);
+    box-shadow: inset 0 0 20px rgba(0,0,0,0.2), 0 0 10px var(--leg-glow);
+  }
 
   .score-values { display: flex; gap: 16px; }
 
@@ -213,6 +227,7 @@
   .score-card-title { font-size: 0.95rem; font-weight: 700; }
   .score-card.sm .score-card-title { color: #6a9ad4; }
   .score-card.pm .score-card-title { color: var(--pm-accent); }
+  .score-card.leg .score-card-title { color: var(--leg-accent); }
 
   .dash-ops { display: flex; flex-direction: column; gap: 6px; }
   .system-btn {
@@ -309,6 +324,7 @@
   }
   .roster-picker-card.sm .roster-picker-title { color: #6a9ad4; }
   .roster-picker-card.pm .roster-picker-title { color: var(--pm-accent); }
+  .roster-picker-card.leg .roster-picker-title { color: var(--leg-accent); }
 
   .roster-picker-limit {
     font-size: 0.75rem;
@@ -530,6 +546,10 @@
     background: linear-gradient(90deg, transparent 0%, #1a2d20 15%, #1e3525 50%, #1a2d20 85%, transparent 100%);
     border-bottom-color: rgba(74, 124, 89, 0.3);
   }
+  .leg-team .board-header-content {
+    background: linear-gradient(90deg, transparent 0%, #2d1010 15%, #351515 50%, #2d1010 85%, transparent 100%);
+    border-bottom-color: rgba(139, 26, 26, 0.3);
+  }
   .board-header-img {
     width: 100%;
     height: 80px;
@@ -539,6 +559,7 @@
   }
   .operative-board.sm-team .board-header { color: #6a9ad4; }
   .operative-board.pm-team .board-header { color: var(--pm-accent); }
+  .operative-board.leg-team .board-header { color: var(--leg-accent); }
   .team-status { font-size: 0.75rem; color: var(--text-muted); }
 
   .operatives-list {
@@ -579,6 +600,7 @@
   }
   .op-card.sm-theme { border-left: 4px solid var(--sm-blue); }
   .op-card.pm-theme { border-left: 4px solid var(--pm-green); }
+  .op-card.leg-theme { border-left: 4px solid var(--leg-red); }
 
   .op-card.active-target {
     border-color: var(--sm-accent) !important;
@@ -640,6 +662,7 @@
   }
   .active-card.sm-active { border-color: var(--sm-blue); box-shadow: 0 0 15px var(--sm-glow); }
   .active-card.pm-active { border-color: var(--pm-green); box-shadow: 0 0 15px var(--pm-glow); }
+  .active-card.leg-active { border-color: var(--leg-red); box-shadow: 0 0 15px var(--leg-glow); }
   .active-card-title { font-family: 'Pirata One', serif; font-size: 0.8rem; color: var(--sm-accent); font-weight: 700; }
   .active-agent-name { font-size: 1.2rem; font-weight: 700; color: #fff; }
   .active-agent-faction { font-size: 0.75rem; color: var(--text-muted); }
@@ -867,6 +890,15 @@
       inset 0 3px 0 #7ab88a;
   }
 
+  .kt-dice-cube.leg-dice {
+    background: linear-gradient(135deg, #8b1a1a, #5c1010);
+    color: #fff;
+    box-shadow:
+      0 6px 12px rgba(0,0,0,0.4),
+      inset 0 -5px 0 #3a0808,
+      inset 0 3px 0 #c94444;
+  }
+
   /* 晃动滚落 */
   .kt-dice-cube.rolling {
     animation: diceRollTumble 0.3s infinite linear;
@@ -944,6 +976,7 @@
   .init-team-col { display: flex; flex-direction: column; align-items: center; gap: 10px; background: rgba(255,255,255,0.02); padding: 16px; border-radius: 12px; }
   .init-team-col.sm { border-top: 3px solid var(--sm-blue); }
   .init-team-col.pm { border-top: 3px solid var(--pm-green); }
+  .init-team-col.leg { border-top: 3px solid var(--leg-red); }
 
   .melee-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
   .melee-pool-card { background: var(--dark-card); border: 1px solid var(--panel-border); border-radius: 10px; padding: 12px; display: flex; flex-direction: column; gap: 10px; }
@@ -958,6 +991,7 @@
   .melee-dice-btn:active { transform: scale(0.95); }
   .melee-dice-btn.sm-dice { background: var(--sm-blue); border-color: #4a6a9a; }
   .melee-dice-btn.pm-dice { background: var(--pm-green); border-color: #5b8c6a; }
+  .melee-dice-btn.leg-dice { background: var(--leg-red); border-color: #5c1010; }
   .melee-dice-btn.crit { border-color: var(--sm-accent); box-shadow: 0 0 10px var(--sm-accent); }
   .melee-dice-btn.used { opacity: 0.15; cursor: not-allowed; }
   .melee-interactive-log { background: #13151a; border: 1px solid rgba(255,255,255,0.05); border-radius: 8px; padding: 10px; height: 120px; overflow-y: auto; font-family: 'Consolas', monospace; font-size: 0.75rem; color: var(--text-muted); }
@@ -1549,6 +1583,13 @@
     border-color: var(--pm-accent);
     color: var(--pm-accent);
     box-shadow: 0 0 12px rgba(74, 124, 89, 0.35);
+  }
+
+  .turn-indicator.leg-turn {
+    background: linear-gradient(135deg, rgba(139, 26, 26, 0.28), rgba(139, 26, 26, 0.08));
+    border-color: var(--leg-accent);
+    color: var(--leg-accent);
+    box-shadow: 0 0 12px rgba(139, 26, 26, 0.35);
   }
 
   .turn-indicator-faction {

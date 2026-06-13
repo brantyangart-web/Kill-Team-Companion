@@ -1,4 +1,5 @@
 import { playSound } from './audio.js';
+import { getEnemyFaction, getFactionDisplayName, getTeamSlot } from '../rules/faction.js';
 
 // UI callbacks - set during app initialization to avoid circular deps
 const ui = {};
@@ -14,9 +15,15 @@ export const gameState = {
   turningPoint: 1,
   phase: 'Initiative',
   initiative: 'Space Marine',
+  initiativeSlot: 0,     // slot that won initiative (0 or 1)
   activeTurn: 'Space Marine',
+  activeTurnSlot: 0,     // slot whose turn it is (0 or 1)
   activeAgent: null,
   pendingActivation: null,  // 预选中的特工 (两步激活: 选择 → 确认)
+
+  // Team Slot 抽象: 0 = 左方战队, 1 = 右方战队
+  // smVp/smCp 语义变为 team 0, pmVp/pmCp 语义变为 team 1
+  teamFactions: { 0: 'Space Marine', 1: 'Plague Marine' },
 
   smVp: 0,
   smCp: 2,
@@ -97,8 +104,10 @@ export const GAG_MESSAGES = [
 //          状态辅助函数
 // ==========================================
 
-export function hasUsableOperatives(faction) {
-  return gameState.operatives.some(op => op.faction === faction && !op.isDead && !op.hasActed);
+// Accepts slot (0/1) or faction name; prefers slot for mirror-match safety
+export function hasUsableOperatives(slotOrFaction) {
+  const slot = typeof slotOrFaction === 'number' ? slotOrFaction : getTeamSlot(slotOrFaction);
+  return gameState.operatives.some(op => op.teamSlot === slot && !op.isDead && !op.hasActed);
 }
 
 export function endTurningPoint() {
@@ -143,32 +152,40 @@ export function endTurningPoint() {
 }
 
 // ---- 判断是否有可用于 Counteract 的特工 (已耗尽 + Engage 标记 + 本 TP 未反击过) ----
-export function hasCounteractOperatives(faction) {
+// Accepts slot (0/1) or faction name; prefers slot for mirror-match safety
+export function hasCounteractOperatives(slotOrFaction) {
+  const slot = typeof slotOrFaction === 'number' ? slotOrFaction : getTeamSlot(slotOrFaction);
   return gameState.operatives.some(op =>
-    op.faction === faction && !op.isDead && op.hasActed && !op.hasConceal && !op.hasCounteractedThisTP
+    op.teamSlot === slot && !op.isDead && op.hasActed && !op.hasConceal && !op.hasCounteractedThisTP
   );
 }
 
 export function switchSides() {
-  const nextFaction = gameState.activeTurn === 'Space Marine' ? 'Plague Marine' : 'Space Marine';
-  const nextHasReady = hasUsableOperatives(nextFaction);
-  const currentHasReady = hasUsableOperatives(gameState.activeTurn);
-  const factionName = f => f === 'Space Marine' ? '死亡天使' : '瘟疫守卫';
+  // Use slot-based tracking for mirror-match safety
+  const currentSlot = gameState.activeTurnSlot;
+  const nextSlot = 1 - currentSlot;
+  const nextFaction = gameState.teamFactions[nextSlot];
+  const currentFaction = gameState.teamFactions[currentSlot];
+  const nextHasReady = hasUsableOperatives(nextSlot);
+  const currentHasReady = hasUsableOperatives(currentSlot);
 
   if (nextHasReady) {
     // Normal alternation
+    gameState.activeTurnSlot = nextSlot;
     gameState.activeTurn = nextFaction;
-    ui.addLog(`>>> 交替轮转：轮到【${factionName(nextFaction)}】选择特工激活。`);
+    ui.addLog(`>>> 交替轮转：轮到【${getFactionDisplayName(nextFaction)}】选择特工激活。`);
   } else if (currentHasReady) {
     // Next has no ready, current still has ready → next may counteract
+    gameState.activeTurnSlot = nextSlot;
     gameState.activeTurn = nextFaction;
-    if (hasCounteractOperatives(nextFaction)) {
-      ui.addLog(`>>> 【${factionName(nextFaction)}】无可用特工，但可发动反击 (Counteract)！`);
-      ui.showCounteractOverlay(nextFaction);
+    if (hasCounteractOperatives(nextSlot)) {
+      ui.addLog(`>>> 【${getFactionDisplayName(nextFaction)}】无可用特工，但可发动反击 (Counteract)！`);
+      ui.showCounteractOverlay(nextSlot);
     } else {
-      ui.addLog(`>>> 【${factionName(nextFaction)}】已无可用特工且无反击机会。轮到【${factionName(gameState.activeTurn === nextFaction ? gameState.activeTurn : nextFaction)}】继续。`);
-      // Turn passes to opponent (who still has ready units)
-      gameState.activeTurn = nextFaction === 'Space Marine' ? 'Plague Marine' : 'Space Marine';
+      ui.addLog(`>>> 【${getFactionDisplayName(nextFaction)}】已无可用特工且无反击机会。轮到【${getFactionDisplayName(currentFaction)}】继续。`);
+      // Turn passes back to current slot (who still has ready units)
+      gameState.activeTurnSlot = currentSlot;
+      gameState.activeTurn = currentFaction;
     }
   } else {
     // Neither side has ready operatives
@@ -181,16 +198,18 @@ export function switchSides() {
 
 // ---- 玩家跳过 Counteract ----
 export function skipCounteract() {
-  const passingFaction = gameState.activeTurn;
-  const opponentFaction = passingFaction === 'Space Marine' ? 'Plague Marine' : 'Space Marine';
-  const factionName = f => f === 'Space Marine' ? '死亡天使' : '瘟疫守卫';
+  const passingSlot = gameState.activeTurnSlot;
+  const opponentSlot = 1 - passingSlot;
+  const passingFaction = gameState.teamFactions[passingSlot];
+  const opponentFaction = gameState.teamFactions[opponentSlot];
 
-  ui.addLog(`>>> 【${factionName(passingFaction)}】选择跳过反击。`);
+  ui.addLog(`>>> 【${getFactionDisplayName(passingFaction)}】选择跳过反击。`);
 
-  if (hasUsableOperatives(opponentFaction)) {
+  if (hasUsableOperatives(opponentSlot)) {
     // Opponent continues
+    gameState.activeTurnSlot = opponentSlot;
     gameState.activeTurn = opponentFaction;
-    ui.addLog(`>>> 轮到【${factionName(opponentFaction)}】继续激活。`);
+    ui.addLog(`>>> 轮到【${getFactionDisplayName(opponentFaction)}】继续激活。`);
   } else {
     // Opponent also has no ready → turn ends
     ui.addLog(`>>> 双方均已无法激活。回合得分结算开始。`);

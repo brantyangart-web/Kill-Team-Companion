@@ -1,7 +1,13 @@
 import { gameState, wizardState, GAG_MESSAGES, hasUsableOperatives, switchSides, endTurningPoint, startCounteractActivation, skipCounteract } from './state.js';
 import { playSound } from './audio.js';
-import { SM_TEMPLATES, PM_TEMPLATES, RULE_TEXTS } from './constants.js';
+import { SM_TEMPLATES, PM_TEMPLATES, LEG_TEMPLATES, RULE_TEXTS } from './constants.js';
 import { Weapon, Operative, translateRule } from './models.js';
+import {
+  getEnemyFaction, getDiceClass, getCpForFaction, setCpForFaction,
+  getVpForFaction, setVpForFaction, getFactionDisplayName, getFactionCssSuffix,
+  hasFactionTrait, getActivePloys, setActivePloys, getFaction, getTeamSlot,
+  getTeamCssClass, getFactionThemeVar
+} from '../rules/faction.js';
 
 // Accessibility: check reduced motion preference
 const prefersReducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)');
@@ -77,10 +83,13 @@ export function updateRulesVersion() {
       desc.innerHTML = '<b style="color:var(--imperial-gold);">Standard 规则：</b>完整版规则，包含所有行动（Advance/Dash/Fall Back），适合有经验的玩家。';
     }
   }
-  // 更新 Advance 按钮的可见性
+  // 更新 Advance 行的可见性 (隐藏整行，包括帮助按钮)
   const advanceBtn = document.getElementById('action-advance');
   if (advanceBtn) {
-    advanceBtn.style.display = gameState.rulesVersion === 'lite' ? 'none' : '';
+    const advanceRow = advanceBtn.closest('.action-btn-row');
+    if (advanceRow) {
+      advanceRow.style.display = gameState.rulesVersion === 'lite' ? 'none' : '';
+    }
   }
 }
 
@@ -263,9 +272,9 @@ document.addEventListener('keydown', (e) => {
   }
 });
 
-// Warrior duplicate counts (faction → { templateId → count })
-const selectedSMCounts = {};
-const selectedPMCounts = {};
+// Warrior duplicate counts (slot → { templateId → count })
+// slot 0 = team 0 (left), slot 1 = team 1 (right)
+const selectedCounts = { 0: {}, 1: {} };
 
 // Combat callbacks - initialized from combat module
 const combat = {};
@@ -299,29 +308,36 @@ export function updateScoresUI() {
   else if (phaseName === 'Firefight') phaseName = '战斗阶段';
   document.getElementById('dash-phase').textContent = phaseName;
 
-  // Update ploy tags
+  // Update ploy tags (dynamic based on faction)
+  const ployNames = {
+    'bolter_discipline': '爆弹惩戒',
+    'contagious_resilience': '传染韧性',
+    'dark_zealotry': '黑暗狂热',
+  };
   const smTags = document.getElementById('sm-ploy-tags');
   smTags.innerHTML = '';
+  const team0Suffix = getFactionCssSuffix(gameState.teamFactions[0]);
   gameState.smActivePloys.forEach(ploy => {
     const span = document.createElement('span');
-    span.className = 'ploy-tag sm';
-    span.textContent = ploy === 'bolter_discipline' ? '爆弹惩戒' : ploy;
+    span.className = `ploy-tag ${team0Suffix}`;
+    span.textContent = ployNames[ploy] || ploy;
     smTags.appendChild(span);
   });
 
   const pmTags = document.getElementById('pm-ploy-tags');
   pmTags.innerHTML = '';
+  const team1Suffix = getFactionCssSuffix(gameState.teamFactions[1]);
   gameState.pmActivePloys.forEach(ploy => {
     const span = document.createElement('span');
-    span.className = 'ploy-tag pm';
-    span.textContent = ploy === 'contagious_resilience' ? '传染韧性' : ploy;
+    span.className = `ploy-tag ${team1Suffix}`;
+    span.textContent = ployNames[ploy] || ploy;
     pmTags.appendChild(span);
   });
 
   // Update Next Phase button visibility inside dash
   const nextBtn = document.getElementById('btn-next-phase');
   if (nextBtn) {
-    if (gameState.phase === 'Firefight' && !hasUsableOperatives('Space Marine') && !hasUsableOperatives('Plague Marine')) {
+    if (gameState.phase === 'Firefight' && !hasUsableOperatives(0) && !hasUsableOperatives(1)) {
       nextBtn.style.display = 'inline-block';
       nextBtn.textContent = '回合得分结算';
       nextBtn.onclick = showTurnEndScoringOverlay;
@@ -331,14 +347,55 @@ export function updateScoresUI() {
   }
 }
 
-export function adjustScore(faction, type, amount) {
+// ---- 更新战斗面板名称/主题 (记分卡标题、战场看板标题/旗帜) ----
+export function updateBattlePanelNames() {
+  [0, 1].forEach(slot => {
+    const faction = gameState.teamFactions[slot];
+    const factionData = getFaction(faction);
+    const cssSuffix = getFactionCssSuffix(faction);
+    const shortName = factionData ? factionData.shortName : faction;
+    const fullName = factionData ? `${factionData.shortName} (${factionData.id})` : faction;
+
+    // Score card title
+    const titleEl = document.getElementById(`score-card-title-${slot}`);
+    if (titleEl) titleEl.textContent = fullName;
+
+    // Score card CSS class (for theme color)
+    const cardEl = document.getElementById(`score-card-${slot}`);
+    if (cardEl) {
+      cardEl.className = `score-card ${cssSuffix}`;
+    }
+
+    // Board header name
+    const boardNameEl = document.getElementById(`board-header-name-${slot}`);
+    if (boardNameEl) boardNameEl.textContent = `${shortName}战队`;
+
+    // Board header image (faction-specific banner)
+    const boardImgEl = document.getElementById(`board-header-img-${slot}`);
+    if (boardImgEl && factionData && factionData.headerImg) {
+      boardImgEl.src = factionData.headerImg;
+      boardImgEl.alt = `${shortName}战队旗帜`;
+    }
+
+    // Operative board CSS class (for theme border/glow)
+    const boardId = slot === 0 ? 'sm-board' : 'pm-board';
+    const boardEl = document.getElementById(boardId);
+    if (boardEl) {
+      boardEl.className = `operative-board ${cssSuffix}-team`;
+    }
+  });
+}
+
+export function adjustScore(teamOrFaction, type, amount) {
   playSound('click');
   if (type === 'cp') return; // CP 由规则自动管理, 不允许手动调整
-  if (faction === 'sm') {
-    gameState.smVp = Math.max(0, gameState.smVp + amount);
-  } else {
-    gameState.pmVp = Math.max(0, gameState.pmVp + amount);
-  }
+  // Accept either 'sm'/'pm' (legacy) or a faction name
+  let slot;
+  if (teamOrFaction === 'sm') slot = 0;
+  else if (teamOrFaction === 'pm') slot = 1;
+  else slot = getTeamSlot(teamOrFaction);
+  if (slot === 0) gameState.smVp = Math.max(0, gameState.smVp + amount);
+  else gameState.pmVp = Math.max(0, gameState.pmVp + amount);
   updateScoresUI();
 }
 
@@ -347,6 +404,11 @@ export function confirmReset() {
     playSound('click');
     gameState.turningPoint = 1;
     gameState.phase = 'Initiative';
+    gameState.teamFactions = { 0: 'Space Marine', 1: 'Plague Marine' };
+    gameState.initiative = 'Space Marine';
+    gameState.initiativeSlot = 0;
+    gameState.activeTurn = 'Space Marine';
+    gameState.activeTurnSlot = 0;
     gameState.smVp = 0;
     gameState.smCp = 2;
     gameState.pmVp = 0;
@@ -379,15 +441,17 @@ export function updateGuidance(text) {
 
 export function getAvatarHtml(opId, faction) {
   const avatarUrl = gameState.customAvatars[opId];
-  let fallbackUrl = faction === 'Space Marine' ? 'assets/images/defaults/default_sm_avatar.png' : 'assets/images/defaults/default_pm_avatar.png';
+  const cssSuffix = getFactionCssSuffix(faction);
+  let fallbackUrl = `assets/images/defaults/default_${cssSuffix}_avatar.png`;
 
   const activeOp = gameState.operatives.find(o => o.id === opId);
-  const opName = activeOp ? activeOp.name : (SM_TEMPLATES.concat(PM_TEMPLATES).find(t => t.id === opId)?.name || opId);
+  const allTemplates = SM_TEMPLATES.concat(PM_TEMPLATES).concat(LEG_TEMPLATES);
+  const opName = activeOp ? activeOp.name : (allTemplates.find(t => t.id === opId)?.name || opId);
 
   if (activeOp && activeOp.defaultAvatar) {
     fallbackUrl = activeOp.defaultAvatar;
   } else {
-    const template = SM_TEMPLATES.concat(PM_TEMPLATES).find(t => t.id === opId);
+    const template = allTemplates.find(t => t.id === opId);
     if (template && template.defaultAvatar) {
       fallbackUrl = template.defaultAvatar;
     }
@@ -414,7 +478,7 @@ function buildWeaponSummary(tmpl) {
   }).join(' / ');
 }
 
-function buildRosterRowHtml(tmpl, faction, isLeader, checked, disabled, toggleFn, badgeStyle) {
+function buildRosterRowHtml(tmpl, faction, isLeader, checked, disabled, toggleFn, badgeStyle, slot) {
   const badge = isLeader
     ? `<span class="role-badge leader" ${badgeStyle ? `style="${badgeStyle}"` : ''}>LEADER</span>`
     : `<span class="role-badge">OPERATOR</span>`;
@@ -422,19 +486,20 @@ function buildRosterRowHtml(tmpl, faction, isLeader, checked, disabled, toggleFn
   const disabledAttr = disabled ? 'disabled' : '';
   const avatarHtml = getAvatarHtml(tmpl.id, faction);
   const warriorTag = tmpl.isWarrior ? ' <span style="color:#c9a84c; font-size:0.65rem;">[Warrior]</span>' : '';
+  const prefix = `s${slot}`;
 
   // Warrior 使用计数器（可复选多个同型单位），其他使用复选框
   let controlHtml;
   if (tmpl.isWarrior) {
     controlHtml = `
-      <div class="warrior-counter" data-warrior-id="${tmpl.id}">
-        <button class="warrior-counter-btn minus" onclick="event.stopPropagation(); decrementWarrior('${tmpl.id}')" aria-label="减少数量">−</button>
-        <span class="warrior-counter-value" id="warrior-count-${tmpl.id}">0</span>
-        <button class="warrior-counter-btn plus" onclick="event.stopPropagation(); incrementWarrior('${tmpl.id}')" aria-label="增加数量">+</button>
+      <div class="warrior-counter" data-warrior-id="${prefix}-${tmpl.id}">
+        <button class="warrior-counter-btn minus" onclick="event.stopPropagation(); decrementWarrior(${slot},'${tmpl.id}')" aria-label="减少数量">−</button>
+        <span class="warrior-counter-value" id="warrior-count-${prefix}-${tmpl.id}">0</span>
+        <button class="warrior-counter-btn plus" onclick="event.stopPropagation(); incrementWarrior(${slot},'${tmpl.id}')" aria-label="增加数量">+</button>
       </div>
     `;
   } else {
-    controlHtml = `<input type="checkbox" class="roster-checkbox" id="check-${tmpl.id}" ${checkedAttr} ${disabledAttr} onchange="${toggleFn}('${tmpl.id}')">`;
+    controlHtml = `<input type="checkbox" class="roster-checkbox" id="check-${prefix}-${tmpl.id}" ${checkedAttr} ${disabledAttr}>`;
   }
 
   return `
@@ -468,64 +533,95 @@ function attachRowClickHandler(rowEl, tmplId, toggleFn, isWarrior = false) {
   };
 }
 
+// ---- 根据 template ID 判断所属 slot (0 或 1) ----
+function getSlotForTemplateId(id) {
+  if (id.startsWith('sm_') || id.startsWith('leg_')) {
+    // Check which slot has this faction
+    const f0 = gameState.teamFactions[0];
+    const f1 = gameState.teamFactions[1];
+    if (id.startsWith('sm_')) {
+      if (f0 === 'Space Marine') return 0;
+      if (f1 === 'Space Marine') return 1;
+    } else if (id.startsWith('leg_')) {
+      if (f0 === 'Legionary') return 0;
+      if (f1 === 'Legionary') return 1;
+    }
+  } else if (id.startsWith('pm_')) {
+    const f0 = gameState.teamFactions[0];
+    const f1 = gameState.teamFactions[1];
+    if (f0 === 'Plague Marine') return 0;
+    if (f1 === 'Plague Marine') return 1;
+  }
+  // Fallback: check prefix match with current teamFactions
+  return 0;
+}
+
+// ---- 获取 slot 对应的 templates 数组 ----
+function getTemplatesForSlot(slot) {
+  const faction = gameState.teamFactions[slot];
+  const fData = getFaction(faction);
+  if (fData && fData.templates) return fData.templates;
+  // Fallback
+  if (faction === 'Space Marine') return SM_TEMPLATES;
+  if (faction === 'Plague Marine') return PM_TEMPLATES;
+  if (faction === 'Legionary') return LEG_TEMPLATES;
+  return [];
+}
+
 // ---- Warrior 计数器: 增加 / 减少 ----
-export function incrementWarrior(id) {
+export function incrementWarrior(slot, id) {
   playSound('click');
-  const isSM = SM_TEMPLATES.some(t => t.id === id);
-  const faction = isSM ? 'sm' : 'pm';
-  const templates = isSM ? SM_TEMPLATES : PM_TEMPLATES;
-  const counts = isSM ? selectedSMCounts : selectedPMCounts;
+  const templates = getTemplatesForSlot(slot);
+  const counts = selectedCounts[slot];
   const tmpl = templates.find(t => t.id === id);
   if (!tmpl || !tmpl.isWarrior) return;
 
   // Operator 上限为 5 (Leader 必占 1 位, 总人数 6)
-  const currentOpCount = getOperatorCount(faction);
+  const currentOpCount = getOperatorCount(slot);
   if (currentOpCount >= 5) {
     showToast('Operator 数量已达上限 (5 名)！请先减少其他 Operator。', 'warning');
     return;
   }
 
   counts[id] = (counts[id] || 0) + 1;
-  const countEl = document.getElementById(`warrior-count-${id}`);
+  const countEl = document.getElementById(`warrior-count-s${slot}-${id}`);
   if (countEl) countEl.textContent = counts[id];
 
-  const row = document.getElementById(`picker-row-${id}`);
+  const row = document.getElementById(`picker-row-s${slot}-${id}`);
   if (row) {
     if (counts[id] > 0) row.classList.add('selected');
     else row.classList.remove('selected');
   }
 
   updateSelectionCounts();
-  updateOperatorAvailability(faction);
+  updateOperatorAvailability(slot);
 }
 
-export function decrementWarrior(id) {
+export function decrementWarrior(slot, id) {
   playSound('click');
-  const isSM = SM_TEMPLATES.some(t => t.id === id);
-  const faction = isSM ? 'sm' : 'pm';
-  const counts = isSM ? selectedSMCounts : selectedPMCounts;
+  const counts = selectedCounts[slot];
   if (!counts[id] || counts[id] <= 0) return;
 
   counts[id]--;
-  const countEl = document.getElementById(`warrior-count-${id}`);
+  const countEl = document.getElementById(`warrior-count-s${slot}-${id}`);
   if (countEl) countEl.textContent = counts[id];
 
-  const row = document.getElementById(`picker-row-${id}`);
+  const row = document.getElementById(`picker-row-s${slot}-${id}`);
   if (row && counts[id] <= 0) row.classList.remove('selected');
 
   updateSelectionCounts();
-  updateOperatorAvailability(faction);
+  updateOperatorAvailability(slot);
 }
 
 // ---- 计算当前已选 Operator 数量 (不含 Leader) ----
-function getOperatorCount(faction) {
-  const templates = faction === 'sm' ? SM_TEMPLATES : PM_TEMPLATES;
-  const counts = faction === 'sm' ? selectedSMCounts : selectedPMCounts;
+function getOperatorCount(slot) {
+  const templates = getTemplatesForSlot(slot);
+  const counts = selectedCounts[slot];
   let count = 0;
 
   // 非 Warrior Operator (checkbox)
   templates.filter(t => !t.isLeader && !t.isWarrior).forEach(t => {
-    if (document.getElementById(`check-${t.id}`)?.checked) count++;
+    if (document.getElementById(`check-s${slot}-${t.id}`)?.checked) count++;
   });
 
   // Warrior counts
@@ -537,137 +633,178 @@ function getOperatorCount(faction) {
 }
 
 // ---- 计算当前已选总人数 (含 Leader) ----
-function getSelectedTotal(faction) {
-  const templates = faction === 'sm' ? SM_TEMPLATES : PM_TEMPLATES;
+function getSelectedTotal(slot) {
+  const templates = getTemplatesForSlot(slot);
+  const counts = selectedCounts[slot];
   let leaderCount = 0;
 
   templates.filter(t => t.isLeader).forEach(t => {
-    if (faction === 'pm') leaderCount = 1; // PM Champion 锁定
-    else if (document.getElementById(`check-${t.id}`)?.checked) leaderCount++;
+    if (document.getElementById(`check-s${slot}-${t.id}`)?.checked) leaderCount++;
   });
 
-  return leaderCount + getOperatorCount(faction);
+  return leaderCount + getOperatorCount(slot);
 }
 
 export function renderRosterPickers() {
   // 重置计数
-  Object.keys(selectedSMCounts).forEach(k => delete selectedSMCounts[k]);
-  Object.keys(selectedPMCounts).forEach(k => delete selectedPMCounts[k]);
+  selectedCounts[0] = {};
+  selectedCounts[1] = {};
 
-  // ---- SM (死亡天使): 1 Leader + 5 Operators ----
-  const smLeaders = SM_TEMPLATES.filter(t => t.isLeader);
-  const smOperators = SM_TEMPLATES.filter(t => !t.isLeader);
+  // 渲染两个 slot 的 roster picker
+  renderRosterPickerForSlot(0);
+  renderRosterPickerForSlot(1);
 
-  const smLeaderSection = document.getElementById('sm-leader-section');
-  const smOperatorSection = document.getElementById('sm-operator-section');
-  smLeaderSection.innerHTML = '';
-  smOperatorSection.innerHTML = '';
+  updateSelectionCounts();
+  updateOperatorAvailability(0);
+  updateOperatorAvailability(1);
+}
+
+// ---- 渲染单个 slot 的 roster picker ----
+function renderRosterPickerForSlot(slot) {
+  const faction = gameState.teamFactions[slot];
+  const templates = getTemplatesForSlot(slot);
+  const cssSuffix = getFactionCssSuffix(faction);
+  const themeVar = getFactionThemeVar(faction);
+  const factionName = getFactionDisplayName(faction);
+  const factionData = getFaction(faction);
+
+  // 更新 roster card 标题和 CSS
+  const rosterCard = document.getElementById(`team${slot}-roster-card`);
+  const rosterTitle = document.getElementById(`team${slot}-roster-title`);
+  if (rosterCard) {
+    rosterCard.className = `roster-picker-card ${cssSuffix}`;
+  }
+  if (rosterTitle) {
+    rosterTitle.textContent = factionData ? `${factionData.shortName} (${factionData.id})` : faction;
+  }
+
+  const leaders = templates.filter(t => t.isLeader);
+  const operators = templates.filter(t => !t.isLeader);
+
+  const leaderSection = document.getElementById(`team${slot}-leader-section`);
+  const operatorSection = document.getElementById(`team${slot}-operator-section`);
+  if (!leaderSection || !operatorSection) return;
+  leaderSection.innerHTML = '';
+  operatorSection.innerHTML = '';
+
+  const slotIcon = slot === 0 ? '⚜' : '☠';
 
   // Leader 分组标题
-  smLeaderSection.innerHTML = `
-    <div style="font-size:0.8rem; font-weight:600; color:#6a9ad4; margin-bottom:6px; padding-left:4px;">
-      ⚜ 🎖️ LEADER — 单选 1 名 (3 选 1) ⚜
+  leaderSection.innerHTML = `
+    <div style="font-size:0.8rem; font-weight:600; color:var(${themeVar}); margin-bottom:6px; padding-left:4px;">
+      ${slotIcon} 🎖️ LEADER — 单选 1 名 ${slotIcon}
     </div>
   `;
-  smLeaders.forEach(tmpl => {
+  leaders.forEach(tmpl => {
+    // Auto-check if this is the only leader option
+    const autoCheck = leaders.length === 1;
     const row = document.createElement('div');
     row.className = 'roster-pick-row';
-    row.id = `picker-row-${tmpl.id}`;
-    row.innerHTML = buildRosterRowHtml(tmpl, 'Space Marine', true, false, false, 'toggleSelectSM');
-    attachRowClickHandler(row, tmpl.id, toggleSelectSM, false);
-    smLeaderSection.appendChild(row);
+    row.id = `picker-row-s${slot}-${tmpl.id}`;
+    row.innerHTML = buildRosterRowHtml(tmpl, faction, true, autoCheck, autoCheck, '', '', slot);
+    // Use direct click handler
+    const cb = row.querySelector('input[type="checkbox"]');
+    if (cb) {
+      cb.removeAttribute('onchange');
+      cb.onclick = (e) => {
+        e.stopPropagation();
+        if (!cb.disabled) toggleSelect(slot, tmpl.id);
+      };
+    }
+    row.onclick = (e) => {
+      if (e.target.className !== 'roster-checkbox' && !e.target.closest('.op-avatar-slot')) {
+        const checkbox = row.querySelector('input[type="checkbox"]');
+        if (checkbox && !checkbox.disabled) {
+          checkbox.checked = !checkbox.checked;
+          toggleSelect(slot, tmpl.id);
+        }
+      }
+    };
+    leaderSection.appendChild(row);
+
+    // Sync auto-check row styling
+    if (autoCheck) {
+      row.classList.add('selected');
+    }
   });
 
   // Operator 分组标题
-  smOperatorSection.innerHTML = `
-    <div style="font-size:0.8rem; font-weight:600; color:#6a9ad4; margin:12px 0 6px 4px; display:flex; justify-content:space-between; align-items:center;">
-      <span>⚜ 🎯 OPERATORS — 共选 5 名 (Warrior 可用计数器重复选取) ⚜</span>
-      <span id="sm-op-count" style="font-size:0.75rem; color:#9a9da5; font-family:'Pirata One',serif;">0 / 5</span>
+  operatorSection.innerHTML = `
+    <div style="font-size:0.8rem; font-weight:600; color:var(${themeVar}); margin:12px 0 6px 4px; display:flex; justify-content:space-between; align-items:center;">
+      <span>${slotIcon} 🎯 OPERATORS — 共选 5 名 (Warrior 可用计数器重复选取) ${slotIcon}</span>
+      <span id="team${slot}-op-count" style="font-size:0.75rem; color:#9a9da5; font-family:'Pirata One',serif;">0 / 5</span>
     </div>
     <p style="font-size:0.7rem; color:var(--text-muted); margin-bottom:8px; padding-left:4px;">
       ⚠️ 非 Warrior 每种只能带一名。Warrior [Warrior] 可用 +/− 按钮选取最多 5 名同型单位。
     </p>
   `;
-  smOperators.forEach(tmpl => {
+  operators.forEach(tmpl => {
     const row = document.createElement('div');
     row.className = 'roster-pick-row';
-    row.id = `picker-row-${tmpl.id}`;
-    row.innerHTML = buildRosterRowHtml(tmpl, 'Space Marine', false, false, false, 'toggleSelectSM');
-    attachRowClickHandler(row, tmpl.id, toggleSelectSM, tmpl.isWarrior);
-    smOperatorSection.appendChild(row);
+    row.id = `picker-row-s${slot}-${tmpl.id}`;
+    row.innerHTML = buildRosterRowHtml(tmpl, faction, false, false, false, '', '', slot);
+    // Attach click handlers
+    const cb = row.querySelector('input[type="checkbox"]');
+    if (cb && !tmpl.isWarrior) {
+      cb.removeAttribute('onchange');
+      cb.onclick = (e) => { e.stopPropagation(); toggleSelect(slot, tmpl.id); };
+    }
+    row.onclick = (e) => {
+      if (e.target.className !== 'roster-checkbox'
+          && !e.target.closest('.op-avatar-slot')
+          && !e.target.closest('.warrior-counter')) {
+        if (tmpl.isWarrior) {
+          incrementWarrior(slot, tmpl.id);
+        } else {
+          const checkbox = row.querySelector('input[type="checkbox"]');
+          if (checkbox && !checkbox.disabled) {
+            checkbox.checked = !checkbox.checked;
+            toggleSelect(slot, tmpl.id);
+          }
+        }
+      }
+    };
+    operatorSection.appendChild(row);
   });
-
-  // ---- PM (瘟疫守卫): 1 Champion (locked) + 5 Operators ----
-  const pmLeaders = PM_TEMPLATES.filter(t => t.isLeader);
-  const pmOperators = PM_TEMPLATES.filter(t => !t.isLeader);
-
-  const pmLeaderSection = document.getElementById('pm-leader-section');
-  const pmOperatorSection = document.getElementById('pm-operator-section');
-  pmLeaderSection.innerHTML = '';
-  pmOperatorSection.innerHTML = '';
-
-  // Leader (Champion 必选)
-  pmLeaderSection.innerHTML = `
-    <div style="font-size:0.8rem; font-weight:600; color:var(--pm-accent); margin-bottom:6px; padding-left:4px;">
-      ☠ 🎖️ LEADER — 必选 ☠
-    </div>
-  `;
-  const pmBadgeStyle = 'border-color:var(--pm-accent); color:var(--pm-accent); background:rgba(122,184,138,0.15)';
-  pmLeaders.forEach(tmpl => {
-    const row = document.createElement('div');
-    row.className = 'roster-pick-row selected';
-    row.id = `picker-row-${tmpl.id}`;
-    row.innerHTML = buildRosterRowHtml(tmpl, 'Plague Marine', true, true, true, 'toggleSelectPM', pmBadgeStyle);
-    pmLeaderSection.appendChild(row);
-  });
-
-  // Operators
-  pmOperatorSection.innerHTML = `
-    <div style="font-size:0.8rem; font-weight:600; color:var(--pm-accent); margin:12px 0 6px 4px; display:flex; justify-content:space-between; align-items:center;">
-      <span>☠ 🎯 OPERATORS — 共选 5 名 (6 类型, Warrior 可重复) ☠</span>
-      <span id="pm-op-count" style="font-size:0.75rem; color:#9a9da5; font-family:'Pirata One',serif;">0 / 5</span>
-    </div>
-    <p style="font-size:0.7rem; color:var(--text-muted); margin-bottom:8px; padding-left:4px;">
-      ⚠️ 非 Warrior 每种只能带一名。Warrior [Warrior] 可用 +/− 按钮选取多名同型单位。
-    </p>
-  `;
-  pmOperators.forEach(tmpl => {
-    const row = document.createElement('div');
-    row.className = 'roster-pick-row';
-    row.id = `picker-row-${tmpl.id}`;
-    row.innerHTML = buildRosterRowHtml(tmpl, 'Plague Marine', false, false, false, 'toggleSelectPM', pmBadgeStyle);
-    attachRowClickHandler(row, tmpl.id, toggleSelectPM, tmpl.isWarrior);
-    pmOperatorSection.appendChild(row);
-  });
-
-  updateSelectionCounts();
-  updateOperatorAvailability('sm');
-  updateOperatorAvailability('pm');
 }
 
-// ---- SM Toggle (leader 单选互斥; 非 warrior operator 上限检查) ----
-export function toggleSelectSM(id) {
+// ---- 阵营切换时重新渲染 roster picker ----
+export function handleFactionChange(slot) {
+  const select = document.getElementById(`team${slot}-faction`);
+  if (!select) return;
+  gameState.teamFactions[slot] = select.value;
+  selectedCounts[slot] = {};  // 清空该 slot 的 warrior 计数
+  renderRosterPickerForSlot(slot);
+  updateSelectionCounts();
+  updateOperatorAvailability(slot);
+}
+
+// ---- 通用 Toggle (leader 单选互斥; 非 warrior operator 上限检查) ----
+export function toggleSelect(slot, id) {
   playSound('click');
-  const tmpl = SM_TEMPLATES.find(t => t.id === id);
-  const cb = document.getElementById(`check-${id}`);
-  const row = document.getElementById(`picker-row-${id}`);
+  const templates = getTemplatesForSlot(slot);
+  const tmpl = templates.find(t => t.id === id);
+  const cb = document.getElementById(`check-s${slot}-${id}`);
+  const row = document.getElementById(`picker-row-s${slot}-${id}`);
 
   if (!tmpl || !cb) return;
+  // 禁止取消已选中的 disabled 项 (如唯一 leader)
+  if (cb.disabled && cb.checked) return;
 
   if (tmpl.isLeader) {
     // Leader 单选互斥: 选中时取消其他 leader
     if (cb.checked) {
-      SM_TEMPLATES.filter(t => t.isLeader && t.id !== id).forEach(other => {
-        const otherCb = document.getElementById(`check-${other.id}`);
+      templates.filter(t => t.isLeader && t.id !== id).forEach(other => {
+        const otherCb = document.getElementById(`check-s${slot}-${other.id}`);
         if (otherCb) {
           otherCb.checked = false;
-          document.getElementById(`picker-row-${other.id}`)?.classList.remove('selected');
+          document.getElementById(`picker-row-s${slot}-${other.id}`)?.classList.remove('selected');
         }
       });
     }
   } else if (cb.checked) {
     // 非 Warrior operator: 检查 Operator 上限 5 (Leader 必占 1 位)
-    const currentOpCount = getOperatorCount('sm');
+    const currentOpCount = getOperatorCount(slot);
     if (currentOpCount > 5) {
       cb.checked = false;
       showToast('Operator 数量已达上限 (5 名)！请先减少其他 Operator。', 'warning');
@@ -676,57 +813,29 @@ export function toggleSelectSM(id) {
     }
   }
 
-  if (cb.checked) row.classList.add('selected');
-  else row.classList.remove('selected');
+  if (cb.checked) row?.classList.add('selected');
+  else row?.classList.remove('selected');
 
   updateSelectionCounts();
-  updateOperatorAvailability('sm');
-}
-
-// ---- PM Toggle (非 warrior operator 上限检查) ----
-export function toggleSelectPM(id) {
-  playSound('click');
-  const tmpl = PM_TEMPLATES.find(t => t.id === id);
-  const cb = document.getElementById(`check-${id}`);
-  const row = document.getElementById(`picker-row-${id}`);
-
-  if (!tmpl || !cb) return;
-  if (tmpl.isLeader) return; // Champion 锁定, 不可切换
-
-  if (cb.checked) {
-    // Operator 上限 5 (Champion 必占 1 位)
-    const currentOpCount = getOperatorCount('pm');
-    if (currentOpCount > 5) {
-      cb.checked = false;
-      showToast('Operator 数量已达上限 (5 名)！请先减少其他 Operator。', 'warning');
-      updateSelectionCounts();
-      return;
-    }
-  }
-
-  if (cb.checked) row.classList.add('selected');
-  else row.classList.remove('selected');
-
-  updateSelectionCounts();
-  updateOperatorAvailability('pm');
+  updateOperatorAvailability(slot);
 }
 
 // ---- 动态禁用: Operator 满 5 个时禁掉未选中的非 Warrior 复选框, Warrior + 按钮也限制 ----
-function updateOperatorAvailability(faction) {
-  const templates = faction === 'sm' ? SM_TEMPLATES : PM_TEMPLATES;
-  const counts = faction === 'sm' ? selectedSMCounts : selectedPMCounts;
-  const opCount = getOperatorCount(faction);
+function updateOperatorAvailability(slot) {
+  const templates = getTemplatesForSlot(slot);
+  const counts = selectedCounts[slot];
+  const opCount = getOperatorCount(slot);
   const atOpLimit = opCount >= 5;
 
   templates.filter(t => !t.isLeader).forEach(tmpl => {
     if (tmpl.isWarrior) {
-      const plusBtn = document.querySelector(`#picker-row-${tmpl.id} .warrior-counter-btn.plus`);
-      const minusBtn = document.querySelector(`#picker-row-${tmpl.id} .warrior-counter-btn.minus`);
+      const plusBtn = document.querySelector(`#picker-row-s${slot}-${tmpl.id} .warrior-counter-btn.plus`);
+      const minusBtn = document.querySelector(`#picker-row-s${slot}-${tmpl.id} .warrior-counter-btn.minus`);
       const currentCount = counts[tmpl.id] || 0;
       if (plusBtn) plusBtn.disabled = atOpLimit;
       if (minusBtn) minusBtn.disabled = currentCount <= 0;
     } else {
-      const cb = document.getElementById(`check-${tmpl.id}`);
+      const cb = document.getElementById(`check-s${slot}-${tmpl.id}`);
       if (!cb) return;
       if (atOpLimit && !cb.checked) {
         cb.disabled = true;
@@ -739,95 +848,102 @@ function updateOperatorAvailability(faction) {
 
 // ---- 计数显示 ----
 export function updateSelectionCounts() {
-  const smTotal = getSelectedTotal('sm');
-  const smOpCount = getOperatorCount('sm');
-  document.getElementById('sm-roster-count').textContent = `已选: ${smTotal} / 6 人`;
-  const smOpEl = document.getElementById('sm-op-count');
-  if (smOpEl) smOpEl.textContent = `${smOpCount} / 5`;
+  const team0Total = getSelectedTotal(0);
+  const team0OpCount = getOperatorCount(0);
+  const team0CountEl = document.getElementById('team0-roster-count');
+  if (team0CountEl) team0CountEl.textContent = `已选: ${team0Total} / 6 人`;
+  const team0OpEl = document.getElementById('team0-op-count');
+  if (team0OpEl) team0OpEl.textContent = `${team0OpCount} / 5`;
 
-  const pmTotal = getSelectedTotal('pm');
-  const pmOpCount = getOperatorCount('pm');
-  document.getElementById('pm-roster-count').textContent = `已选: ${pmTotal} / 6 人`;
-  const pmOpEl = document.getElementById('pm-op-count');
-  if (pmOpEl) pmOpEl.textContent = `${pmOpCount} / 5`;
+  const team1Total = getSelectedTotal(1);
+  const team1OpCount = getOperatorCount(1);
+  const team1CountEl = document.getElementById('team1-roster-count');
+  if (team1CountEl) team1CountEl.textContent = `已选: ${team1Total} / 6 人`;
+  const team1OpEl = document.getElementById('team1-op-count');
+  if (team1OpEl) team1OpEl.textContent = `${team1OpCount} / 5`;
 }
 
 export function validateRostersAndDeploy() {
   playSound('click');
 
-  // 收集 SM 选中的模板和数量（warrior 可 > 1）
-  const smEntries = []; // { tmpl, count }
-  let smLeaderCount = 0;
-  SM_TEMPLATES.forEach(t => {
+  // 收集 Team 0 选中的模板和数量（warrior 可 > 1）
+  const team0Templates = getTemplatesForSlot(0);
+  const team0Entries = []; // { tmpl, count }
+  let team0LeaderCount = 0;
+  team0Templates.forEach(t => {
     if (t.isWarrior) {
-      const count = selectedSMCounts[t.id] || 0;
+      const count = selectedCounts[0][t.id] || 0;
       if (count > 0) {
-        smEntries.push({ tmpl: t, count });
+        team0Entries.push({ tmpl: t, count });
       }
-    } else if (document.getElementById(`check-${t.id}`)?.checked) {
-      smEntries.push({ tmpl: t, count: 1 });
-      if (t.isLeader) smLeaderCount++;
+    } else if (document.getElementById(`check-s0-${t.id}`)?.checked) {
+      team0Entries.push({ tmpl: t, count: 1 });
+      if (t.isLeader) team0LeaderCount++;
     }
   });
-  const smTotal = smEntries.reduce((sum, e) => sum + e.count, 0);
+  const team0Total = team0Entries.reduce((sum, e) => sum + e.count, 0);
 
-  // 收集 PM 选中的模板和数量
-  const pmEntries = [];
-  PM_TEMPLATES.forEach(t => {
+  // 收集 Team 1 选中的模板和数量
+  const team1Templates = getTemplatesForSlot(1);
+  const team1Entries = [];
+  team1Templates.forEach(t => {
     if (t.isWarrior) {
-      const count = selectedPMCounts[t.id] || 0;
+      const count = selectedCounts[1][t.id] || 0;
       if (count > 0) {
-        pmEntries.push({ tmpl: t, count });
+        team1Entries.push({ tmpl: t, count });
       }
-    } else if (document.getElementById(`check-${t.id}`)?.checked) {
-      pmEntries.push({ tmpl: t, count: 1 });
+    } else if (document.getElementById(`check-s1-${t.id}`)?.checked) {
+      team1Entries.push({ tmpl: t, count: 1 });
     }
   });
-  const pmTotal = pmEntries.reduce((sum, e) => sum + e.count, 0);
+  const team1Total = team1Entries.reduce((sum, e) => sum + e.count, 0);
 
-  // 校验 SM
-  if (smTotal !== 6) {
+  const team0Faction = gameState.teamFactions[0];
+  const team1Faction = gameState.teamFactions[1];
+
+  // 校验 Team 0
+  if (team0Total !== 6) {
     playSound('alert');
-    showToast(`星际战士 (死亡天使) 必须刚好选择 6 人！当前选择了 ${smTotal} 人。`, 'error');
+    showToast(`${getFactionDisplayName(team0Faction)} 必须刚好选择 6 人！当前选择了 ${team0Total} 人。`, 'error');
     return;
   }
-  if (smLeaderCount !== 1) {
+  if (team0LeaderCount !== 1) {
     playSound('alert');
-    showToast(`星际战士 必须选择且仅选择 1 名队长！`, 'error');
+    showToast(`${getFactionDisplayName(team0Faction)} 必须选择且仅选择 1 名队长！`, 'error');
     return;
   }
 
-  // 校验 PM
-  if (pmTotal !== 6) {
+  // 校验 Team 1
+  if (team1Total !== 6) {
     playSound('alert');
-    showToast(`瘟疫守卫 必须刚好选择 6 人！当前选择了 ${pmTotal} 人。`, 'error');
+    showToast(`${getFactionDisplayName(team1Faction)} 必须刚好选择 6 人！当前选择了 ${team1Total} 人。`, 'error');
     return;
   }
-  const pmChampionChecked = document.getElementById('check-pm_1')?.checked;
-  if (!pmChampionChecked) {
+  const team1LeaderCount = team1Entries.filter(e => e.tmpl.isLeader).reduce((s, e) => s + e.count, 0);
+  if (team1LeaderCount !== 1) {
     playSound('alert');
-    showToast(`瘟疫守卫 的 冠军队长 (Plague Champion) 是强制出战的 Leader 角色！`, 'error');
+    showToast(`${getFactionDisplayName(team1Faction)} 必须选择且仅选择 1 名队长！`, 'error');
     return;
   }
 
   // 校验通过，载入特工列表
   gameState.operatives = [];
 
-  // 加载 SM（Warrior count > 1 时生成多个独立 Operative，id 加后缀区分）
-  smEntries.forEach(({ tmpl, count }) => {
+  // 加载 Team 0
+  team0Entries.forEach(({ tmpl, count }) => {
     for (let i = 0; i < count; i++) {
       const uniqueId = count > 1 ? `${tmpl.id}_${i + 1}` : tmpl.id;
       const displayName = count > 1 ? `${tmpl.name} #${i + 1}` : tmpl.name;
-      gameState.operatives.push(new Operative(uniqueId, displayName, 'Space Marine', tmpl.wounds, tmpl.apl, tmpl.df, tmpl.sv, tmpl.weapons, tmpl.defaultAvatar, tmpl.move || 6));
+      gameState.operatives.push(new Operative(uniqueId, displayName, team0Faction, tmpl.wounds, tmpl.apl, tmpl.df, tmpl.sv, tmpl.weapons, tmpl.defaultAvatar, tmpl.move || 6, 0));
     }
   });
 
-  // 加载 PM
-  pmEntries.forEach(({ tmpl, count }) => {
+  // 加载 Team 1
+  team1Entries.forEach(({ tmpl, count }) => {
     for (let i = 0; i < count; i++) {
       const uniqueId = count > 1 ? `${tmpl.id}_${i + 1}` : tmpl.id;
       const displayName = count > 1 ? `${tmpl.name} #${i + 1}` : tmpl.name;
-      gameState.operatives.push(new Operative(uniqueId, displayName, 'Plague Marine', tmpl.wounds, tmpl.apl, tmpl.df, tmpl.sv, tmpl.weapons, tmpl.defaultAvatar, tmpl.move || 5));
+      gameState.operatives.push(new Operative(uniqueId, displayName, team1Faction, tmpl.wounds, tmpl.apl, tmpl.df, tmpl.sv, tmpl.weapons, tmpl.defaultAvatar, tmpl.move || 5, 1));
     }
   });
 
@@ -845,9 +961,10 @@ export function validateRostersAndDeploy() {
   document.getElementById('guidance-banner').style.display = 'flex';
 
   addLog('>>> 战队挑选部署完毕！');
-  addLog(`  - Angels of Death (星际战士) 登场: ${gameState.operatives.filter(o => o.faction === 'Space Marine').map(o => o.name).join(', ')}`);
-  addLog(`  - Plague Marines (瘟疫守卫) 登场: ${gameState.operatives.filter(o => o.faction === 'Plague Marine').map(o => o.name).join(', ')}`);
+  addLog(`  - ${getFactionDisplayName(team0Faction)} 登场: ${gameState.operatives.filter(o => o.teamSlot === 0).map(o => o.name).join(', ')}`);
+  addLog(`  - ${getFactionDisplayName(team1Faction)} 登场: ${gameState.operatives.filter(o => o.teamSlot === 1).map(o => o.name).join(', ')}`);
 
+  updateBattlePanelNames();
   updateScoresUI();
   renderOperatives();
   startInitiativePhase();
@@ -864,13 +981,14 @@ export function renderOperatives() {
   let pmAlive = 0;
 
   gameState.operatives.forEach(op => {
-    const isSm = op.faction === 'Space Marine';
-    if (isSm && !op.isDead) smAlive++;
-    if (!isSm && !op.isDead) pmAlive++;
+    const opSlot = op.teamSlot >= 0 ? op.teamSlot : getTeamSlot(op.faction);
+    const cssSuffix = getFactionCssSuffix(op.faction);
+    if (opSlot === 0 && !op.isDead) smAlive++;
+    if (opSlot === 1 && !op.isDead) pmAlive++;
 
     const card = document.createElement('div');
 
-    let cardClasses = `op-card ${isSm ? 'sm-theme' : 'pm-theme'}`;
+    let cardClasses = `op-card ${cssSuffix}-theme`;
     if (op.isDead) cardClasses += ' dead';
     else if (op.hasActed) cardClasses += ' activated';
 
@@ -884,8 +1002,8 @@ export function renderOperatives() {
     const weaponNames = op.weapons.map(w => w.name.split(' ')[0]).join(' / ');
 
     let tagHtml = '';
-    if (!isSm && gameState.pmActivePloys.includes('contagious_resilience') && !op.isDead) {
-      tagHtml = '<span class="card-ploy-tag" style="border-color:var(--pm-accent); color:var(--pm-accent); background:rgba(122,184,138,0.15);">减伤重投</span>';
+    if (hasFactionTrait(op.faction, 'disgustingResilience') && getActivePloys(op.faction).includes('contagious_resilience') && !op.isDead) {
+      tagHtml = `<span class="card-ploy-tag" style="border-color:var(${getFactionThemeVar(op.faction)}); color:var(${getFactionThemeVar(op.faction)}); background:rgba(122,184,138,0.15);">减伤重投</span>`;
     }
 
     // 状态标记：Conceal / Injured / Poison Token
@@ -903,7 +1021,7 @@ export function renderOperatives() {
     }
 
     // Conceal 切换按钮（未激活时 / 激活中时均可切换，每激活限切换 1 次）
-    const isSelectable = !op.isDead && !op.hasActed && gameState.phase === 'Firefight' && gameState.activeTurn === op.faction;
+    const isSelectable = !op.isDead && !op.hasActed && gameState.phase === 'Firefight' && gameState.activeTurnSlot === op.teamSlot;
     const isActiveAgent = gameState.activeAgent && gameState.activeAgent.id === op.id;
     const canToggleConceal = (isSelectable || isActiveAgent) && !op.orderSwitchedThisActivation;
     const concealDisabled = (isSelectable || isActiveAgent) && op.orderSwitchedThisActivation;
@@ -951,7 +1069,7 @@ export function renderOperatives() {
       card.classList.add('pending-activation');
     }
 
-    if (!op.isDead && !op.hasActed && gameState.phase === 'Firefight' && gameState.activeTurn === op.faction && !gameState.activeAgent) {
+    if (!op.isDead && !op.hasActed && gameState.phase === 'Firefight' && gameState.activeTurnSlot === op.teamSlot && !gameState.activeAgent) {
       card.onclick = () => selectOperative(op.id);
       card.onkeydown = (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); selectOperative(op.id); } };
     } else {
@@ -960,7 +1078,7 @@ export function renderOperatives() {
       if (op.isDead) card.setAttribute('aria-disabled', 'true');
     }
 
-    if (isSm) smList.appendChild(card);
+    if (opSlot === 0) smList.appendChild(card);
     else pmList.appendChild(card);
   });
 
@@ -996,7 +1114,7 @@ export function selectOperative(opId) {
   playSound('click');
   const op = gameState.operatives.find(o => o.id === opId);
   if (!op || op.isDead || op.hasActed) return;
-  if (gameState.phase !== 'Firefight' || gameState.activeTurn !== op.faction) return;
+  if (gameState.phase !== 'Firefight' || gameState.activeTurnSlot !== op.teamSlot) return;
   if (gameState.activeAgent) return; // 已有激活中的特工
 
   // 如果点击的是已经预选的特工, 取消预选
@@ -1068,9 +1186,9 @@ export function updateActivePanel() {
   const turnIndicatorLabel = document.querySelector('.turn-indicator-label');
   if (turnIndicator && gameState.phase === 'Firefight') {
     turnIndicator.style.display = 'flex';
-    const cn = gameState.activeTurn === 'Space Marine' ? '死亡天使' : '瘟疫守卫';
+    const cn = getFactionDisplayName(gameState.activeTurn);
     if (turnIndicatorFaction) turnIndicatorFaction.textContent = cn;
-    turnIndicator.className = `turn-indicator ${gameState.activeTurn === 'Space Marine' ? 'sm-turn' : 'pm-turn'}`;
+    turnIndicator.className = `turn-indicator ${getFactionCssSuffix(gameState.activeTurn)}-turn`;
     if (turnIndicatorLabel) {
       if (gameState.activeAgent) {
         turnIndicatorLabel.textContent = ' — 正在行动';
@@ -1093,7 +1211,7 @@ export function updateActivePanel() {
       const pendingAvatar = document.getElementById('pending-op-avatar');
       if (pendingAvatar) pendingAvatar.innerHTML = getAvatarHtml(pop.id, pop.faction);
       document.getElementById('pending-op-name').textContent = pop.name;
-      document.getElementById('pending-op-faction').textContent = pop.faction === 'Space Marine' ? '死亡天使' : '瘟疫守卫';
+      document.getElementById('pending-op-faction').textContent = getFactionDisplayName(pop.faction);
       document.getElementById('pending-op-move').textContent = pop.currentMove + '"';
       document.getElementById('pending-op-hp').textContent = `${pop.wounds}/${pop.maxWounds}`;
       document.getElementById('pending-op-apl').textContent = pop.currentApl;
@@ -1106,8 +1224,9 @@ export function updateActivePanel() {
   const smBoard = document.getElementById('sm-board');
   const pmBoard = document.getElementById('pm-board');
   const isFirefight = gameState.phase === 'Firefight';
-  const smIsActive = isFirefight && gameState.activeTurn === 'Space Marine';
-  const pmIsActive = isFirefight && gameState.activeTurn === 'Plague Marine';
+  const activeSlot = gameState.activeTurnSlot;
+  const smIsActive = isFirefight && activeSlot === 0;
+  const pmIsActive = isFirefight && activeSlot === 1;
   if (smBoard) {
     smBoard.classList.toggle('active-turn', smIsActive);
     smBoard.classList.toggle('inactive-turn', isFirefight && !smIsActive);
@@ -1129,9 +1248,9 @@ export function updateActivePanel() {
       avatarContainer.innerHTML = getAvatarHtml(op.id, op.faction);
     }
 
-    activeCard.className = `active-card ${op.faction === 'Space Marine' ? 'sm-active' : 'pm-active'}`;
+    activeCard.className = `active-card ${getFactionCssSuffix(op.faction)}-active`;
     document.getElementById('active-op-name').textContent = op.name;
-    document.getElementById('active-op-faction').textContent = op.faction === 'Space Marine' ? '死亡天使' : '瘟疫守卫';
+    document.getElementById('active-op-faction').textContent = getFactionDisplayName(op.faction);
 
     const dots = document.getElementById('active-apl-dots');
     dots.innerHTML = '';
@@ -1155,8 +1274,12 @@ export function updateActivePanel() {
     const hasFought = fightCount > 0;
 
     // Astartes 双重行动规则: 可选择 2 Shoot 或 2 Fight (但不能混合)
-    const isAstartes = true; // 所有 SM 和 PM 都是 Astartes
+    const isAstartes = hasFactionTrait(op.faction, 'astartesDoubleAction');
     const isCounteracting = op.counteracting === true;
+
+    // 爆弹惩戒 (Bolter Discipline) 策略: 激活后允许 2 次射击
+    const hasBolterDiscipline = getActivePloys(op.faction).includes('bolter_discipline');
+    const canDoubleAction = isAstartes || hasBolterDiscipline;
 
     // 任意移动行动标记 (Move/Charge/Advance/Dash/FallBack 均阻止其他移动行动)
     const hasAnyMove = hasMoved || hasCharged || hasAdvanced || hasDashed || hasFallenBack;
@@ -1165,12 +1288,12 @@ export function updateActivePanel() {
     const shootBlockedAfterDash = hasDashed && !hasHeavyWeapon;
 
     // Counteract 模式下: 仅 1 次行动, 禁止冲锋, 移动不超过 2"
-    const maxShoots = isCounteracting ? 1 : (isAstartes ? 2 : 1);
-    const maxFights = isCounteracting ? 1 : (isAstartes ? 2 : 1);
+    const maxShoots = isCounteracting ? 1 : (canDoubleAction ? 2 : 1);
+    const maxFights = isCounteracting ? 1 : (canDoubleAction ? 2 : 1);
 
     // 互斥约束：做了 Shoot 就不能 Fight，做了 Fight 就不能 Shoot
-    const shootLocked = (isAstartes && !isCounteracting) && hasFought;
-    const fightLocked = (isAstartes && !isCounteracting) && hasShot;
+    const shootLocked = (canDoubleAction && !isCounteracting) && hasFought;
+    const fightLocked = (canDoubleAction && !isCounteracting) && hasShot;
     const shootLimitReached = shootCount >= maxShoots;
     const fightLimitReached = fightCount >= maxFights;
 
@@ -1194,7 +1317,8 @@ export function updateActivePanel() {
     // Fight: 原有约束 + Advance/Dash/FallBack 后都不能近战
     document.getElementById('action-fight').disabled = op.apl < 1 || fightLimitReached || fightLocked || noCombatAfterMove || hasDashed;
 
-    const hasContagiousResilience = op.faction === 'Plague Marine' && gameState.pmActivePloys.includes('contagious_resilience');
+    const hasContagiousResilience = hasFactionTrait(op.faction, 'disgustingResilience') && getActivePloys(op.faction).includes('contagious_resilience');
+    const doubleActionLabel = hasBolterDiscipline && !isAstartes ? '爆弹惩戒' : 'Astartes';
 
     const ployDisplay = document.getElementById('active-ploys-display');
     if (ployDisplay) {
@@ -1203,15 +1327,18 @@ export function updateActivePanel() {
         if (hasAdvanced) ploysText.push('<span style="color:#f59e0b;">🏃💨 已前进 (Advance): 不能再射击/近战</span>');
         if (hasDashed) ploysText.push(`<span style="color:#f59e0b;">💨💨 已冲刺 (Dash): 不能再近战${hasHeavyWeapon ? '，仅 Heavy 武器可射击' : '，不能射击'}</span>`);
         if (hasFallenBack) ploysText.push('<span style="color:#f59e0b;">🔙 已撤退 (Fall Back): 不能再射击/近战</span>');
-        if (hasShot && !isCounteracting) ploysText.push(`<span style="color:#6a9ad4;">💥 Astartes: 已射击×${shootCount}，锁定近战</span>`);
-        if (hasFought && !isCounteracting) ploysText.push(`<span style="color:#f87171;">⚔️ Astartes: 已近战×${fightCount}，锁定射击</span>`);
+        if (hasShot && !isCounteracting && canDoubleAction) ploysText.push(`<span style="color:#6a9ad4;">💥 ${doubleActionLabel}: 已射击×${shootCount}，锁定近战</span>`);
+        if (hasFought && !isCounteracting && canDoubleAction) ploysText.push(`<span style="color:#f87171;">⚔️ ${doubleActionLabel}: 已近战×${fightCount}，锁定射击</span>`);
         if (hasContagiousResilience) ploysText.push('<span style="color:var(--pm-accent);">🛡️ 传染韧性生效中</span>');
+        if (hasBolterDiscipline && !isAstartes) ploysText.push('<span style="color:#fbbf24;">🔥 爆弹惩戒: 可射击 2 次</span>');
+        const hasDarkZealotry = hasFactionTrait(op.faction, 'darkZealotry') && getActivePloys(op.faction).includes('dark_zealotry');
+        if (hasDarkZealotry) ploysText.push('<span style="color:#c94444;">⚔️ 黑暗狂热: 近战可重投 1 个失败骰</span>');
         ployDisplay.innerHTML = ploysText.length > 0 ? ploysText.join(' | ') : '';
     }
 
     const shootBtnText = document.querySelector('#action-shoot span:first-child');
     if (shootBtnText) {
-        if (isAstartes) {
+        if (canDoubleAction) {
             const remaining = maxShoots - shootCount;
             const lockedNote = shootLocked ? ' (已锁定)' : '';
             shootBtnText.innerHTML = `💥 射击 [${remaining > 0 ? remaining : 0}次剩余${lockedNote}]`;
@@ -1222,7 +1349,7 @@ export function updateActivePanel() {
 
     const fightBtnText = document.querySelector('#action-fight span:first-child');
     if (fightBtnText) {
-        if (isAstartes) {
+        if (canDoubleAction) {
             const remaining = maxFights - fightCount;
             const lockedNote = fightLocked ? ' (已锁定)' : '';
             fightBtnText.innerHTML = `⚔️ 近战 [${remaining > 0 ? remaining : 0}次剩余${lockedNote}]`;
@@ -1245,16 +1372,17 @@ export function updateActivePanel() {
     statusTitle.textContent = '等待特工激活';
     activeCard.className = 'active-card';
 
-    const nextFaction = gameState.activeTurn;
-    const cn = nextFaction === 'Space Marine' ? '死亡天使' : '瘟疫守卫';
+    const nextSlot = gameState.activeTurnSlot;
+    const nextFaction = gameState.teamFactions[nextSlot];
+    const cn = getFactionDisplayName(nextFaction);
 
-    const hasUsable = hasUsableOperatives(nextFaction);
+    const hasUsable = hasUsableOperatives(nextSlot);
     if (hasUsable) {
-      const sideName = nextFaction === 'Space Marine' ? '左边' : '右边';
+      const sideName = nextSlot === 0 ? '左边' : '右边';
       updateGuidance(`【激活提示】请从${sideName}【${cn}】战队卡片列表中选择点击发亮的特工卡片，载入动作。`);
     } else {
-      const oppFaction = nextFaction === 'Space Marine' ? 'Plague Marine' : 'Space Marine';
-      if (hasUsableOperatives(oppFaction)) {
+      const oppSlot = 1 - nextSlot;
+      if (hasUsableOperatives(oppSlot)) {
         updateGuidance(`【激活换边】因为当前轮次已无可用单位，权能自动转回另一方。请继续点击激活。`);
       } else {
         updateGuidance('【激活结束】双方所有特工已耗尽激活！请点击右上角的回合推进至下一TP。');
@@ -1358,17 +1486,17 @@ export function startInitiativePhase() {
     </p>
 
     <div class="init-roll-grid" style="margin-bottom:12px;">
-      <div class="init-team-col sm">
-        <h4 style="color:#6a9ad4; font-size:0.9rem;">死亡天使先攻骰</h4>
+      <div class="init-team-col ${getFactionCssSuffix(gameState.teamFactions[0])}">
+        <h4 style="color:var(${getFactionThemeVar(gameState.teamFactions[0])}); font-size:0.9rem;">${getFactionDisplayName(gameState.teamFactions[0])}先攻骰</h4>
         <div class="dice-pool-view" id="overlay-init-sm-dice">
-          <div class="kt-dice-cube sm-dice">?</div>
+          <div class="kt-dice-cube ${getDiceClass(gameState.teamFactions[0])}">?</div>
         </div>
         <div id="overlay-init-sm-val" style="font-weight:bold; font-size: 0.9rem; color:var(--text-muted);">未投骰</div>
       </div>
-      <div class="init-team-col pm">
-        <h4 style="color:var(--pm-accent); font-size:0.9rem;">瘟疫守卫先攻骰</h4>
+      <div class="init-team-col ${getFactionCssSuffix(gameState.teamFactions[1])}">
+        <h4 style="color:var(${getFactionThemeVar(gameState.teamFactions[1])}); font-size:0.9rem;">${getFactionDisplayName(gameState.teamFactions[1])}先攻骰</h4>
         <div class="dice-pool-view" id="overlay-init-pm-dice">
-          <div class="kt-dice-cube pm-dice">?</div>
+          <div class="kt-dice-cube ${getDiceClass(gameState.teamFactions[1])}">?</div>
         </div>
         <div id="overlay-init-pm-val" style="font-weight:bold; font-size: 0.9rem; color:var(--text-muted);">未投骰</div>
       </div>
@@ -1408,15 +1536,18 @@ export function hideCounteractOverlay() {
 //         Counteract (反击) 挡板
 // ==========================================
 
-export function showCounteractOverlay(faction) {
+export function showCounteractOverlay(slotOrFaction) {
   const overlay = document.getElementById('counteract-overlay');
   const content = document.getElementById('counteract-content');
-  const factionName = faction === 'Space Marine' ? '死亡天使' : '瘟疫守卫';
-  const color = faction === 'Space Marine' ? '#6a9ad4' : 'var(--pm-accent)';
+  // Accept slot (0/1) or faction name; prefer slot for mirror-match safety
+  const slot = typeof slotOrFaction === 'number' ? slotOrFaction : getTeamSlot(slotOrFaction);
+  const faction = gameState.teamFactions[slot];
+  const factionDisplayName = getFactionDisplayName(faction);
+  const color = `var(${getFactionThemeVar(faction)})`;
 
-  // 找到所有已耗尽 + Engage 标记的特工
+  // 找到所有已耗尽 + Engage 标记的特工 (filter by teamSlot for mirror-match safety)
   const eligibleOps = gameState.operatives.filter(op =>
-    op.faction === faction && !op.isDead && op.hasActed && !op.hasConceal
+    op.teamSlot === slot && !op.isDead && op.hasActed && !op.hasConceal
   );
 
   let opListHtml = '';
@@ -1449,7 +1580,7 @@ export function showCounteractOverlay(faction) {
   content.innerHTML = `
     <h3 style="color:${color}; margin-bottom:8px;">⚡ 反击时机 (Counteract)</h3>
     <p style="color:var(--text-muted); font-size:0.8rem; margin-bottom:12px; line-height:1.5;">
-      【${factionName}】所有特工已耗尽，但对方仍有未激活特工。<br>
+      【${factionDisplayName}】所有特工已耗尽，但对方仍有未激活特工。<br>
       可选择一名已耗尽的 <b>Engage 标记</b> 特工发动反击：<br>
       <span style="color:#f97316;">• 免费获得 1 AP 执行一个行动 • 移动不得超过 2" • 不可冲锋</span>
     </p>
@@ -1487,20 +1618,24 @@ export function rollInitiativeOverlay() {
   rollBtn.disabled = true;
 
   // 滚动动画
-  smDiceEl.innerHTML = `<div class="kt-dice-cube sm-dice rolling">?</div>`;
-  pmDiceEl.innerHTML = `<div class="kt-dice-cube pm-dice rolling">?</div>`;
+  const team0Faction = gameState.teamFactions[0];
+  const team1Faction = gameState.teamFactions[1];
+  const team0DiceCls = getDiceClass(team0Faction);
+  const team1DiceCls = getDiceClass(team1Faction);
+  smDiceEl.innerHTML = `<div class="kt-dice-cube ${team0DiceCls} rolling">?</div>`;
+  pmDiceEl.innerHTML = `<div class="kt-dice-cube ${team1DiceCls} rolling">?</div>`;
   playSound('shoot');
 
   // 顺序停下
   setTimeout(() => {
     const smVal = Math.floor(Math.random() * 6) + 1;
-    smDiceEl.innerHTML = `<div class="kt-dice-cube sm-dice ${smVal===6?'crit-dice':''}">${smVal}</div>`;
+    smDiceEl.innerHTML = `<div class="kt-dice-cube ${team0DiceCls} ${smVal===6?'crit-dice':''}">${smVal}</div>`;
     playSound('click');
     if (smVal === 6) playSound('crit');
 
     setTimeout(() => {
       const pmVal = Math.floor(Math.random() * 6) + 1;
-      pmDiceEl.innerHTML = `<div class="kt-dice-cube pm-dice ${pmVal===6?'crit-dice':''}">${pmVal}</div>`;
+      pmDiceEl.innerHTML = `<div class="kt-dice-cube ${team1DiceCls} ${pmVal===6?'crit-dice':''}">${pmVal}</div>`;
       playSound('click');
       if (pmVal === 6) playSound('crit');
 
@@ -1512,8 +1647,8 @@ export function rollInitiativeOverlay() {
         rollBtn.textContent = '平局！重新投骰';
         addLog(`  - 先攻判定平局 [${smVal}]，准备重投...`);
       } else {
-        const winner = smVal > pmVal ? 'Space Marine' : 'Plague Marine';
-        const winnerCN = winner === 'Space Marine' ? '死亡天使' : '瘟疫守卫';
+        const winner = smVal > pmVal ? team0Faction : team1Faction;
+        const winnerCN = getFactionDisplayName(winner);
         playSound('crit');
 
         // 隐藏掷骰按钮 (结果已确定)
@@ -1522,17 +1657,17 @@ export function rollInitiativeOverlay() {
         document.getElementById('overlay-init-sm-val').textContent = `点数: ${smVal}`;
         document.getElementById('overlay-init-pm-val').textContent = `点数: ${pmVal}`;
 
-        addLog(`  - 先攻判定掷骰：死亡天使 [${smVal}] vs 瘟疫守卫 [${pmVal}]`);
+        addLog(`  - 先攻判定掷骰：${getFactionDisplayName(team0Faction)} [${smVal}] vs ${getFactionDisplayName(team1Faction)} [${pmVal}]`);
         addLog(`  - 【${winnerCN}】赢得了投骰，准备选择先攻权归属。`);
 
         const overlayBox = document.getElementById('phase-overlay-content');
         const turnOrderDiv = document.createElement('div');
         turnOrderDiv.style.cssText = 'border-top:1px solid var(--panel-border); margin-top:16px; padding-top:16px; width:100%;';
         turnOrderDiv.innerHTML = `
-            <p style="color:var(--sm-accent); font-weight:bold; margin-bottom:10px;">👑 【${winnerCN}】选择首发玩家：</p>
+            <p style="color:var(${getFactionThemeVar(winner)}); font-weight:bold; margin-bottom:10px;">👑 【${winnerCN}】选择首发玩家：</p>
             <div id="turn-order-buttons" style="display:flex; gap:10px; margin-bottom:10px;">
-              <button class="qa-btn turn-order-btn" data-faction="Space Marine" onclick="selectTurnOrder('Space Marine')" style="flex:1;">死亡天使先攻</button>
-              <button class="qa-btn turn-order-btn" data-faction="Plague Marine" onclick="selectTurnOrder('Plague Marine')" style="flex:1;">瘟疫守卫先攻</button>
+              <button class="qa-btn turn-order-btn" data-slot="0" onclick="selectTurnOrder(0)" style="flex:1;">${getFactionDisplayName(team0Faction)}先攻</button>
+              <button class="qa-btn turn-order-btn" data-slot="1" onclick="selectTurnOrder(1)" style="flex:1;">${getFactionDisplayName(team1Faction)}先攻</button>
             </div>
             <button id="btn-confirm-turn-order" class="btn-large" onclick="confirmTurnOrder()" style="display:none; padding:10px 30px; font-size:0.9rem; width:100%; margin-top:8px;">
               确认首发选择
@@ -1546,13 +1681,14 @@ export function rollInitiativeOverlay() {
 }
 
 // ---- 两步首发选择: 第一步 - 高亮选中 ----
-export function selectTurnOrder(faction) {
+export function selectTurnOrder(slot) {
   playSound('click');
+  const faction = gameState.teamFactions[slot];
 
   // 高亮选中按钮
   const btns = document.querySelectorAll('.turn-order-btn');
   btns.forEach(btn => {
-    if (btn.dataset.faction === faction) {
+    if (parseInt(btn.dataset.slot) === slot) {
       btn.classList.add('selected');
       btn.style.background = 'linear-gradient(135deg, var(--imperial-gold), #8a6a1c)';
       btn.style.color = '#000';
@@ -1571,23 +1707,27 @@ export function selectTurnOrder(faction) {
   const confirmBtn = document.getElementById('btn-confirm-turn-order');
   if (confirmBtn) {
     confirmBtn.style.display = 'block';
-    confirmBtn.dataset.pending = faction;
+    confirmBtn.dataset.pendingSlot = String(slot);
   }
 
-  const cn = faction === 'Space Marine' ? '死亡天使' : '瘟疫守卫';
+  const cn = getFactionDisplayName(faction);
   updateGuidance(`【预选首发】已选中【${cn}】为先攻方，请点击确认按钮完成选择。`);
 }
 
 // ---- 两步首发选择: 第二步 - 确认 ----
 export function confirmTurnOrder() {
   const confirmBtn = document.getElementById('btn-confirm-turn-order');
-  const faction = confirmBtn && confirmBtn.dataset.pending;
-  if (!faction) return;
+  const slotStr = confirmBtn && confirmBtn.dataset.pendingSlot;
+  if (slotStr === undefined) return;
+  const slot = parseInt(slotStr);
+  const faction = gameState.teamFactions[slot];
 
   playSound('crit');
+  gameState.initiativeSlot = slot;
   gameState.initiative = faction;
+  gameState.activeTurnSlot = slot;
   gameState.activeTurn = faction;
-  addLog(`  - 确认：【${faction === 'Space Marine' ? '死亡天使' : '瘟疫守卫'}】获得本回合的先攻优势！`);
+  addLog(`  - 确认：【${getFactionDisplayName(faction)}】获得本回合的先攻优势！`);
 
   startStrategyPhase();
 }
@@ -1599,21 +1739,15 @@ export function startStrategyPhase() {
   // ---- 策略阶段 CP 收益 (按规则: 第1回合双方+1, 之后先攻方+1 / 非先攻方+2) ----
   if (wasPrevPhase !== 'Strategy') {
     if (gameState.turningPoint === 1) {
-      gameState.smCp += 1;
-      gameState.pmCp += 1;
+      setCpForFaction(gameState.teamFactions[0], getCpForFaction(gameState.teamFactions[0]) + 1);
+      setCpForFaction(gameState.teamFactions[1], getCpForFaction(gameState.teamFactions[1]) + 1);
       addLog(`  💰 第1回合策略阶段：双方各获得 1 CP。`);
     } else {
       const initFaction = gameState.initiative;
-      const nonInitFaction = initFaction === 'Space Marine' ? 'Plague Marine' : 'Space Marine';
-      if (initFaction === 'Space Marine') {
-        gameState.smCp += 1;
-        gameState.pmCp += 2;
-      } else {
-        gameState.pmCp += 1;
-        gameState.smCp += 2;
-      }
-      const fName = f => f === 'Space Marine' ? '死亡天使' : '瘟疫守卫';
-      addLog(`  💰 TP${gameState.turningPoint} 策略阶段：${fName(initFaction)}(先攻) +1 CP, ${fName(nonInitFaction)} +2 CP。`);
+      const nonInitFaction = getEnemyFaction(initFaction);
+      setCpForFaction(initFaction, getCpForFaction(initFaction) + 1);
+      setCpForFaction(nonInitFaction, getCpForFaction(nonInitFaction) + 2);
+      addLog(`  💰 TP${gameState.turningPoint} 策略阶段：${getFactionDisplayName(initFaction)}(先攻) +1 CP, ${getFactionDisplayName(nonInitFaction)} +2 CP。`);
     }
   }
 
@@ -1631,31 +1765,38 @@ export function startStrategyPhase() {
     <div class="gothic-divider"><span style="color:var(--imperial-gold);font-size:8px;">⬥</span><span style="color:var(--imperial-gold);font-size:14px;">✠</span><span style="color:var(--imperial-gold);font-size:8px;">⬥</span></div>
 
     <div style="display:grid; grid-template-columns:1fr 1fr; gap:16px; width:100%; text-align:left; margin-bottom:16px;">
-      <div class="ploy-choice-card ${gameState.smActivePloys.includes('bolter_discipline') ? 'selected' : ''}" role="button" tabindex="0" onclick="buyPloy('sm')" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();buyPloy('sm')}">
-        <div class="ploy-title">
-          <span>🔥 爆弹惩戒 (1 CP)</span>
-          <span style="font-size:0.75rem; color:#6a9ad4;">Astartes</span>
-        </div>
-        <div class="ploy-desc">
-          死亡天使特工本回合激活内，可以使用<b>两次</b>射击行动。
-        </div>
-        <div style="margin-top:6px; font-weight:bold; font-size:0.75rem; color:var(--sm-accent);">
-          ${gameState.smActivePloys.includes('bolter_discipline') ? '● 生效中' : '点击启用'}
-        </div>
-      </div>
-
-      <div class="ploy-choice-card ${gameState.pmActivePloys.includes('contagious_resilience') ? 'selected' : ''}" role="button" tabindex="0" onclick="buyPloy('pm')" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();buyPloy('pm')}">
-        <div class="ploy-title">
-          <span>🛡️ 传染韧性 (1 CP)</span>
-          <span style="font-size:0.75rem; color:var(--pm-accent);">Death Guard</span>
-        </div>
-        <div class="ploy-desc">
-          瘟疫守卫在结算【恶心作呕 (DR)】伤害减免时，可<b>重投第一个失败的减伤骰</b>。
-        </div>
-        <div style="margin-top:6px; font-weight:bold; font-size:0.75rem; color:var(--pm-accent);">
-          ${gameState.pmActivePloys.includes('contagious_resilience') ? '● 生效中' : '点击启用'}
-        </div>
-      </div>
+      ${(() => {
+        const t0 = gameState.teamFactions[0];
+        const t1 = gameState.teamFactions[1];
+        const buildPloyCard = (faction, teamKey) => {
+          const fn = getFactionDisplayName(faction);
+          const themeVar = getFactionThemeVar(faction);
+          const ploys = getActivePloys(faction);
+          let ployName, ployIcon, ployTag, ployDesc, ployId;
+          if (hasFactionTrait(faction, 'astartesDoubleAction')) {
+            ployId = 'bolter_discipline'; ployName = '爆弹惩戒'; ployIcon = '🔥'; ployTag = 'Astartes';
+            ployDesc = `${fn}特工本回合激活内，可以使用<b>两次</b>射击行动。`;
+          } else if (hasFactionTrait(faction, 'disgustingResilience')) {
+            ployId = 'contagious_resilience'; ployName = '传染韧性'; ployIcon = '🛡️'; ployTag = 'Death Guard';
+            ployDesc = `${fn}在结算【恶心作呕 (DR)】伤害减免时，可<b>重投第一个失败的减伤骰</b>。`;
+          } else {
+            ployId = 'dark_zealotry'; ployName = '黑暗狂热'; ployIcon = '⚔️'; ployTag = 'Heretic Astartes';
+            ployDesc = `${fn}特工在本回合近战搏斗中，可<b>重投 1 个失败骰</b>。`;
+          }
+          const isSelected = ploys.includes(ployId);
+          return `<div class="ploy-choice-card ${isSelected ? 'selected' : ''}" role="button" tabindex="0" onclick="buyPloy('${teamKey}')" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();buyPloy('${teamKey}')}">
+            <div class="ploy-title">
+              <span>${ployIcon} ${ployName} (1 CP)</span>
+              <span style="font-size:0.75rem; color:var(${themeVar});">${ployTag}</span>
+            </div>
+            <div class="ploy-desc">${ployDesc}</div>
+            <div style="margin-top:6px; font-weight:bold; font-size:0.75rem; color:var(${themeVar});">
+              ${isSelected ? '● 生效中' : '点击启用'}
+            </div>
+          </div>`;
+        };
+        return buildPloyCard(t0, t0) + buildPloyCard(t1, t1);
+      })()}
     </div>
 
     <button class="btn-large" onclick="proceedToFirefight()" style="padding: 10px 40px; font-size:0.9rem; background:linear-gradient(135deg, var(--green), #2a5a3a); border-color:#4a7c59; box-shadow:none;">
@@ -1666,31 +1807,44 @@ export function startStrategyPhase() {
   updateGuidance('【策略阶段】双方轮流消费 1 CP 采购策略 Ploys。按 Proceed 按钮进入实际交火战斗。');
 }
 
-export function buyPloy(faction) {
-  if (faction === 'sm') {
-    if (gameState.smActivePloys.includes('bolter_discipline')) {
-      playSound('click');
-      gameState.smActivePloys = [];
-      gameState.smCp += 1;
-    } else {
-      if (gameState.smCp < 1) { playSound('alert'); showToast('死亡天使 CP 不足！', 'warning'); return; }
-      playSound('crit');
-      gameState.smActivePloys.push('bolter_discipline');
-      gameState.smCp -= 1;
-      addLog('  - 死亡天使激活策略：【爆弹惩戒】！本回合可双击开火！');
-    }
+export function buyPloy(teamOrFaction) {
+  // Accept 'sm'/'pm' (legacy UI team identifiers) or faction names
+  let slot;
+  if (teamOrFaction === 'sm') slot = 0;
+  else if (teamOrFaction === 'pm') slot = 1;
+  else slot = getTeamSlot(teamOrFaction);
+  const faction = gameState.teamFactions[slot];
+  const factionName = getFactionDisplayName(faction);
+  const activePloys = getActivePloys(faction);
+
+  // Ploy selection based on faction traits (simplified for Phase 3)
+  // TODO: Phase 4 should read available ploys from FACTIONS_DB[faction].ploys
+  let ployId, ployName, ployDesc;
+  if (hasFactionTrait(faction, 'astartesDoubleAction')) {
+    ployId = 'bolter_discipline';
+    ployName = '爆弹惩戒';
+    ployDesc = '本回合可双击开火！';
+  } else if (hasFactionTrait(faction, 'disgustingResilience')) {
+    ployId = 'contagious_resilience';
+    ployName = '传染韧性';
+    ployDesc = 'DR首发失败可重投！';
   } else {
-    if (gameState.pmActivePloys.includes('contagious_resilience')) {
-      playSound('click');
-      gameState.pmActivePloys = [];
-      gameState.pmCp += 1;
-    } else {
-      if (gameState.pmCp < 1) { playSound('alert'); showToast('瘟疫守卫 CP 不足！', 'warning'); return; }
-      playSound('crit');
-      gameState.pmActivePloys.push('contagious_resilience');
-      gameState.pmCp -= 1;
-      addLog('  - 瘟疫守卫激活策略：【传染韧性】！DR首发失败可重投！');
-    }
+    // Default fallback for other factions (e.g. Legionary)
+    ployId = 'dark_zealotry';
+    ployName = '黑暗狂热';
+    ployDesc = '近战可重投 1 个失败骰！';
+  }
+
+  if (activePloys.includes(ployId)) {
+    playSound('click');
+    setActivePloys(faction, []);
+    setCpForFaction(faction, getCpForFaction(faction) + 1);
+  } else {
+    if (getCpForFaction(faction) < 1) { playSound('alert'); showToast(`${factionName} CP 不足！`, 'warning'); return; }
+    playSound('crit');
+    setActivePloys(faction, [ployId]);
+    setCpForFaction(faction, getCpForFaction(faction) - 1);
+    addLog(`  - ${factionName}激活策略：【${ployName}】！${ployDesc}`);
   }
   startStrategyPhase();
 }
@@ -1702,7 +1856,7 @@ export function proceedToFirefight() {
   updateScoresUI();
 
   addLog(`\n【战斗阶段开始】Turning Point ${gameState.turningPoint}`);
-  addLog(`>>> 首发方【${gameState.activeTurn === 'Space Marine' ? '死亡天使' : '瘟疫守卫'}】可以激活一名特工。`);
+  addLog(`>>> 首发方【${getFactionDisplayName(gameState.activeTurn)}】可以激活一名特工。`);
 
   renderOperatives();
   updateActivePanel();
@@ -1744,7 +1898,8 @@ export function triggerOperativeDeathOverlay(op) {
 
   if (overlay) {
     modelName.textContent = op.name;
-    modelFaction.textContent = op.faction === 'Space Marine' ? '死亡天使 (Angels of Death)' : '瘟疫守卫 (Plague Marines)';
+    const factionData = getFaction(op.faction);
+    modelFaction.textContent = factionData ? `${factionData.shortName} (${factionData.id})` : op.faction;
 
     const randIdx = Math.floor(Math.random() * GAG_MESSAGES.length);
     gagText.textContent = GAG_MESSAGES[randIdx];
@@ -1769,18 +1924,20 @@ export function confirmOperativeDeath() {
 export function checkVictory() {
   if (gameState.gameOver) return;
 
-  const smAlive = gameState.operatives.filter(o => o.faction === 'Space Marine' && !o.isDead).length;
-  const pmAlive = gameState.operatives.filter(o => o.faction === 'Plague Marine' && !o.isDead).length;
+  const team0Faction = gameState.teamFactions[0];
+  const team1Faction = gameState.teamFactions[1];
+  const team0Alive = gameState.operatives.filter(o => o.teamSlot === 0 && !o.isDead).length;
+  const team1Alive = gameState.operatives.filter(o => o.teamSlot === 1 && !o.isDead).length;
 
-  if (smAlive === 0 && pmAlive === 0) {
+  if (team0Alive === 0 && team1Alive === 0) {
     gameState.gameOver = true;
     declareVictory('draw', '双方均全员阵亡，战斗以同归于尽平局告终！');
-  } else if (smAlive === 0) {
+  } else if (team0Alive === 0) {
     gameState.gameOver = true;
-    declareVictory('pm', '死亡天使战队全员阵亡！\n瘟疫守卫 (Plague Marines) 成功清剿了残敌，夺取了战场的完全控制权！');
-  } else if (pmAlive === 0) {
+    declareVictory('pm', `${getFactionDisplayName(team0Faction)}战队全员阵亡！\n${getFactionDisplayName(team1Faction)} 成功清剿了残敌，夺取了战场的完全控制权！`);
+  } else if (team1Alive === 0) {
     gameState.gameOver = true;
-    declareVictory('sm', '瘟疫守卫战队全员阵亡！\n死亡天使 (Angels of Death) 肃清了战场，坚守住帝国的光荣防线！');
+    declareVictory('sm', `${getFactionDisplayName(team1Faction)}战队全员阵亡！\n${getFactionDisplayName(team0Faction)} 肃清了战场，坚守住光荣防线！`);
   }
 }
 
@@ -1791,14 +1948,16 @@ export function declareVictory(winner, text) {
   let winnerTitle = '🎉 对局结束 🎉';
   let titleColor = 'var(--text-main)';
   if (winner === 'sm') {
-    winnerTitle = '🏆 死亡天使 (Angels of Death) 荣获胜利！ 🏆';
-    titleColor = '#6a9ad4';
+    const winFaction = gameState.teamFactions[0];
+    winnerTitle = `🏆 ${getFactionDisplayName(winFaction)} 荣获胜利！ 🏆`;
+    titleColor = `var(${getFactionThemeVar(winFaction)})`;
   } else if (winner === 'pm') {
-    winnerTitle = '🏆 瘟疫守卫 (Plague Marines) 荣获胜利！ 🏆';
-    titleColor = 'var(--pm-accent)';
+    const winFaction = gameState.teamFactions[1];
+    winnerTitle = `🏆 ${getFactionDisplayName(winFaction)} 荣获胜利！ 🏆`;
+    titleColor = `var(${getFactionThemeVar(winFaction)})`;
   } else if (winner === 'draw') {
     winnerTitle = '🤝 双方同归于尽 (Match Draw) 🤝';
-    titleColor = 'var(--sm-accent)';
+    titleColor = 'var(--imperial-gold)';
   }
 
   overlayBox.innerHTML = `
@@ -1823,8 +1982,9 @@ export function showTurnEndScoringOverlay(isFinal = false) {
   showPhaseOverlay();
 
   // 自动计算击杀 VP (1 VP/击杀)
-  const currentSmKills = gameState.operatives.filter(o => o.faction === 'Plague Marine' && o.isDead).length;
-  const currentPmKills = gameState.operatives.filter(o => o.faction === 'Space Marine' && o.isDead).length;
+  // team 0 击杀 team 1 的阵亡数 = team 0 的击杀 VP, 反之亦然
+  const currentSmKills = gameState.operatives.filter(o => o.teamSlot === 1 && o.isDead).length;
+  const currentPmKills = gameState.operatives.filter(o => o.teamSlot === 0 && o.isDead).length;
 
   const smKillVp = currentSmKills - gameState.smKillsScored;
   const pmKillVp = currentPmKills - gameState.pmKillsScored;
@@ -1874,15 +2034,15 @@ export function renderTurnEndScoringContent() {
 
     <div style="display:grid; grid-template-columns: 1fr 1fr; gap:16px; width:100%; text-align:left; margin-bottom:16px;">
 
-      <!-- SM 结算 -->
-      <div class="init-team-col sm" style="align-items:stretch; background: rgba(74,106,154,0.02); border: 1px solid rgba(74,106,154,0.1);">
-        <h4 style="color:#6a9ad4; font-size:0.95rem; border-bottom:1px solid rgba(255,255,255,0.08); padding-bottom:6px; margin-bottom:10px; text-align:center; font-family:'Pirata One',serif;">
-          死亡天使 (SM)
+      <!-- Team 0 结算 -->
+      <div class="init-team-col ${getFactionCssSuffix(team0Faction)}" style="align-items:stretch;">
+        <h4 style="color:var(${getFactionThemeVar(team0Faction)}); font-size:0.95rem; border-bottom:1px solid rgba(255,255,255,0.08); padding-bottom:6px; margin-bottom:10px; text-align:center; font-family:'Pirata One',serif;">
+          ${getFactionDisplayName(team0Faction)}
         </h4>
         <div style="font-size:0.85rem; display:flex; flex-direction:column; gap:12px;">
           <div style="display:flex; justify-content:space-between; align-items:center;">
             <span>⚔️ 新增击杀得分：</span>
-            <span style="font-weight:bold; color:var(--sm-accent);">${gameState.tempSmKillVp} VP <span style="font-size:0.75rem; color:var(--text-muted); font-weight:normal;">(总击杀: ${gameState.tempSmKills})</span></span>
+            <span style="font-weight:bold; color:var(${getFactionThemeVar(team0Faction)});">${gameState.tempSmKillVp} VP <span style="font-size:0.75rem; color:var(--text-muted); font-weight:normal;">(总击杀: ${gameState.tempSmKills})</span></span>
           </div>
 
           <div class="scoring-checklist-card">
@@ -1902,27 +2062,27 @@ export function renderTurnEndScoringContent() {
           </div>
           <div style="border-top:1px dashed rgba(255,255,255,0.1); padding-top:8px; display:flex; justify-content:space-between; align-items:center; font-weight:bold; font-size:0.95rem;">
             <span>本回合得分小计：</span>
-            <span style="color:#6a9ad4;">+${totalSmVpThisTurn} VP</span>
+            <span style="color:var(${getFactionThemeVar(team0Faction)});">+${totalSmVpThisTurn} VP</span>
           </div>
         </div>
       </div>
 
-      <!-- PM 结算 -->
-      <div class="init-team-col pm" style="align-items:stretch; background: rgba(74,124,89,0.02); border: 1px solid rgba(74,124,89,0.1);">
-        <h4 style="color:var(--pm-accent); font-size:0.95rem; border-bottom:1px solid rgba(255,255,255,0.08); padding-bottom:6px; margin-bottom:10px; text-align:center; font-family:'Pirata One',serif;">
-          瘟疫守卫 (PM)
+      <!-- Team 1 结算 -->
+      <div class="init-team-col ${getFactionCssSuffix(team1Faction)}" style="align-items:stretch;">
+        <h4 style="color:var(${getFactionThemeVar(team1Faction)}); font-size:0.95rem; border-bottom:1px solid rgba(255,255,255,0.08); padding-bottom:6px; margin-bottom:10px; text-align:center; font-family:'Pirata One',serif;">
+          ${getFactionDisplayName(team1Faction)}
         </h4>
         <div style="font-size:0.85rem; display:flex; flex-direction:column; gap:12px;">
           <div style="display:flex; justify-content:space-between; align-items:center;">
             <span>⚔️ 新增击杀得分：</span>
-            <span style="font-weight:bold; color:var(--pm-accent);">${gameState.tempPmKillVp} VP <span style="font-size:0.75rem; color:var(--text-muted); font-weight:normal;">(总击杀: ${gameState.tempPmKills})</span></span>
+            <span style="font-weight:bold; color:var(${getFactionThemeVar(team1Faction)});">${gameState.tempPmKillVp} VP <span style="font-size:0.75rem; color:var(--text-muted); font-weight:normal;">(总击杀: ${gameState.tempPmKills})</span></span>
           </div>
 
           <div class="scoring-checklist-card">
             <div style="font-weight:600; font-size:0.75rem; color:var(--text-muted); margin-bottom:4px; text-transform:uppercase;">
               ${missionLabel} — 任务结算助手
             </div>
-            ${buildChecklistHtml('pm', gameState.tempPmChecklist, 'var(--pm-accent)')}
+            ${buildChecklistHtml('pm', gameState.tempPmChecklist, `var(${getFactionThemeVar(team1Faction)})`)}
           </div>
 
           <div style="display:flex; justify-content:space-between; align-items:center; margin-top:4px;">
@@ -1935,7 +2095,7 @@ export function renderTurnEndScoringContent() {
           </div>
           <div style="border-top:1px dashed rgba(255,255,255,0.1); padding-top:8px; display:flex; justify-content:space-between; align-items:center; font-weight:bold; font-size:0.95rem;">
             <span>本回合得分小计：</span>
-            <span style="color:var(--pm-accent);">+${totalPmVpThisTurn} VP</span>
+            <span style="color:var(${getFactionThemeVar(team1Faction)});">+${totalPmVpThisTurn} VP</span>
           </div>
         </div>
       </div>
@@ -1985,8 +2145,8 @@ export function confirmTurnEndScoring() {
   gameState.pmKillsScored = gameState.tempPmKills;
 
   addLog(`\n--- Turning Point ${gameState.turningPoint} 回合结算结果 ---`);
-  addLog(`[死亡天使] 新增 ${smGain} VP (任务:${gameState.tempSmObjVp}, 击杀:${gameState.tempSmKillVp}) | 累计 VP: ${gameState.smVp}`);
-  addLog(`[瘟疫守卫] 新增 ${pmGain} VP (任务:${gameState.tempPmObjVp}, 击杀:${gameState.tempPmKillVp}) | 累计 VP: ${gameState.pmVp}`);
+  addLog(`[${getFactionDisplayName(gameState.teamFactions[0])}] 新增 ${smGain} VP (任务:${gameState.tempSmObjVp}, 击杀:${gameState.tempSmKillVp}) | 累计 VP: ${gameState.smVp}`);
+  addLog(`[${getFactionDisplayName(gameState.teamFactions[1])}] 新增 ${pmGain} VP (任务:${gameState.tempPmObjVp}, 击杀:${gameState.tempPmKillVp}) | 累计 VP: ${gameState.pmVp}`);
 
   hidePhaseOverlay();
   endTurningPoint();
@@ -2006,13 +2166,15 @@ export function declareScoreVictory() {
   gameState.gameOver = true;
   updateScoresUI();
 
-  let winReason = `双方经历五回合激烈交火，战斗正式落幕！\n最终战队积分：\n死亡天使: ${gameState.smVp} VP\n瘟疫守卫: ${gameState.pmVp} VP\n\n`;
+  const team0Faction = gameState.teamFactions[0];
+  const team1Faction = gameState.teamFactions[1];
+  let winReason = `双方经历五回合激烈交火，战斗正式落幕！\n最终战队积分：\n${getFactionDisplayName(team0Faction)}: ${gameState.smVp} VP\n${getFactionDisplayName(team1Faction)}: ${gameState.pmVp} VP\n\n`;
   if (gameState.smVp === gameState.pmVp) {
     declareVictory('draw', winReason + '双方得分平分秋色，本局握手言和！');
   } else if (gameState.smVp > gameState.pmVp) {
-    declareVictory('sm', winReason + '死亡天使胜利点数更高，赢得最终胜利！');
+    declareVictory('sm', winReason + `${getFactionDisplayName(team0Faction)}胜利点数更高，赢得最终胜利！`);
   } else {
-    declareVictory('pm', winReason + '瘟疫守卫胜利点数更高，赢得最终胜利！');
+    declareVictory('pm', winReason + `${getFactionDisplayName(team1Faction)}胜利点数更高，赢得最终胜利！`);
   }
 }
 

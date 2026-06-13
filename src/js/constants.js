@@ -7,7 +7,7 @@ import { Weapon } from './models.js';
 
 const SM_TEMPLATES = [
   // --- LEADER 选项 ---
-  { id: 'sm_1', name: 'Space Marine Captain (SM 队长)', wounds: 15, apl: 3, df: 3, sv: 3, isLeader: true, move: 6,
+  { id: 'sm_1', name: 'Space Marine Captain (星际战士队长)', wounds: 15, apl: 3, df: 3, sv: 3, isLeader: true, move: 6,
     defaultAvatar: './assets/images/operatives/sm/sm_captain.png',
     weapons: [
       new Weapon('Master-crafted Bolt Rifle (精铸爆弹步枪)', 4, 3, 4, 5, true, 24, ['Indirect Fire']),
@@ -123,6 +123,65 @@ const PM_TEMPLATES = [
     weapons: [
       new Weapon('Boltgun (爆弹枪)', 4, 3, 3, 4, true, null, ['Toxic']),
       new Weapon('Plague Knife (瘟疫匕首)', 4, 3, 3, 4, false, null, ['Severe', 'Poison'])
+    ]
+  }
+];
+
+// ======================================================
+//   Kill Team 2024 — Legionaries (黑军团)
+//   Chaos Space Marines — 远程与近战兼备的混沌势力
+// ======================================================
+
+const LEG_TEMPLATES = [
+  // --- LEADER 选项 (2 选 1) ---
+  { id: 'leg_1', name: 'Chaos Lord (混沌领主)', wounds: 15, apl: 3, df: 3, sv: 3, isLeader: true, move: 6,
+    defaultAvatar: './assets/images/operatives/leg/leg_lord.png',
+    weapons: [
+      new Weapon('Bolt Pistol (爆弹手枪)', 4, 3, 3, 4, true, 8, []),
+      new Weapon('Power Sword (力量剑)', 5, 3, 5, 6, false, null, ['Severe'])
+    ]
+  },
+  { id: 'leg_2', name: 'Dark Apostate (暗黑使徒)', wounds: 15, apl: 3, df: 3, sv: 3, isLeader: true, move: 6,
+    defaultAvatar: './assets/images/operatives/leg/leg_apostate.png',
+    weapons: [
+      new Weapon('Crozius Arcanum (奥术圣杖)', 5, 3, 4, 5, false, null, ['Brutal', 'Shock'])
+    ]
+  },
+
+  // --- OPERATOR 选项 (Warrior 可复选, 其余不可重复) ---
+  { id: 'leg_3', name: 'Legionary Gunner (军团火力手)', wounds: 14, apl: 3, df: 3, sv: 3, isLeader: false, move: 6,
+    defaultAvatar: './assets/images/operatives/leg/leg_gunner.png',
+    weapons: [
+      new Weapon('Havoc Launcher (浩劫发射器)', 4, 3, 4, 5, true, null, ['Saturate', 'Severe']),
+      new Weapon('Fists (铁拳)', 4, 3, 3, 4, false, null, [])
+    ]
+  },
+  { id: 'leg_4', name: 'Legionary Champion (军团搏斗士)', wounds: 14, apl: 3, df: 3, sv: 3, isLeader: false, move: 6,
+    defaultAvatar: './assets/images/operatives/leg/leg_champion.png',
+    weapons: [
+      new Weapon('Boltgun (爆弹枪)', 4, 3, 3, 4, true, null, []),
+      new Weapon('Power Fist (力量拳套)', 4, 3, 5, 7, false, null, ['Brutal'])
+    ]
+  },
+  { id: 'leg_5', name: 'Legionary Heavy Gunner (军团重武器手)', wounds: 16, apl: 3, df: 3, sv: 3, isLeader: false, move: 5,
+    defaultAvatar: './assets/images/operatives/leg/leg_heavy.png',
+    weapons: [
+      new Weapon('Reaper Autocannon (收割者自动炮)', 5, 3, 3, 4, true, null, ['Piercing Crits 1']),
+      new Weapon('Fists (铁拳)', 4, 3, 3, 4, false, null, [])
+    ]
+  },
+  { id: 'leg_6', name: 'Legionary Berserker (军团狂战士)', wounds: 14, apl: 3, df: 3, sv: 3, isLeader: false, isWarrior: true, move: 6,
+    defaultAvatar: './assets/images/operatives/leg/leg_berserker.png',
+    weapons: [
+      new Weapon('Bolt Pistol (爆弹手枪)', 4, 3, 3, 4, true, 8, []),
+      new Weapon('Chainaxe (链锯斧)', 5, 3, 4, 5, false, null, ['Brutal', 'Severe'])
+    ]
+  },
+  { id: 'leg_7', name: 'Legionary Trooper (军团步兵)', wounds: 14, apl: 3, df: 3, sv: 3, isLeader: false, isWarrior: true, move: 6,
+    defaultAvatar: './assets/images/operatives/leg/leg_trooper.png',
+    weapons: [
+      new Weapon('Boltgun (爆弹枪)', 4, 3, 3, 4, true, null, []),
+      new Weapon('Chainsword (链锯剑)', 5, 3, 4, 5, false, null, [])
     ]
   }
 ];
@@ -389,4 +448,4 @@ const RULE_TEXTS = {
   }
 };
 
-export { SM_TEMPLATES, PM_TEMPLATES, RULE_TEXTS };
+export { SM_TEMPLATES, PM_TEMPLATES, LEG_TEMPLATES, RULE_TEXTS };

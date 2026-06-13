@@ -6,14 +6,15 @@
  *   - 被动特性 (traits)
  *   - 策略 ploys
  *   - 主题色 / 骰子样式
+ *   - Helper 函数（替代硬编码 faction 判断）
  *
  * 动态阵营扩展路径 (Dynamic Factions Roadmap):
- *   1. 当前状态：FACTIONS_DB 已定义，但 UI 仍硬编码 SM/PM。
- *   2. 下一步：在 setup-overlay 中添加阵营选择器，从 FACTIONS_DB 动态渲染。
- *   3. Legionary 阵营：已预留占位，需补充模板数据和 ploys。
- *   4. UI 解耦：将 roster-picker-card 改为通用组件，根据 faction.id 动态渲染。
- *   5. 战斗逻辑：combat.js 中的 faction 硬编码检查（如 'Space Marine'）需改为查询 FACTION_TRAITS。
+ *   1. 当前状态：FACTIONS_DB 已定义，UI 已支持 SM/PM/Legionary 双方各选。
+ *   2. Helper 函数已就位，combat/state/models/ui 通过 helper 替代硬编码。
+ *   3. 新阵营扩展：添加 FACTIONS_DB 条目 + templates + CSS 即可。
  */
+
+import { gameState } from '../js/state.js';
 
 // ==========================================
 //        阵营被动特性
@@ -36,9 +37,12 @@ export const FACTION_TRAITS = {
     // — 具体实现在 models.js Operative.applyWounds 中
     disgustingResilience: true,
   },
-  // 未来扩展
+  // 混沌星际战士
   'Legionary': {
-    // TBD
+    // Astartes 双重行动: 可选 2 次 Shoot 或 2 次 Fight（同 SM）
+    astartesDoubleAction: true,
+    // 黑暗狂热: 每次 Fight 可重投 1 个失败近战骰
+    darkZealotry: true,
   },
 };
 
@@ -106,11 +110,15 @@ export const FACTIONS_DB = {
     id: 'Legionary',
     name: '黑军团 (Legionaries)',
     shortName: '黑军团',
-    themeColor: '#ef4444',
-    diceClass: 'pm-dice',
-    headerImg: null,  // TBD
+    themeColor: '#8b1a1a',
+    diceClass: 'leg-dice',
+    headerImg: './assets/images/headers/faction_header_leg.png',
     templates: null,
-    ploys: [],
+    ploys: [
+      { id: 'dark_zealotry', name: '黑暗狂热 (Dark Zealotry)', type: 'Strategic', cp: 1, desc: '近战搏斗时可重投 1 个失败骰。' },
+      { id: 'chaos_glory', name: '混沌荣耀 (Chaos Glory)', type: 'Strategic', cp: 1, desc: ' leader 在 Fight 中获得 +1 攻击。' },
+      { id: 'warp_touched', name: '亚空间庇护 (Warp-Touched)', type: 'Firefight', cp: 1, desc: '受到致命伤害时可掷骰 6+ 抵消。' },
+    ],
   },
 };
 
@@ -140,4 +148,146 @@ export function getFaction(factionId) {
  */
 export function listFactions() {
   return Object.keys(FACTIONS_DB);
+}
+
+// ==========================================
+//        Helper 函数层
+//   替代硬编码 faction 判断，支持动态阵营
+// ==========================================
+
+// 阵营 → team slot 映射缓存 (0 = team 0 / 左方, 1 = team 1 / 右方)
+// smVp/smCp 语义为 team 0, pmVp/pmCp 语义为 team 1
+
+/**
+ * 获取对手阵营
+ * @param {string} faction
+ * @returns {string} 对手阵营 id
+ */
+export function getEnemyFaction(faction) {
+  const slot0 = gameState.teamFactions[0];
+  const slot1 = gameState.teamFactions[1];
+  if (faction === slot0) return slot1;
+  if (faction === slot1) return slot0;
+  // fallback: 如果 faction 不在 teamFactions 中（不应该发生），返回对手
+  return slot0 === faction ? slot1 : slot0;
+}
+
+/**
+ * 获取阵营所在 team slot (0 或 1)
+ * @param {string} faction
+ * @returns {number} 0 或 1, 未找到返回 -1
+ */
+export function getTeamSlot(faction) {
+  if (gameState.teamFactions[0] === faction) return 0;
+  if (gameState.teamFactions[1] === faction) return 1;
+  return -1;
+}
+
+/**
+ * 读取阵营 CP
+ * @param {string} faction
+ * @returns {number}
+ */
+export function getCpForFaction(faction) {
+  return getTeamSlot(faction) === 0 ? gameState.smCp : gameState.pmCp;
+}
+
+/**
+ * 设置阵营 CP
+ * @param {string} faction
+ * @param {number} val
+ */
+export function setCpForFaction(faction, val) {
+  if (getTeamSlot(faction) === 0) gameState.smCp = val;
+  else gameState.pmCp = val;
+}
+
+/**
+ * 读取阵营 VP
+ * @param {string} faction
+ * @returns {number}
+ */
+export function getVpForFaction(faction) {
+  return getTeamSlot(faction) === 0 ? gameState.smVp : gameState.pmVp;
+}
+
+/**
+ * 设置阵营 VP
+ * @param {string} faction
+ * @param {number} val
+ */
+export function setVpForFaction(faction, val) {
+  if (getTeamSlot(faction) === 0) gameState.smVp = val;
+  else gameState.pmVp = val;
+}
+
+/**
+ * 返回 CSS 骰子类名
+ * @param {string} faction
+ * @returns {string} 如 'sm-dice', 'pm-dice', 'leg-dice'
+ */
+export function getDiceClass(faction) {
+  const f = FACTIONS_DB[faction];
+  return f ? f.diceClass : 'sm-dice';
+}
+
+/**
+ * 返回阵营显示短名（用于 UI 日志和标签）
+ * @param {string} faction
+ * @returns {string}
+ */
+export function getFactionDisplayName(faction) {
+  const f = FACTIONS_DB[faction];
+  return f ? f.shortName : faction;
+}
+
+/**
+ * 返回阵营 CSS 后缀（用于 score-card, roster-picker-card 等 class）
+ * SM → 'sm', PM → 'pm', Legionary → 'leg'
+ * @param {string} faction
+ * @returns {string}
+ */
+export function getFactionCssSuffix(faction) {
+  if (faction === 'Space Marine') return 'sm';
+  if (faction === 'Plague Marine') return 'pm';
+  if (faction === 'Legionary') return 'leg';
+  return 'sm'; // fallback
+}
+
+/**
+ * 返回阵营主题 CSS 变量名（如 '--sm-accent'）
+ * @param {string} faction
+ * @returns {string}
+ */
+export function getFactionThemeVar(faction) {
+  const suffix = getFactionCssSuffix(faction);
+  return `--${suffix}-accent`;
+}
+
+/**
+ * 获取阵营活跃 ploy 列表引用
+ * @param {string} faction
+ * @returns {Array}
+ */
+export function getActivePloys(faction) {
+  return getTeamSlot(faction) === 0 ? gameState.smActivePloys : gameState.pmActivePloys;
+}
+
+/**
+ * 设置阵营活跃 ploy 列表
+ * @param {string} faction
+ * @param {Array} ploys
+ */
+export function setActivePloys(faction, ploys) {
+  if (getTeamSlot(faction) === 0) gameState.smActivePloys = ploys;
+  else gameState.pmActivePloys = ploys;
+}
+
+/**
+ * 获取阵营 team 对应的 operative-board CSS 类名
+ * @param {string} faction
+ * @returns {string} 如 'sm-team', 'pm-team', 'leg-team'
+ */
+export function getTeamCssClass(faction) {
+  return `${getFactionCssSuffix(faction)}-team`;
 }

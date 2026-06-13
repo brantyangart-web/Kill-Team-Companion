@@ -1,6 +1,11 @@
 import { gameState, wizardState } from './state.js';
 import { playSound } from './audio.js';
 import { Operative, Weapon, translateRule } from './models.js';
+import {
+  getEnemyFaction, getDiceClass, getCpForFaction, setCpForFaction,
+  getFactionDisplayName, getFactionCssSuffix, hasFactionTrait, getActivePloys, setActivePloys,
+  getTeamSlot
+} from '../rules/faction.js';
 
 // UI callbacks
 const ui = {};
@@ -219,8 +224,8 @@ export function renderShootStep() {
 
   if (wizardState.step === 1) {
     title.textContent = '射击结算 - 步骤 1: 选择目标';
-    const enemyFaction = wizardState.attacker.faction === 'Space Marine' ? 'Plague Marine' : 'Space Marine';
-    const allEnemies = gameState.operatives.filter(o => o.faction === enemyFaction && !o.isDead);
+    const attackerSlot = wizardState.attacker.teamSlot >= 0 ? wizardState.attacker.teamSlot : getTeamSlot(wizardState.attacker.faction);
+    const allEnemies = gameState.operatives.filter(o => o.teamSlot !== attackerSlot && !o.isDead);
     const targets = allEnemies.filter(o => !o.hasConceal);
 
     if (allEnemies.length > 0 && targets.length === 0) {
@@ -347,7 +352,7 @@ export function renderShootStep() {
     title.textContent = '射击结算 - 步骤 4: 攻击方掷骰 (Angels of Death)';
 
     let rerollHint = '';
-    const curCp = wizardState.attacker.faction === 'Space Marine' ? gameState.smCp : gameState.pmCp;
+    const curCp = getCpForFaction(wizardState.attacker.faction);
 
     if (wizardState.attackRolls.length > 0) {
       const summaryEffTs = wizardState.weapon.ts + (wizardState.attacker.isInjured ? 1 : 0);
@@ -401,7 +406,7 @@ export function renderShootStep() {
   }
 
   else if (wizardState.step === 5) {
-    title.textContent = '射击结算 - 步骤 5: 防守方防御掷骰 (Plague Marines)';
+    title.textContent = `射击结算 - 步骤 5: 防守方防御掷骰 (${getFactionDisplayName(wizardState.defender.faction)})`;
 
     let coverDesc = '';
     let dfCount = wizardState.defender.df;
@@ -427,7 +432,7 @@ export function renderShootStep() {
     }
 
     let rerollHint = '';
-    const curCp = wizardState.defender.faction === 'Space Marine' ? gameState.smCp : gameState.pmCp;
+    const curCp = getCpForFaction(wizardState.defender.faction);
     if (wizardState.defenseRolls.length > 0 && dfCount > 0) {
       rerollHint = `
         <div class="roll-summary-block" style="margin-top:10px;">
@@ -583,8 +588,10 @@ export function renderShootStep() {
           <div class="matching-dice-list">
     `;
     const matchEffTs = wizardState.weapon.ts + (wizardState.attacker.isInjured ? 1 : 0);
-    for (let i = 0; i < wizardState.attackCrit; i++) matchingHtml += '<div class="kt-dice-cube sm-dice crit-dice">6</div>';
-    for (let i = 0; i < wizardState.attackNorm; i++) matchingHtml += `<div class="kt-dice-cube sm-dice">${matchEffTs}</div>`;
+    const attDiceCls = getDiceClass(wizardState.attacker.faction);
+    const defDiceCls = getDiceClass(wizardState.defender.faction);
+    for (let i = 0; i < wizardState.attackCrit; i++) matchingHtml += `<div class="kt-dice-cube ${attDiceCls} crit-dice">6</div>`;
+    for (let i = 0; i < wizardState.attackNorm; i++) matchingHtml += `<div class="kt-dice-cube ${attDiceCls}">${matchEffTs}</div>`;
     if (wizardState.attackCrit + wizardState.attackNorm === 0) matchingHtml += '<span style="font-size:0.8rem; color:var(--text-muted);">无命中</span>';
     matchingHtml += `
           </div>
@@ -593,8 +600,8 @@ export function renderShootStep() {
           <span class="matching-label">防御保护</span>
           <div class="matching-dice-list">
     `;
-    for (let i = 0; i < wizardState.defCrit; i++) matchingHtml += '<div class="kt-dice-cube pm-dice crit-dice">6</div>';
-    for (let i = 0; i < wizardState.defNorm; i++) matchingHtml += `<div class="kt-dice-cube pm-dice">${wizardState.defender.sv}</div>`;
+    for (let i = 0; i < wizardState.defCrit; i++) matchingHtml += `<div class="kt-dice-cube ${defDiceCls} crit-dice">6</div>`;
+    for (let i = 0; i < wizardState.defNorm; i++) matchingHtml += `<div class="kt-dice-cube ${defDiceCls}">${wizardState.defender.sv}</div>`;
     if (wizardState.defCrit + wizardState.defNorm === 0) matchingHtml += '<span style="font-size:0.8rem; color:var(--text-muted);">无防御成功</span>';
     matchingHtml += `
           </div>
@@ -603,7 +610,7 @@ export function renderShootStep() {
     `;
 
     let drInputHtml = '';
-    if (wizardState.defender.faction === 'Plague Marine' && attacksRequiringDr > 0) {
+    if (hasFactionTrait(wizardState.defender.faction, 'disgustingResilience') && attacksRequiringDr > 0) {
       drInputHtml = `
         <div id="manual-dr-container" style="background:var(--dark-card); padding:10px; border-radius:8px; margin-top:8px; border:1px solid var(--panel-border);">
           <label style="font-size:0.75rem; color:var(--text-muted);">录入瘟疫守卫【恶心作呕】的 ${attacksRequiringDr} 个投骰点数 (每次≥3伤害的攻击各投一次, 为空则按随机)：</label>
@@ -685,10 +692,10 @@ export function rollAttackDice() {
   // 防御性检查：如果已经投过骰子，不允许重复投掷
   if (wizardState.attackRolls.length > 0) return;
 
-  rollBtn.disabled = true;
+  rollBtn.style.display = 'none';
   nextBtn.disabled = true;
 
-  const attDiceClass = wizardState.attacker.faction === 'Space Marine' ? 'sm-dice' : 'pm-dice';
+  const attDiceClass = getDiceClass(wizardState.attacker.faction);
 
   // 1. 初始化滚动的占位骰子
   pool.innerHTML = '';
@@ -793,8 +800,8 @@ export function renderAttackDiceView() {
   pool.innerHTML = '';
 
   const faction = wizardState.attacker.faction;
-  const curCp = faction === 'Space Marine' ? gameState.smCp : gameState.pmCp;
-  const attDiceClass = faction === 'Space Marine' ? 'sm-dice' : 'pm-dice';
+  const curCp = getCpForFaction(faction);
+  const attDiceClass = getDiceClass(faction);
   const renderEffTs = wizardState.weapon.ts + (wizardState.attacker.isInjured ? 1 : 0);
 
   wizardState.attackRolls.forEach((val, idx) => {
@@ -828,11 +835,7 @@ export function renderAttackDiceView() {
 
 export function rerollSingleAttackDice(idx) {
   playSound('shoot');
-  if (wizardState.attacker.faction === 'Space Marine') {
-    gameState.smCp -= 1;
-  } else {
-    gameState.pmCp -= 1;
-  }
+  setCpForFaction(wizardState.attacker.faction, getCpForFaction(wizardState.attacker.faction) - 1);
   ui.updateScoresUI();
 
   wizardState.attRerollIndex = idx;
@@ -841,7 +844,7 @@ export function rerollSingleAttackDice(idx) {
   const pool = document.getElementById('attack-dice-pool');
   const diceCubes = pool.getElementsByClassName('kt-dice-cube');
   const cube = diceCubes[idx];
-  const attDiceClass = wizardState.attacker.faction === 'Space Marine' ? 'sm-dice' : 'pm-dice';
+  const attDiceClass = getDiceClass(wizardState.attacker.faction);
   cube.className = `kt-dice-cube ${attDiceClass} rolling`;
   cube.innerHTML = '?';
 
@@ -936,10 +939,10 @@ export function rollDefenseDice(dfCount) {
     return;
   }
 
-  rollBtn.disabled = true;
+  rollBtn.style.display = 'none';
   nextBtn.disabled = true;
 
-  const defDiceClass = wizardState.defender.faction === 'Space Marine' ? 'sm-dice' : 'pm-dice';
+  const defDiceClass = getDiceClass(wizardState.defender.faction);
 
   pool.innerHTML = '';
   skipDiceAnimation = false;
@@ -1038,8 +1041,8 @@ export function renderDefenseDiceView(dfCount) {
   pool.innerHTML = '';
 
   const faction = wizardState.defender.faction;
-  const curCp = faction === 'Space Marine' ? gameState.smCp : gameState.pmCp;
-  const defDiceClass = faction === 'Space Marine' ? 'sm-dice' : 'pm-dice';
+  const curCp = getCpForFaction(faction);
+  const defDiceClass = getDiceClass(faction);
 
   wizardState.defenseRolls.forEach((val, idx) => {
     const d = document.createElement('div');
@@ -1072,11 +1075,7 @@ export function renderDefenseDiceView(dfCount) {
 
 export function rerollSingleDefenseDice(idx, dfCount) {
   playSound('save');
-  if (wizardState.defender.faction === 'Space Marine') {
-    gameState.smCp -= 1;
-  } else {
-    gameState.pmCp -= 1;
-  }
+  setCpForFaction(wizardState.defender.faction, getCpForFaction(wizardState.defender.faction) - 1);
   ui.updateScoresUI();
 
   wizardState.defRerollIndex = idx;
@@ -1084,7 +1083,7 @@ export function rerollSingleDefenseDice(idx, dfCount) {
   const pool = document.getElementById('defense-dice-pool');
   const diceCubes = pool.getElementsByClassName('kt-dice-cube');
   const cube = diceCubes[idx];
-  const defDiceClass = wizardState.defender.faction === 'Space Marine' ? 'sm-dice' : 'pm-dice';
+  const defDiceClass = getDiceClass(wizardState.defender.faction);
   cube.className = `kt-dice-cube ${defDiceClass} rolling`;
   cube.innerHTML = '?';
 
@@ -1267,8 +1266,8 @@ export function renderFightStep() {
 
   if (wizardState.step === 1) {
     title.textContent = '近战结算 - 步骤 1: 选择目标';
-    const enemyFaction = wizardState.attacker.faction === 'Space Marine' ? 'Plague Marine' : 'Space Marine';
-    const allEnemies = gameState.operatives.filter(o => o.faction === enemyFaction && !o.isDead);
+    const attackerSlot = wizardState.attacker.teamSlot >= 0 ? wizardState.attacker.teamSlot : getTeamSlot(wizardState.attacker.faction);
+    const allEnemies = gameState.operatives.filter(o => o.teamSlot !== attackerSlot && !o.isDead);
     const targets = allEnemies.filter(o => !o.hasConceal);
 
     if (allEnemies.length > 0 && targets.length === 0) {
@@ -1424,8 +1423,8 @@ export function renderFightStep() {
       return;
     }
 
-    const attDiceClass = wizardState.attacker.faction === 'Space Marine' ? 'sm-dice' : 'pm-dice';
-    const defDiceClass = wizardState.defender.faction === 'Space Marine' ? 'sm-dice' : 'pm-dice';
+    const attDiceClass = getDiceClass(wizardState.attacker.faction);
+    const defDiceClass = getDiceClass(wizardState.defender.faction);
 
     let attackerDiceHtml = '';
     wizardState.activeAttackerDice.forEach((d, idx) => {
@@ -1575,11 +1574,11 @@ export function rollMeleeDice() {
   const defPool = document.getElementById('melee-def-pool');
   const btn = document.getElementById('btn-roll-melee');
 
-  btn.disabled = true;
+  btn.style.display = 'none';
   nextBtn.disabled = true;
 
-  const attDiceClass = wizardState.attacker.faction === 'Space Marine' ? 'sm-dice' : 'pm-dice';
-  const defDiceClass = wizardState.defender.faction === 'Space Marine' ? 'sm-dice' : 'pm-dice';
+  const attDiceClass = getDiceClass(wizardState.attacker.faction);
+  const defDiceClass = getDiceClass(wizardState.defender.faction);
 
   // 1. 初始化滚动的占位骰子
   attPool.innerHTML = '';
@@ -1715,11 +1714,26 @@ export function rollMeleeDice() {
 
   function finishMeleeRolls() {
     skipBtn.remove();
+    btn.style.display = 'none';
     // Injured 命中惩罚: TS/WS +1 (6 永远是暴击)
     const attInjuryPenalty = (wizardState.attacker && wizardState.attacker.isInjured) ? 1 : 0;
     const defInjuryPenalty = (wizardState.defender && wizardState.defender.isInjured) ? 1 : 0;
     const effectiveAttTs = wizardState.weapon.ts + attInjuryPenalty;
     const effectiveDefTs = defMeleeWeapon.ts + defInjuryPenalty;
+
+    // 存储所有投骰结果（包括失败的）用于重投
+    wizardState.allAttackerRolls = finalAttRolls.map((val, idx) => ({
+      val,
+      isSuccess: val >= effectiveAttTs || val === 6,
+      isCrit: val === 6,
+      originalIdx: idx
+    }));
+    wizardState.allDefenderRolls = finalDefRolls.map((val, idx) => ({
+      val,
+      isSuccess: val >= effectiveDefTs || val === 6,
+      isCrit: val === 6,
+      originalIdx: idx
+    }));
 
     wizardState.activeAttackerDice = finalAttRolls
       .filter(val => val >= effectiveAttTs || val === 6)
@@ -1729,10 +1743,103 @@ export function rollMeleeDice() {
       .filter(val => val >= effectiveDefTs || val === 6)
       .map(val => ({ val, isCrit: val === 6, used: false }));
 
+    // 存储有效的 TS 值用于重投计算
+    wizardState.meleeEffectiveAttTs = effectiveAttTs;
+    wizardState.meleeEffectiveDefTs = effectiveDefTs;
+    wizardState.meleeDefWeapon = defMeleeWeapon;
+
+    // 黑暗狂热 (Dark Zealotry) 策略检查: 允许重投 1 个失败骰
+    wizardState.darkZealotryUsed = { attacker: false, defender: false };
+    const attHasDarkZealotry = hasFactionTrait(wizardState.attacker.faction, 'darkZealotry') &&
+      getActivePloys(wizardState.attacker.faction).includes('dark_zealotry');
+    const defHasDarkZealotry = hasFactionTrait(wizardState.defender.faction, 'darkZealotry') &&
+      getActivePloys(wizardState.defender.faction).includes('dark_zealotry');
+
+    const attFailedCount = wizardState.allAttackerRolls.filter(r => !r.isSuccess).length;
+    const defFailedCount = wizardState.allDefenderRolls.filter(r => !r.isSuccess).length;
+
+    // 显示重投按钮（如果有失败骰子且策略激活）
+    const body = document.getElementById('modal-body');
+    if (body && ((attHasDarkZealotry && attFailedCount > 0) || (defHasDarkZealotry && defFailedCount > 0))) {
+      const rerollDiv = document.createElement('div');
+      rerollDiv.id = 'melee-reroll-section';
+      rerollDiv.style.cssText = 'margin-top: 12px; padding: 10px; background: rgba(139, 26, 26, 0.15); border: 1px solid var(--leg-accent, #c94444); border-radius: 8px;';
+
+      let rerollHtml = '<div style="font-weight: bold; color: #c94444; margin-bottom: 8px;">⚔️ 黑暗狂热 (Dark Zealotry) — 可重投 1 个失败骰</div>';
+
+      if (attHasDarkZealotry && attFailedCount > 0) {
+        rerollHtml += `<button class="modal-btn" style="margin-right: 8px; background: linear-gradient(135deg, #6a9ad4, #4a7ab4);" onclick="rerollMeleeDice('attacker')">攻击方重投 (${attFailedCount} 个失败)</button>`;
+      }
+      if (defHasDarkZealotry && defFailedCount > 0) {
+        rerollHtml += `<button class="modal-btn" style="background: linear-gradient(135deg, #4a7c59, #2a5c39);" onclick="rerollMeleeDice('defender')">防守方重投 (${defFailedCount} 个失败)</button>`;
+      }
+
+      rerollDiv.innerHTML = rerollHtml;
+      body.appendChild(rerollDiv);
+    }
+
     nextBtn.disabled = false;
   }
 
   scheduleTimeout(settleAttackerDice, 1200);
+}
+
+// 黑暗狂热: 重投 1 个失败近战骰
+export function rerollMeleeDice(side) {
+  if (wizardState.darkZealotryUsed[side]) {
+    ui.showToast('每方只能使用 1 次黑暗狂热重投！', 'warning');
+    return;
+  }
+
+  const allRolls = side === 'attacker' ? wizardState.allAttackerRolls : wizardState.allDefenderRolls;
+  const failedRolls = allRolls.filter(r => !r.isSuccess);
+
+  if (failedRolls.length === 0) {
+    ui.showToast('没有可重投的失败骰！', 'warning');
+    return;
+  }
+
+  // 随机选择 1 个失败骰重投
+  const rerollIdx = Math.floor(Math.random() * failedRolls.length);
+  const rerollTarget = failedRolls[rerollIdx];
+  const effectiveTs = side === 'attacker' ? wizardState.meleeEffectiveAttTs : wizardState.meleeEffectiveDefTs;
+
+  const newVal = Math.floor(Math.random() * 6) + 1;
+  const wasSuccess = newVal >= effectiveTs || newVal === 6;
+
+  playSound('crit');
+
+  // 更新原始投骰记录
+  const originalRoll = side === 'attacker'
+    ? wizardState.allAttackerRolls[rerollTarget.originalIdx]
+    : wizardState.allDefenderRolls[rerollTarget.originalIdx];
+
+  const oldVal = originalRoll.val;
+  originalRoll.val = newVal;
+  originalRoll.isSuccess = wasSuccess;
+  originalRoll.isCrit = newVal === 6;
+
+  // 重新计算成功骰列表
+  const allSuccessful = (side === 'attacker' ? wizardState.allAttackerRolls : wizardState.allDefenderRolls)
+    .filter(r => r.isSuccess);
+
+  if (side === 'attacker') {
+    wizardState.activeAttackerDice = allSuccessful.map(r => ({ val: r.val, isCrit: r.isCrit, used: false }));
+  } else {
+    wizardState.activeDefenderDice = allSuccessful.map(r => ({ val: r.val, isCrit: r.isCrit, used: false }));
+  }
+
+  wizardState.darkZealotryUsed[side] = true;
+
+  const factionName = getFactionDisplayName(side === 'attacker' ? wizardState.attacker.faction : wizardState.defender.faction);
+  addLog(`[黑暗狂热] ${factionName} 重投失败骰: [${oldVal}] → [${newVal}]${wasSuccess ? ' ✓命中!' : ' ✗未命中'}`);
+
+  // 移除重投按钮区域
+  const rerollSection = document.getElementById('melee-reroll-section');
+  if (rerollSection) rerollSection.remove();
+
+  // 重新渲染骰子视图
+  renderMeleeRollsView();
 }
 
 export function renderMeleeRollsView() {
@@ -1740,8 +1847,8 @@ export function renderMeleeRollsView() {
   const defPool = document.getElementById('melee-def-pool');
   if (!attPool || !defPool) return;
 
-  const attDiceClass = wizardState.attacker.faction === 'Space Marine' ? 'sm-dice' : 'pm-dice';
-  const defDiceClass = wizardState.defender.faction === 'Space Marine' ? 'sm-dice' : 'pm-dice';
+  const attDiceClass = getDiceClass(wizardState.attacker.faction);
+  const defDiceClass = getDiceClass(wizardState.defender.faction);
 
   attPool.innerHTML = '';
   wizardState.activeAttackerDice.forEach(d => {
@@ -1782,18 +1889,16 @@ export function renderMeleeRollsView() {
 
 export function getDuelAvatarHtml(opId, faction) {
   const avatarUrl = gameState.customAvatars[opId];
-  let fallbackUrl = faction === 'Space Marine'
-    ? './assets/images/defaults/default_sm_avatar.png'
-    : './assets/images/defaults/default_pm_avatar.png';
+  const cssSuffix = getFactionCssSuffix(faction);
+  let fallbackUrl = `./assets/images/defaults/default_${cssSuffix}_avatar.png`;
 
   const activeOp = gameState.operatives.find(o => o.id === opId);
   if (activeOp && activeOp.defaultAvatar) {
     fallbackUrl = activeOp.defaultAvatar;
   } else {
     // Determine the template source based on faction for avatar path
-    const isSm = faction === 'Space Marine';
-    const idSuffix = opId.replace(/^(sm_|pm_)/, '');
-    const templateAvatar = `./assets/images/operatives/${isSm ? 'sm' : 'pm'}/${isSm ? 'sm' : 'pm'}_${idSuffix}.png`;
+    const idSuffix = opId.replace(/^(sm_|pm_|leg_)/, '');
+    const templateAvatar = `./assets/images/operatives/${cssSuffix}/${cssSuffix}_${idSuffix}.png`;
     // Try to use the template avatar as fallback if available
     // But keep using the default if no match
     fallbackUrl = templateAvatar;
