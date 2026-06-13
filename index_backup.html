@@ -704,15 +704,6 @@
         inset 0 3px 0 #4ade80;
     }
 
-    .kt-dice-cube.leg-dice {
-      background: linear-gradient(135deg, #4b5563, #1f2937);
-      color: #facc15;
-      box-shadow: 
-        0 6px 12px rgba(0,0,0,0.4), 
-        inset 0 -5px 0 #111827, 
-        inset 0 3px 0 #9ca3af;
-    }
-
     /* 晃动滚落 */
     .kt-dice-cube.rolling {
       animation: diceRollTumble 0.3s infinite linear;
@@ -803,7 +794,6 @@
     .melee-dice-btn:hover { transform: translateY(-2px); box-shadow: 0 0 8px rgba(255, 255, 255, 0.2); }
     .melee-dice-btn.sm-dice { background: var(--sm-blue); border-color: #3b82f6; }
     .melee-dice-btn.pm-dice { background: var(--pm-green); border-color: #22c55e; }
-    .melee-dice-btn.leg-dice { background: #374151; border-color: #facc15; color: #facc15; }
     .melee-dice-btn.crit { border-color: var(--sm-accent); box-shadow: 0 0 10px var(--sm-accent); }
     .melee-dice-btn.used { opacity: 0.15; cursor: not-allowed; }
     .melee-interactive-log { background: #030712; border: 1px solid rgba(255,255,255,0.05); border-radius: 8px; padding: 10px; height: 120px; overflow-y: auto; font-family: 'Consolas', monospace; font-size: 0.75rem; color: var(--text-muted); }
@@ -1098,55 +1088,6 @@
       20% { opacity: 1; }
       80% { opacity: 1; }
       100% { left: 100%; opacity: 0; }
-    }
-    .cinematic-damage-overlay {
-      position: fixed; top: 0; left: 0; right: 0; bottom: 0;
-      background: rgba(0, 0, 0, 0.85); z-index: 9999;
-      display: flex; flex-direction: column; align-items: center; justify-content: center;
-      opacity: 0; transition: opacity 0.3s; pointer-events: none;
-    }
-    .cinematic-damage-overlay.show { opacity: 1; pointer-events: auto; }
-    
-    .cinematic-card {
-      background: linear-gradient(to bottom, #1e293b, #0f172a);
-      border: 3px solid var(--red);
-      border-radius: 16px; padding: 30px; width: 400px; max-width: 90%;
-      text-align: center; box-shadow: 0 0 50px rgba(225, 29, 72, 0.5);
-      transform: scale(0.8); transition: transform 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
-    }
-    .cinematic-damage-overlay.show .cinematic-card { transform: scale(1); }
-    
-    .cinematic-avatar {
-      width: 150px; height: 150px; border-radius: 50%;
-      border: 4px solid var(--panel-border); object-fit: cover;
-      margin: 0 auto 20px; display: block; box-shadow: 0 0 20px rgba(0,0,0,0.8);
-      transition: filter 0.3s;
-    }
-    
-    .cinematic-hp-container {
-      width: 100%; height: 24px; background: rgba(0,0,0,0.5);
-      border-radius: 12px; border: 2px solid #334155; overflow: hidden;
-      margin-top: 15px; position: relative;
-    }
-    .cinematic-hp-bar {
-      height: 100%; background: linear-gradient(90deg, #ef4444, #b91c1c);
-      width: 100%; transition: width 0.8s cubic-bezier(0.25, 1, 0.5, 1);
-    }
-    .cinematic-hp-text {
-      position: absolute; width: 100%; text-align: center;
-      top: 0; line-height: 24px; font-weight: bold; color: white;
-      text-shadow: 1px 1px 2px black; font-size: 0.9rem;
-    }
-    .cinematic-dmg-number {
-      position: absolute; right: 0; top: 10px; font-size: 4.5rem; color: #ef4444;
-      font-weight: 900; text-shadow: 0 0 20px black;
-      animation: dmgPop 0.5s ease-out forwards;
-      opacity: 0; transform-origin: right bottom;
-    }
-    @keyframes dmgPop {
-      0% { transform: scale(0.5) translate(0, 50px); opacity: 0; }
-      50% { transform: scale(1.1) translate(-20px, -20px); opacity: 1; }
-      100% { transform: scale(1) translate(-20px, -20px); opacity: 1; }
     }
   </style>
 </head>
@@ -1709,7 +1650,7 @@
         addLog(`[伤害] ${this.name} 准备分配 ${amount} 点伤害...`);
 
         if (this.faction === gameState.factionB) {
-          const hasPloyActive = gameState.factionBPloys.includes('contagious_resilience');
+          const hasPloyActive = gameState.pmActivePloys.includes('contagious_resilience');
           addLog(`[特性] 触发瘟疫守卫专属【恶心作呕 (DR 5+)】 ${hasPloyActive ? '(已开启传染韧性，允许首个失败重投)' : ''}：`);
           
           let drRollIndex = 0;
@@ -1767,13 +1708,13 @@
       activeTurn: '',
       activeAgent: null,
       
-      factionAVp: 0,
-      factionACp: 2,
-      factionBVp: 0,
-      factionBCp: 2,
+      smVp: 0,
+      smCp: 2,
+      pmVp: 0,
+      pmCp: 2,
 
-      factionAPloys: [], 
-      factionBPloys: [], 
+      smActivePloys: [], 
+      pmActivePloys: [], 
 
       operatives: [],
 
@@ -1837,26 +1778,20 @@
     ];
 
     const LEGIONARY_TEMPLATES = [
-      { id: 'leg_1', name: 'Aspiring Champion (铁血冠军)', wounds: 12, apl: 3, df: 3, sv: 3, isLeader: true, defaultAvatar: './leg_1_champion_1781370493441.png',
-        weapons: [new Weapon('等离子手枪 (Plasma Pistol)', 4, 2, 5, 6, true), new Weapon('动力拳套 (Power Fist)', 5, 4, 5, 7, false)] },
-      { id: 'leg_2', name: 'Chosen (神选者)', wounds: 12, apl: 3, df: 3, sv: 3, isLeader: false, defaultAvatar: './leg_2_chosen_1781370505034.png',
-        weapons: [new Weapon('爆弹手枪 (Bolt Pistol)', 4, 3, 3, 4, true), new Weapon('恶魔之刃 (Daemon Blade)', 5, 3, 4, 6, false)] },
-      { id: 'leg_3', name: 'Balefire Acolyte (炎劫祭司)', wounds: 12, apl: 3, df: 3, sv: 3, isLeader: false, defaultAvatar: './leg_3_acolyte_1781370516451.png',
-        weapons: [new Weapon('邪火法术 (Malign Strike)', 4, 3, 4, 5, true), new Weapon('堕落匕首 (Fell Daggers)', 4, 3, 4, 5, false)] },
-      { id: 'leg_4', name: 'Shrivetalon (剥皮裂爪)', wounds: 12, apl: 3, df: 3, sv: 3, isLeader: false, defaultAvatar: './leg_4_shrivetalon_1781370528525.png',
-        weapons: [new Weapon('爆弹手枪 (Bolt Pistol)', 4, 3, 3, 4, true), new Weapon('剥皮双刃 (Flensing Blades)', 5, 3, 4, 5, false)] },
-      { id: 'leg_5', name: 'Butcher (屠夫)', wounds: 12, apl: 3, df: 3, sv: 3, isLeader: false, defaultAvatar: './leg_5_butcher_1781370541587.png',
-        weapons: [new Weapon('爆弹手枪 (Bolt Pistol)', 4, 3, 3, 4, true), new Weapon('双手链锯斧 (Double-handed Chainaxe)', 5, 4, 4, 5, false)] },
-      { id: 'leg_6', name: 'Anointed (受膏者)', wounds: 12, apl: 3, df: 3, sv: 3, isLeader: false, defaultAvatar: './leg_6_anointed_1781370554199.png',
-        weapons: [new Weapon('爆弹手枪 (Bolt Pistol)', 4, 3, 3, 4, true), new Weapon('恶魔魔爪 (Daemonic Claw)', 5, 3, 4, 5, false)] },
-      { id: 'leg_7', name: 'Heavy Gunner (重机枪手)', wounds: 12, apl: 3, df: 3, sv: 3, isLeader: false, defaultAvatar: './leg_7_heavy_1781370564980.png',
-        weapons: [new Weapon('收割机枪 (Reaper Chaincannon)', 6, 3, 3, 4, true), new Weapon('拳头 (Fists)', 3, 3, 3, 4, false)] },
-      { id: 'leg_8', name: 'Gunner (特种枪手)', wounds: 12, apl: 3, df: 3, sv: 3, isLeader: false, defaultAvatar: './leg_8_gunner_1781370577818.png',
-        weapons: [new Weapon('等离子枪 (Plasma Gun)', 4, 3, 5, 6, true), new Weapon('拳头 (Fists)', 3, 3, 3, 4, false)] },
-      { id: 'leg_9', name: 'Icon Bearer (举旗手)', wounds: 12, apl: 3, df: 3, sv: 3, isLeader: false, defaultAvatar: './leg_9_icon_1781370588873.png',
-        weapons: [new Weapon('爆弹枪 (Boltgun)', 4, 3, 3, 4, true), new Weapon('拳头 (Fists)', 3, 3, 3, 4, false)] },
-      { id: 'leg_10', name: 'Warrior (星际战士)', wounds: 12, apl: 3, df: 3, sv: 3, isLeader: false, defaultAvatar: './leg_10_warrior_1781370600644.png',
-        weapons: [new Weapon('爆弹枪 (Boltgun)', 4, 3, 3, 4, true), new Weapon('拳头 (Fists)', 3, 3, 3, 4, false)] }
+      { id: 'leg_1', name: 'Aspiring Champion (神选队长)', wounds: 13, apl: 3, df: 3, sv: 3, isLeader: true, defaultAvatar: './default_plague_marine_1781296932234.png',
+        weapons: [new Weapon('等离子手枪 (Plasma Pistol)', 4, 2, 5, 6, true), new Weapon('恶魔之剑 (Daemon Blade)', 5, 3, 4, 6, false)] },
+      { id: 'leg_2', name: 'Balefire Acolyte (邪火巫师)', wounds: 12, apl: 3, df: 3, sv: 3, isLeader: false, defaultAvatar: './default_plague_marine_1781296932234.png',
+        weapons: [new Weapon('邪火猛击 (Malign Strike)', 4, 3, 4, 5, true), new Weapon('诅咒法杖 (Cursed Staff)', 4, 3, 4, 5, false)] },
+      { id: 'leg_3', name: 'Anointed (受膏者)', wounds: 12, apl: 3, df: 3, sv: 3, isLeader: false, defaultAvatar: './default_plague_marine_1781296932234.png',
+        weapons: [new Weapon('爆弹手枪 (Bolt Pistol)', 4, 3, 3, 4, true), new Weapon('恶魔魔爪 (Demonic Claws)', 5, 3, 4, 5, false)] },
+      { id: 'leg_4', name: 'Butcher (屠夫)', wounds: 12, apl: 3, df: 3, sv: 3, isLeader: false, defaultAvatar: './default_plague_marine_1781296932234.png',
+        weapons: [new Weapon('爆弹手枪 (Bolt Pistol)', 4, 3, 3, 4, true), new Weapon('双手巨斧 (Great Axe)', 5, 4, 4, 5, false)] },
+      { id: 'leg_5', name: 'Shrivetalon (剥皮爪)', wounds: 12, apl: 3, df: 3, sv: 3, isLeader: false, defaultAvatar: './default_plague_marine_1781296932234.png',
+        weapons: [new Weapon('爆弹手枪 (Bolt Pistol)', 4, 3, 3, 4, true), new Weapon('双持毒刃 (Twin Blades)', 5, 3, 4, 5, false)] },
+      { id: 'leg_6', name: 'Heavy Gunner (重机枪手)', wounds: 12, apl: 3, df: 3, sv: 3, isLeader: false, defaultAvatar: './default_plague_marine_1781296932234.png',
+        weapons: [new Weapon('收割机枪 (Reaper Chaincannon)', 6, 3, 3, 4, true), new Weapon('近战短刀 (Fists)', 3, 3, 3, 4, false)] },
+      { id: 'leg_7', name: 'Icon Bearer (举旗手)', wounds: 12, apl: 3, df: 3, sv: 3, isLeader: false, defaultAvatar: './default_plague_marine_1781296932234.png',
+        weapons: [new Weapon('爆弹步枪 (Boltgun)', 4, 3, 3, 4, true), new Weapon('链锯剑 (Chainsword)', 4, 3, 4, 5, false)] }
     ];
 
     const FACTIONS_DB = {
@@ -1868,7 +1803,7 @@
         diceClass: "sm-dice",
         headerImg: "url('./faction_header_sm_1781315989603.png')",
         ploys: [
-          { id: 'shoot_twice', name: '风暴开火 (Bolter Discipline)', type: 'Strategic', cp: 1, desc: '特工在使用爆弹类武器时可进行第二次射击行动。' },
+          { name: '风暴开火 (Bolter Discipline)', type: 'Strategic', cp: 1, desc: '特工在使用爆弹类武器时可进行第二次射击行动。' },
           { name: '震慑突击 (Shock Assault)', type: 'Strategic', cp: 1, desc: '冲锋后近战搏斗时获得额外重投。' },
           { name: '极限减伤 (Transhuman Physiology)', type: 'Firefight', cp: 1, desc: '遭到致命一击时可将 1 个暴击伤害降为普通伤害。' }
         ]
@@ -1882,21 +1817,21 @@
         headerImg: "url('./faction_header_pm_1781316000042.png')",
         ploys: [
           { name: '无尽行军 (Inexorable Advance)', type: 'Strategic', cp: 1, desc: '忽略移动减损惩罚，强行推进。' },
-          { id: 'shoot_twice', name: '剧毒喷洒 (Malicious Volleys)', type: 'Strategic', cp: 1, desc: '爆弹武器即使移动过也能双击。' },
-          { id: 'contagious_resilience', name: '恶心减伤 (Disgustingly Resilient)', type: 'Firefight', cp: 1, desc: '防守时可以将一枚失败骰改为普通成功。' }
+          { name: '剧毒喷洒 (Malicious Volleys)', type: 'Strategic', cp: 1, desc: '爆弹武器即使移动过也能双击。' },
+          { name: '恶心减伤 (Disgustingly Resilient)', type: 'Firefight', cp: 1, desc: '防守时可以将一枚失败骰改为普通成功。' }
         ]
       },
       "Legionary": {
         id: "Legionary",
         name: "黑军团 (Legionaries)",
         templates: LEGIONARY_TEMPLATES,
-        themeColor: "#facc15",
-        diceClass: "leg-dice",
+        themeColor: "#ef4444",
+        diceClass: "pm-dice",
         headerImg: "url('./faction_header_pm_1781316000042.png')", // Can replace later
         ploys: [
-          { id: 'wrath_of_gods', name: '黑暗诸神之怒 (Wrath of the Gods)', type: 'Strategic', cp: 1, desc: '本回合近战暴击判定+1（5+即算暴击）。' },
-          { id: 'shoot_twice', name: '恶意齐射 (Malicious Volleys)', type: 'Strategic', cp: 1, desc: '所有装备爆弹枪的特工可执行两次射击。' },
-          { id: 'contagious_resilience', name: '恶魔恩赐 (Daemonic Ward)', type: 'Firefight', cp: 1, desc: '在防守投骰时，可以重投 1 枚防御骰。' }
+          { name: '黑暗诸神之怒 (Wrath of the Gods)', type: 'Strategic', cp: 1, desc: '本回合近战暴击判定+1。' },
+          { name: '恶意齐射 (Malicious Volleys)', type: 'Strategic', cp: 1, desc: '所有装备爆弹枪的特工可执行两次射击。' },
+          { name: '恶魔恩赐 (Daemonic Ward)', type: 'Firefight', cp: 1, desc: '在防守投骰时，可以重投 1 枚防御骰。' }
         ]
       }
     };
@@ -1946,7 +1881,8 @@
     //           初始化选人面板渲染
     // ==========================================
 
-    function getAvatarUrl(opId, faction) {
+    // 获取特工头像 HTML (如果未上传则显示默认文字头像)
+    function getAvatarHtml(opId, faction) {
       const avatarUrl = gameState.customAvatars[opId];
       let fallbackUrl = faction === gameState.factionA ? './default_sm_avatar.png' : './default_pm_avatar.png';
       
@@ -1954,17 +1890,13 @@
       if (activeOp && activeOp.defaultAvatar) {
         fallbackUrl = activeOp.defaultAvatar;
       } else {
-        const template = SM_TEMPLATES.concat(PM_TEMPLATES).concat(LEGIONARY_TEMPLATES).find(t => t.id === opId);
+        const template = SM_TEMPLATES.concat(PM_TEMPLATES).find(t => t.id === opId);
         if (template && template.defaultAvatar) {
           fallbackUrl = template.defaultAvatar;
         }
       }
-      return avatarUrl || fallbackUrl;
-    }
-
-    // 获取特工头像 HTML (如果未上传则显示默认文字头像)
-    function getAvatarHtml(opId, faction) {
-      const imgUrl = getAvatarUrl(opId, faction);
+      
+      const imgUrl = avatarUrl || fallbackUrl;
       return `<div class="op-avatar-slot main-avatar-${opId}" onclick="triggerAvatarUpload(event, '${opId}')">
                 <img src="${imgUrl}" class="op-avatar-img" />
               </div>`;
@@ -2193,10 +2125,10 @@
     }
 
     function updateScoresUI() {
-      document.getElementById('sm-vp').textContent = gameState.factionAVp;
-      document.getElementById('sm-cp').textContent = gameState.factionACp;
-      document.getElementById('pm-vp').textContent = gameState.factionBVp;
-      document.getElementById('pm-cp').textContent = gameState.factionBCp;
+      document.getElementById('sm-vp').textContent = gameState.smVp;
+      document.getElementById('sm-cp').textContent = gameState.smCp;
+      document.getElementById('pm-vp').textContent = gameState.pmVp;
+      document.getElementById('pm-cp').textContent = gameState.pmCp;
       document.getElementById('dash-tp').textContent = gameState.turningPoint;
       
       let phaseName = gameState.phase;
@@ -2208,16 +2140,16 @@
       // Update ploy tags
       const smTags = document.getElementById('sm-ploy-tags');
       smTags.innerHTML = '';
-      gameState.factionAPloys.forEach(ploy => {
+      gameState.smActivePloys.forEach(ploy => {
         const span = document.createElement('span');
         span.className = 'ploy-tag sm';
-        span.textContent = ploy === 'shoot_twice' ? '爆弹惩戒' : ploy;
+        span.textContent = ploy === 'bolter_discipline' ? '爆弹惩戒' : ploy;
         smTags.appendChild(span);
       });
 
       const pmTags = document.getElementById('pm-ploy-tags');
       pmTags.innerHTML = '';
-      gameState.factionBPloys.forEach(ploy => {
+      gameState.pmActivePloys.forEach(ploy => {
         const span = document.createElement('span');
         span.className = 'ploy-tag pm';
         span.textContent = ploy === 'contagious_resilience' ? '传染韧性' : ploy;
@@ -2240,11 +2172,11 @@
     function adjustScore(faction, type, amount) {
       playSound('click');
       if (faction === 'sm') {
-        if (type === 'vp') gameState.factionAVp = Math.max(0, gameState.factionAVp + amount);
-        else gameState.factionACp = Math.max(0, gameState.factionACp + amount);
+        if (type === 'vp') gameState.smVp = Math.max(0, gameState.smVp + amount);
+        else gameState.smCp = Math.max(0, gameState.smCp + amount);
       } else {
-        if (type === 'vp') gameState.factionBVp = Math.max(0, gameState.factionBVp + amount);
-        else gameState.factionBCp = Math.max(0, gameState.factionBCp + amount);
+        if (type === 'vp') gameState.pmVp = Math.max(0, gameState.pmVp + amount);
+        else gameState.pmCp = Math.max(0, gameState.pmCp + amount);
       }
       updateScoresUI();
     }
@@ -2254,12 +2186,12 @@
         playSound('click');
         gameState.turningPoint = 1;
         gameState.phase = 'Initiative';
-        gameState.factionAVp = 0;
-        gameState.factionACp = 2;
-        gameState.factionBVp = 0;
-        gameState.factionBCp = 2;
-        gameState.factionAPloys = [];
-        gameState.factionBPloys = [];
+        gameState.smVp = 0;
+        gameState.smCp = 2;
+        gameState.pmVp = 0;
+        gameState.pmCp = 2;
+        gameState.smActivePloys = [];
+        gameState.pmActivePloys = [];
         gameState.operatives = [];
         gameState.activeAgent = null;
         gameState.gameOver = false;
@@ -2290,12 +2222,12 @@
       gameState.phase = 'Initiative';
       
       // CP gains at start of TP
-      gameState.factionACp += 1;
-      gameState.factionBCp += 1;
+      gameState.smCp += 1;
+      gameState.pmCp += 1;
       
       // Reset active ploys
-      gameState.factionAPloys = [];
-      gameState.factionBPloys = [];
+      gameState.smActivePloys = [];
+      gameState.pmActivePloys = [];
 
       // Reset operatives
       gameState.operatives.forEach(op => {
@@ -2341,30 +2273,27 @@
       let winnerText = '';
       let descText = '';
 
-      const facA = FACTIONS_DB[gameState.factionA];
-      const facB = FACTIONS_DB[gameState.factionB];
-
       if (reasonCode === 'DRAW_WIPEOUT') {
         winnerText = '平局 (DRAW)';
         descText = '双方全军覆没！鲜血染红了战场...';
       } else if (reasonCode === 'PM_WIPEOUT') {
-        winnerText = `${facB.name} 胜利！ (${gameState.factionB} Win)`;
-        descText = `${facA.name} 全军覆没，${facB.name} 的意志得到了贯彻。`;
+        winnerText = '死亡守卫 胜利！ (Plague Marines Win)';
+        descText = '死亡天使全军覆没，瘟疫的赐福覆盖了战场。';
       } else if (reasonCode === 'SM_WIPEOUT') {
-        winnerText = `${facA.name} 胜利！ (${gameState.factionA} Win)`;
-        descText = `${facB.name} 被彻底肃清，${facA.name} 的意志得到了贯彻。`;
+        winnerText = '死亡天使 胜利！ (Space Marines Win)';
+        descText = '死亡守卫被彻底肃清，帝皇的意志得到了贯彻。';
       } else if (reasonCode === 'TP5') {
-        const factionAVp = gameState.factionAVp;
-        const factionBVp = gameState.factionBVp;
-        if (factionAVp > factionBVp) {
-          winnerText = `${facA.name} 胜利！ (${gameState.factionA} Win)`;
-          descText = `第4回合结束。${facA.name} 以 ${factionAVp} : ${factionBVp} 的胜利点优势赢得了战役！`;
-        } else if (factionBVp > factionAVp) {
-          winnerText = `${facB.name} 胜利！ (${gameState.factionB} Win)`;
-          descText = `第4回合结束。${facB.name} 以 ${factionBVp} : ${factionAVp} 的胜利点优势赢得了战役！`;
+        const smVp = gameState.smVp;
+        const pmVp = gameState.pmVp;
+        if (smVp > pmVp) {
+          winnerText = '死亡天使 胜利！ (Space Marines Win)';
+          descText = `第4回合结束。死亡天使以 ${smVp} : ${pmVp} 的胜利点优势赢得了战役！`;
+        } else if (pmVp > smVp) {
+          winnerText = '死亡守卫 胜利！ (Plague Marines Win)';
+          descText = `第4回合结束。死亡守卫以 ${pmVp} : ${smVp} 的胜利点优势赢得了战役！`;
         } else {
           winnerText = '平局 (DRAW)';
-          descText = `第4回合结束。双方胜利点相同 (${factionAVp} : ${factionBVp})，战局陷入僵持！`;
+          descText = `第4回合结束。双方胜利点相同 (${smVp} : ${pmVp})，战局陷入僵持！`;
         }
       }
 
@@ -2379,13 +2308,13 @@
             <p style="font-size: 1.2rem; color: #cbd5e1; margin-bottom: 30px;">${descText}</p>
             
             <div style="display: flex; justify-content: center; gap: 20px;">
-              <div style="background: rgba(0,0,0,0.5); padding: 15px; border-radius: 8px; border: 1px solid var(--sm-accent); flex: 1;">
-                <h3 style="color:var(--sm-accent); margin-bottom: 10px;">${facA.name}</h3>
-                <div style="font-size: 2rem; font-weight: bold; color: white;">${gameState.factionAVp} VP</div>
+              <div style="background: rgba(59,130,246,0.2); padding: 15px; border-radius: 8px; border: 1px solid #3b82f6; flex: 1;">
+                <h3 style="color:#60a5fa; margin-bottom: 10px;">Space Marine</h3>
+                <div style="font-size: 2rem; font-weight: bold; color: white;">${gameState.smVp} VP</div>
               </div>
-              <div style="background: rgba(0,0,0,0.5); padding: 15px; border-radius: 8px; border: 1px solid var(--pm-accent); flex: 1;">
-                <h3 style="color:var(--pm-accent); margin-bottom: 10px;">${facB.name}</h3>
-                <div style="font-size: 2rem; font-weight: bold; color: white;">${gameState.factionBVp} VP</div>
+              <div style="background: rgba(34,197,94,0.2); padding: 15px; border-radius: 8px; border: 1px solid #22c55e; flex: 1;">
+                <h3 style="color:#86efac; margin-bottom: 10px;">Plague Marine</h3>
+                <div style="font-size: 2rem; font-weight: bold; color: white;">${gameState.pmVp} VP</div>
               </div>
             </div>
 
@@ -2430,9 +2359,9 @@
         const weaponNames = op.weapons.map(w => w.name.split(' ')[0]).join(' / ');
 
         let tagHtml = '';
-        if (isSm && gameState.factionAPloys.includes('shoot_twice') && !op.isDead) {
+        if (isSm && gameState.smActivePloys.includes('bolter_discipline') && !op.isDead) {
           tagHtml = '<span class="card-ploy-tag">双重射击</span>';
-        } else if (!isSm && gameState.factionBPloys.includes('contagious_resilience') && !op.isDead) {
+        } else if (!isSm && gameState.pmActivePloys.includes('contagious_resilience') && !op.isDead) {
           tagHtml = '<span class="card-ploy-tag" style="border-color:var(--pm-accent); color:var(--pm-accent); background:rgba(132,204,22,0.15);">减伤重投</span>';
         }
 
@@ -2599,94 +2528,74 @@
       updateScoresUI();
       showPhaseOverlay();
 
-      const facA = FACTIONS_DB[gameState.factionA];
-      const facB = FACTIONS_DB[gameState.factionB];
       const overlayBox = document.getElementById('phase-overlay-content');
       
-      let html = `
+      overlayBox.innerHTML = `
         <h3>Turning Point ${gameState.turningPoint} - 策略阶段</h3>
         <p style="color:var(--text-muted); font-size:0.85rem; margin-bottom:12px;">
           在此阶段，双方可以使用命令点 (CP) 激活计策 (Strategic Ploys)。
         </p>
+
         <div style="display:grid; grid-template-columns:1fr 1fr; gap:16px; width:100%; text-align:left; margin-bottom:16px;">
-      `;
-
-      // Render faction A ploys
-      html += `<div style="display:flex; flex-direction:column; gap:8px;">`;
-      facA.ploys.forEach(ploy => {
-        if (ploy.id) {
-          const isActive = gameState.factionAPloys.includes(ploy.id);
-          html += `
-            <div class="ploy-choice-card ${isActive ? 'selected' : ''}" onclick="buyPloy('A', '${ploy.id}', '${ploy.name}')" style="border-color:${facA.themeColor};">
-              <div class="ploy-title">
-                <span>⚡ ${ploy.name} (${ploy.cp} CP)</span>
-                <span style="font-size:0.75rem; color:${facA.themeColor};">${facA.id}</span>
-              </div>
-              <div class="ploy-desc">${ploy.desc}</div>
-              <div style="margin-top:6px; font-weight:bold; font-size:0.75rem; color:${facA.themeColor};">
-                ${isActive ? '● 生效中' : '点击启用'}
-              </div>
+          <div class="ploy-choice-card ${gameState.smActivePloys.includes('bolter_discipline') ? 'selected' : ''}" onclick="buyPloy('sm')">
+            <div class="ploy-title">
+              <span>🔥 爆弹惩戒 (1 CP)</span>
+              <span style="font-size:0.75rem; color:#60a5fa;">Astartes</span>
             </div>
-          `;
-        }
-      });
-      html += `</div>`;
-
-      // Render faction B ploys
-      html += `<div style="display:flex; flex-direction:column; gap:8px;">`;
-      facB.ploys.forEach(ploy => {
-        if (ploy.id) {
-          const isActive = gameState.factionBPloys.includes(ploy.id);
-          html += `
-            <div class="ploy-choice-card ${isActive ? 'selected' : ''}" onclick="buyPloy('B', '${ploy.id}', '${ploy.name}')" style="border-color:${facB.themeColor};">
-              <div class="ploy-title">
-                <span>⚡ ${ploy.name} (${ploy.cp} CP)</span>
-                <span style="font-size:0.75rem; color:${facB.themeColor};">${facB.id}</span>
-              </div>
-              <div class="ploy-desc">${ploy.desc}</div>
-              <div style="margin-top:6px; font-weight:bold; font-size:0.75rem; color:${facB.themeColor};">
-                ${isActive ? '● 生效中' : '点击启用'}
-              </div>
+            <div class="ploy-desc">
+              死亡天使特工本回合激活内，可以使用<b>两次</b>射击行动。
             </div>
-          `;
-        }
-      });
-      html += `</div></div>`;
+            <div style="margin-top:6px; font-weight:bold; font-size:0.75rem; color:var(--sm-accent);">
+              ${gameState.smActivePloys.includes('bolter_discipline') ? '● 生效中' : '点击启用'}
+            </div>
+          </div>
 
-      html += `
+          <div class="ploy-choice-card ${gameState.pmActivePloys.includes('contagious_resilience') ? 'selected' : ''}" onclick="buyPloy('pm')">
+            <div class="ploy-title">
+              <span>🛡️ 传染韧性 (1 CP)</span>
+              <span style="font-size:0.75rem; color:var(--pm-accent);">Death Guard</span>
+            </div>
+            <div class="ploy-desc">
+              瘟疫守卫在结算【恶心作呕 (DR)】伤害减免时，可<b>重投第一个失败的减伤骰</b>。
+            </div>
+            <div style="margin-top:6px; font-weight:bold; font-size:0.75rem; color:var(--pm-accent);">
+              ${gameState.pmActivePloys.includes('contagious_resilience') ? '● 生效中' : '点击启用'}
+            </div>
+          </div>
+        </div>
+
         <button class="btn-large" onclick="proceedToFirefight()" style="padding: 10px 40px; font-size:0.9rem; background:linear-gradient(135deg, var(--green), #065f46); border-color:#059669; box-shadow:none;">
           进入战斗阶段 (Proceed to Firefight)
         </button>
       `;
 
-      overlayBox.innerHTML = html;
       updateGuidance('【策略阶段】双方轮流消费 1 CP 采购策略 Ploys。按 Proceed 按钮进入实际交火战斗。');
     }
 
-    function buyPloy(side, ployId, ployName) {
-      if (side === 'A') {
-        if (gameState.factionAPloys.includes(ployId)) {
+    function buyPloy(faction) {
+      if (faction === 'sm') {
+        if (gameState.smActivePloys.includes('bolter_discipline')) {
           playSound('click');
-          gameState.factionAPloys = gameState.factionAPloys.filter(id => id !== ployId);
-          gameState.factionACp += 1;
+          gameState.smActivePloys = [];
+          gameState.smCp += 1;
         } else {
-          if (gameState.factionACp < 1) { playSound('alert'); alert(FACTIONS_DB[gameState.factionA].name + ' CP 不足！'); return; }
+          if (gameState.smCp < 1) { playSound('alert'); alert('死亡天使 CP 不足！'); return; }
           playSound('crit');
-          gameState.factionAPloys.push(ployId);
-          gameState.factionACp -= 1;
-          addLog(`  - ${FACTIONS_DB[gameState.factionA].name} 激活策略：【${ployName}】！`);
+          gameState.smActivePloys.push('bolter_discipline');
+          gameState.smCp -= 1;
+          addLog('  - 死亡天使激活策略：【爆弹惩戒】！本回合可双击开火！');
         }
       } else {
-        if (gameState.factionBPloys.includes(ployId)) {
+        if (gameState.pmActivePloys.includes('contagious_resilience')) {
           playSound('click');
-          gameState.factionBPloys = gameState.factionBPloys.filter(id => id !== ployId);
-          gameState.factionBCp += 1;
+          gameState.pmActivePloys = [];
+          gameState.pmCp += 1;
         } else {
-          if (gameState.factionBCp < 1) { playSound('alert'); alert(FACTIONS_DB[gameState.factionB].name + ' CP 不足！'); return; }
+          if (gameState.pmCp < 1) { playSound('alert'); alert('瘟疫守卫 CP 不足！'); return; }
           playSound('crit');
-          gameState.factionBPloys.push(ployId);
-          gameState.factionBCp -= 1;
-          addLog(`  - ${FACTIONS_DB[gameState.factionB].name} 激活策略：【${ployName}】！`);
+          gameState.pmActivePloys.push('contagious_resilience');
+          gameState.pmCp -= 1;
+          addLog('  - 瘟疫守卫激活策略：【传染韧性】！DR首发失败可重投！');
         }
       }
       startStrategyPhase();
@@ -2756,9 +2665,7 @@
         const hasCharged = op.actionsPerformed.includes('Charge');
         
         const shootCount = op.actionsPerformed.filter(a => a === 'Shoot').length;
-        const hasShootTwice = (op.faction === gameState.factionA && gameState.factionAPloys.includes('shoot_twice')) || 
-                              (op.faction === gameState.factionB && gameState.factionBPloys.includes('shoot_twice'));
-        const maxShoots = hasShootTwice ? 2 : 1;
+        const maxShoots = (op.faction === gameState.factionA && gameState.smActivePloys.includes('bolter_discipline')) ? 2 : 1;
         const hasShotLimit = shootCount >= maxShoots;
 
         const hasFought = op.actionsPerformed.includes('Fight');
@@ -2768,20 +2675,20 @@
         document.getElementById('action-shoot').disabled = op.apl < 1 || hasShotLimit || hasCharged;
         document.getElementById('action-fight').disabled = op.apl < 1 || hasFought;
 
-        const hasContagiousResilience = (op.faction === gameState.factionA && gameState.factionAPloys.includes('contagious_resilience')) || 
-                                        (op.faction === gameState.factionB && gameState.factionBPloys.includes('contagious_resilience'));
+        const hasBolterDiscipline = op.faction === gameState.factionA && gameState.smActivePloys.includes('bolter_discipline');
+        const hasContagiousResilience = op.faction === gameState.factionB && gameState.pmActivePloys.includes('contagious_resilience');
 
         const ployDisplay = document.getElementById('active-ploys-display');
         if (ployDisplay) {
             const ploysText = [];
-            if (hasShootTwice) ploysText.push('<span style="color:gold;">🔥 连射策略生效中</span>');
-            if (hasContagiousResilience) ploysText.push('<span style="color:var(--pm-accent);">🛡️ 减伤策略生效中</span>');
+            if (hasBolterDiscipline) ploysText.push('<span style="color:gold;">🔥 爆弹惩戒生效中</span>');
+            if (hasContagiousResilience) ploysText.push('<span style="color:var(--pm-accent);">🛡️ 传染韧性生效中</span>');
             ployDisplay.innerHTML = ploysText.length > 0 ? ploysText.join(' | ') : '';
         }
 
         const shootBtnText = document.querySelector('#action-shoot span:first-child');
         if (shootBtnText) {
-            if (hasShootTwice) {
+            if (hasBolterDiscipline) {
                 shootBtnText.innerHTML = `💥 射击 [${shootCount < 2 ? 2 - shootCount : 0}次剩余]`;
             } else {
                 shootBtnText.innerHTML = `💥 射击 (Shoot)`;
@@ -3160,7 +3067,7 @@
         title.textContent = '射击结算 - 步骤 4: 攻击方掷骰 (Angels of Death)';
         
         let rerollHint = '';
-        const curCp = wizardState.attacker.faction === gameState.factionA ? gameState.factionACp : gameState.factionBCp;
+        const curCp = wizardState.attacker.faction === gameState.factionA ? gameState.smCp : gameState.pmCp;
         
         if (wizardState.attackRolls.length > 0) {
           rerollHint = `
@@ -3223,7 +3130,7 @@
         }
 
         let rerollHint = '';
-        const curCp = wizardState.defender.faction === gameState.factionA ? gameState.factionACp : gameState.factionBCp;
+        const curCp = wizardState.defender.faction === gameState.factionA ? gameState.smCp : gameState.pmCp;
         if (wizardState.defenseRolls.length > 0 && dfCount > 0) {
           rerollHint = `
             <div class="roll-summary-block" style="margin-top:10px;">
@@ -3413,7 +3320,7 @@
       rollBtn.disabled = true;
       nextBtn.disabled = true;
 
-      const attDiceClass = FACTIONS_DB[wizardState.attacker.faction].diceClass;
+      const attDiceClass = wizardState.attacker.faction === gameState.factionA ? 'sm-dice' : 'pm-dice';
 
       // 1. 初始化滚动的占位骰子
       pool.innerHTML = '';
@@ -3426,17 +3333,7 @@
       triggerCombatVisual("🔥 OPEN FIRE!", "shoot");
       playSound('shoot');
 
-      // 3. 悬念特效：所有骰子开始疯狂滚动数字
-      const cubes = pool.getElementsByClassName('kt-dice-cube');
-      const spinInterval = setInterval(() => {
-        for (let i = 0; i < cubes.length; i++) {
-          if (cubes[i].classList.contains('rolling')) {
-            cubes[i].textContent = Math.floor(Math.random() * 6) + 1;
-          }
-        }
-      }, 50);
-
-      // 4. 顺序停下 (逐个确定点数并播放音效)
+      // 3. 顺序停下 (逐个确定点数并播放音效)
       const finalRolls = [];
       let currentSettleIndex = 0;
 
@@ -3446,7 +3343,8 @@
           finalRolls.push(val);
           
           // 更新 DOM
-          const cube = cubes[currentSettleIndex];
+          const diceCubes = pool.getElementsByClassName('kt-dice-cube');
+          const cube = diceCubes[currentSettleIndex];
           cube.classList.remove('rolling');
           cube.textContent = val;
           
@@ -3464,7 +3362,6 @@
           // 400ms 顺序延迟
           setTimeout(settleNextDice, 400);
         } else {
-          clearInterval(spinInterval);
           // 全部掷骰完毕，计算并呈现结果
           wizardState.attackRolls = finalRolls;
           recalculateAttackStats();
@@ -3482,8 +3379,8 @@
         }
       }
 
-      // 1500ms 初始翻滚延迟
-      setTimeout(settleNextDice, 1500);
+      // 1200ms 初始翻滚延迟
+      setTimeout(settleNextDice, 1200);
     }
 
     function renderAttackDiceView() {
@@ -3492,8 +3389,8 @@
       pool.innerHTML = '';
       
       const faction = wizardState.attacker.faction;
-      const curCp = faction === gameState.factionA ? gameState.factionACp : gameState.factionBCp;
-      const attDiceClass = FACTIONS_DB[faction].diceClass;
+      const curCp = faction === gameState.factionA ? gameState.smCp : gameState.pmCp;
+      const attDiceClass = faction === gameState.factionA ? 'sm-dice' : 'pm-dice';
 
       wizardState.attackRolls.forEach((val, idx) => {
         const d = document.createElement('div');
@@ -3527,9 +3424,9 @@
     function rerollSingleAttackDice(idx) {
       playSound('shoot');
       if (wizardState.attacker.faction === gameState.factionA) {
-        gameState.factionACp -= 1;
+        gameState.smCp -= 1;
       } else {
-        gameState.factionBCp -= 1;
+        gameState.pmCp -= 1;
       }
       updateScoresUI();
 
@@ -3539,7 +3436,7 @@
       const pool = document.getElementById('attack-dice-pool');
       const diceCubes = pool.getElementsByClassName('kt-dice-cube');
       const cube = diceCubes[idx];
-      const attDiceClass = FACTIONS_DB[wizardState.attacker.faction].diceClass;
+      const attDiceClass = wizardState.attacker.faction === gameState.factionA ? 'sm-dice' : 'pm-dice';
       cube.className = `kt-dice-cube ${attDiceClass} rolling`;
       cube.innerHTML = '?';
 
@@ -3569,7 +3466,7 @@
       rollBtn.disabled = true;
       nextBtn.disabled = true;
 
-      const defDiceClass = FACTIONS_DB[wizardState.defender.faction].diceClass;
+      const defDiceClass = wizardState.defender.faction === gameState.factionA ? 'sm-dice' : 'pm-dice';
 
       pool.innerHTML = '';
       for (let i = 0; i < dfCount; i++) {
@@ -3581,22 +3478,14 @@
 
       const finalRolls = [];
       let currentSettleIndex = 0;
-      // 3. 悬念特效：疯狂滚动数字
-      const cubes = pool.getElementsByClassName('kt-dice-cube');
-      const spinInterval = setInterval(() => {
-        for (let i = 0; i < cubes.length; i++) {
-          if (cubes[i].classList.contains('rolling')) {
-            cubes[i].textContent = Math.floor(Math.random() * 6) + 1;
-          }
-        }
-      }, 50);
 
       function settleNextDice() {
         if (currentSettleIndex < dfCount) {
           const val = Math.floor(Math.random() * 6) + 1;
           finalRolls.push(val);
 
-          const cube = cubes[currentSettleIndex];
+          const diceCubes = pool.getElementsByClassName('kt-dice-cube');
+          const cube = diceCubes[currentSettleIndex];
           cube.classList.remove('rolling');
           cube.textContent = val;
 
@@ -3614,7 +3503,6 @@
           // 400ms 顺序延迟
           setTimeout(settleNextDice, 400);
         } else {
-          clearInterval(spinInterval);
           wizardState.defenseRolls = finalRolls;
           recalculateDefenseStats();
 
@@ -3634,8 +3522,8 @@
         }
       }
 
-      // 1500ms 初始翻滚延迟
-      setTimeout(settleNextDice, 1500);
+      // 1200ms 初始翻滚延迟
+      setTimeout(settleNextDice, 1200);
     }
 
     function renderDefenseDiceView(dfCount) {
@@ -3644,8 +3532,8 @@
       pool.innerHTML = '';
 
       const faction = wizardState.defender.faction;
-      const curCp = faction === gameState.factionA ? gameState.factionACp : gameState.factionBCp;
-      const defDiceClass = FACTIONS_DB[faction].diceClass;
+      const curCp = faction === gameState.factionA ? gameState.smCp : gameState.pmCp;
+      const defDiceClass = faction === gameState.factionA ? 'sm-dice' : 'pm-dice';
 
       wizardState.defenseRolls.forEach((val, idx) => {
         const d = document.createElement('div');
@@ -3679,9 +3567,9 @@
     function rerollSingleDefenseDice(idx, dfCount) {
       playSound('save');
       if (wizardState.defender.faction === gameState.factionA) {
-        gameState.factionACp -= 1;
+        gameState.smCp -= 1;
       } else {
-        gameState.factionBCp -= 1;
+        gameState.pmCp -= 1;
       }
       updateScoresUI();
 
@@ -3690,7 +3578,7 @@
       const pool = document.getElementById('defense-dice-pool');
       const diceCubes = pool.getElementsByClassName('kt-dice-cube');
       const cube = diceCubes[idx];
-      const defDiceClass = FACTIONS_DB[wizardState.defender.faction].diceClass;
+      const defDiceClass = wizardState.defender.faction === gameState.factionA ? 'sm-dice' : 'pm-dice';
       cube.className = `kt-dice-cube ${defDiceClass} rolling`;
       cube.innerHTML = '?';
 
@@ -3726,16 +3614,8 @@
       btn.disabled = true;
       nextBtn.disabled = true;
 
-      const attDiceClass = FACTIONS_DB[wizardState.attacker.faction].diceClass;
-      const defDiceClass = FACTIONS_DB[wizardState.defender.faction].diceClass;
-
-      const attFaction = wizardState.attacker.faction;
-      const attPloys = attFaction === gameState.factionA ? gameState.factionAPloys : gameState.factionBPloys;
-      const attCritThreshold = attPloys.includes('wrath_of_gods') ? 5 : 6;
-
-      const defFaction = wizardState.defender.faction;
-      const defPloys = defFaction === gameState.factionA ? gameState.factionAPloys : gameState.factionBPloys;
-      const defCritThreshold = defPloys.includes('wrath_of_gods') ? 5 : 6;
+      const attDiceClass = wizardState.attacker.faction === gameState.factionA ? 'sm-dice' : 'pm-dice';
+      const defDiceClass = wizardState.defender.faction === gameState.factionA ? 'sm-dice' : 'pm-dice';
 
       // 1. 初始化滚动的占位骰子
       attPool.innerHTML = '';
@@ -3769,7 +3649,7 @@
           cube.classList.remove('rolling');
           cube.textContent = val;
           
-          if (val >= attCritThreshold) {
+          if (val === 6) {
             cube.classList.add('crit-dice');
             playSound('crit');
           } else if (val < wizardState.weapon.ts) {
@@ -3797,7 +3677,7 @@
           cube.classList.remove('rolling');
           cube.textContent = val;
           
-          if (val >= defCritThreshold) {
+          if (val === 6) {
             cube.classList.add('crit-dice');
             playSound('crit');
           } else if (val < defMeleeWeapon.ts) {
@@ -3813,11 +3693,11 @@
           // Both finished. Compute results and enable next button.
           wizardState.activeAttackerDice = finalAttRolls
             .filter(val => val >= wizardState.weapon.ts)
-            .map(val => ({ val, isCrit: val >= attCritThreshold, used: false, side: 'attacker' }));
+            .map(val => ({ val, isCrit: val === 6, used: false }));
             
           wizardState.activeDefenderDice = finalDefRolls
             .filter(val => val >= defMeleeWeapon.ts)
-            .map(val => ({ val, isCrit: val >= defCritThreshold, used: false, side: 'defender' }));
+            .map(val => ({ val, isCrit: val === 6, used: false }));
             
           nextBtn.disabled = false;
         }
@@ -3862,21 +3742,13 @@
           if (gameState.rollMode === 'manual') {
             const defMeleeWeapon = wizardState.defender.weapons.filter(w => !w.isRanged)[0] || new Weapon('重拳 (Fists)', 3, 3, 3, 4, false);
             
-            const attFaction = wizardState.attacker.faction;
-            const attPloys = attFaction === gameState.factionA ? gameState.factionAPloys : gameState.factionBPloys;
-            const attCritThreshold = attPloys.includes('wrath_of_gods') ? 5 : 6;
-      
-            const defFaction = wizardState.defender.faction;
-            const defPloys = defFaction === gameState.factionA ? gameState.factionAPloys : gameState.factionBPloys;
-            const defCritThreshold = defPloys.includes('wrath_of_gods') ? 5 : 6;
-
             wizardState.activeAttackerDice = wizardState.attackRolls
               .filter(val => val >= wizardState.weapon.ts)
-              .map(val => ({ val, isCrit: val >= attCritThreshold, used: false, side: 'attacker' }));
+              .map(val => ({ val, isCrit: val === 6, used: false }));
               
             wizardState.activeDefenderDice = wizardState.defenseRolls
               .filter(val => val >= defMeleeWeapon.ts)
-              .map(val => ({ val, isCrit: val >= defCritThreshold, used: false, side: 'defender' }));
+              .map(val => ({ val, isCrit: val === 6, used: false }));
           }
         }
       }
@@ -3947,7 +3819,6 @@
       addLog(`[攻击方] ${attacker.name} 使用 ${wizardState.weapon.name} 射击`);
       addLog(`[防守方] ${defender.name}`);
       
-      const oldWounds = defender.wounds;
       const actualDamage = defender.applyWounds(rawDmg, manualDrRolls);
       
       attacker.apl -= 1;
@@ -3956,11 +3827,14 @@
       
       closeModal();
       
-      playDamageCinematic(defender, actualDamage, oldWounds, 'shoot');
       if (actualDamage > 0) {
+        playSound('heavy_strike');
+        triggerCombatVisual(`💥 HIT! -${actualDamage}`, 'strike');
         setTimeout(() => {
           triggerAvatarHitEffect(defender.id, 'shoot');
-        }, 1500); // Trigger after cinematic ends
+        }, 100);
+      } else {
+        triggerCombatVisual(`🛡️ ALL BLOCKED!`, 'deflect');
       }
     }
 
@@ -4164,8 +4038,8 @@
           }
         }
         
-        const attDiceClass = FACTIONS_DB[wizardState.attacker.faction].diceClass;
-        const defDiceClass = FACTIONS_DB[wizardState.defender.faction].diceClass;
+        const attDiceClass = wizardState.attacker.faction === gameState.factionA ? 'sm-dice' : 'pm-dice';
+        const defDiceClass = wizardState.defender.faction === gameState.factionA ? 'sm-dice' : 'pm-dice';
         
         if (wizardState.attackRolls.length > 0) {
             setTimeout(() => {
@@ -4234,8 +4108,8 @@
           return;
         }
         
-        const attDiceClass = FACTIONS_DB[wizardState.attacker.faction].diceClass;
-        const defDiceClass = FACTIONS_DB[wizardState.defender.faction].diceClass;
+        const attDiceClass = wizardState.attacker.faction === gameState.factionA ? 'sm-dice' : 'pm-dice';
+        const defDiceClass = wizardState.defender.faction === gameState.factionA ? 'sm-dice' : 'pm-dice';
 
         let attackerDiceHtml = '';
         wizardState.activeAttackerDice.forEach((d, idx) => {
@@ -4369,8 +4243,8 @@
       const defPool = document.getElementById('melee-def-pool');
       if (!attPool || !defPool) return;
       
-      const attDiceClass = FACTIONS_DB[wizardState.attacker.faction].diceClass;
-      const defDiceClass = FACTIONS_DB[wizardState.defender.faction].diceClass;
+      const attDiceClass = wizardState.attacker.faction === gameState.factionA ? 'sm-dice' : 'pm-dice';
+      const defDiceClass = wizardState.defender.faction === gameState.factionA ? 'sm-dice' : 'pm-dice';
 
       attPool.innerHTML = '';
       wizardState.activeAttackerDice.forEach(d => {
@@ -4558,9 +4432,9 @@
         const msg = `> ${side === 'attacker' ? '攻击方' : '防守方'} 执行打击 (Strike)，分配了 ${dmg} 伤害！<br>`;
         wizardState.meleeLogs += msg;
         
-        const oldWounds = targetOpponent.wounds;
         targetOpponent.applyWounds(dmg);
-        playDamageCinematic(targetOpponent, dmg, oldWounds, 'fight');
+        playSound('heavy_strike');
+        triggerCombatVisual("⚔️ STRIKE! -" + dmg, "strike");
       } else {
         let targetIdx = -1;
         if (dice.isCrit) {
@@ -4899,8 +4773,8 @@
 
     function renderTurnEndScoringContent() {
       const overlayBox = document.getElementById('phase-overlay-content');
-      const totalfactionAVpThisTurn = gameState.tempSmKillVp + gameState.tempSmObjVp;
-      const totalfactionBVpThisTurn = gameState.tempPmKillVp + gameState.tempPmObjVp;
+      const totalSmVpThisTurn = gameState.tempSmKillVp + gameState.tempSmObjVp;
+      const totalPmVpThisTurn = gameState.tempPmKillVp + gameState.tempPmObjVp;
       
       const isFinalTP = gameState.turningPoint >= 5;
       const confirmBtnText = isFinalTP ? '确认结算并完成对局' : '确认结算并推进回合';
@@ -4959,7 +4833,7 @@
               </div>
               <div style="border-top:1px dashed rgba(255,255,255,0.1); padding-top:8px; display:flex; justify-content:space-between; align-items:center; font-weight:bold; font-size:0.95rem;">
                 <span>本回合得分小计：</span>
-                <span style="color:#60a5fa;">+${totalfactionAVpThisTurn} VP</span>
+                <span style="color:#60a5fa;">+${totalSmVpThisTurn} VP</span>
               </div>
             </div>
           </div>
@@ -5009,7 +4883,7 @@
               </div>
               <div style="border-top:1px dashed rgba(255,255,255,0.1); padding-top:8px; display:flex; justify-content:space-between; align-items:center; font-weight:bold; font-size:0.95rem;">
                 <span>本回合得分小计：</span>
-                <span style="color:var(--pm-accent);">+${totalfactionBVpThisTurn} VP</span>
+                <span style="color:var(--pm-accent);">+${totalPmVpThisTurn} VP</span>
               </div>
             </div>
           </div>
@@ -5052,15 +4926,15 @@
       const smGain = gameState.tempSmKillVp + gameState.tempSmObjVp;
       const pmGain = gameState.tempPmKillVp + gameState.tempPmObjVp;
       
-      gameState.factionAVp += smGain;
-      gameState.factionBVp += pmGain;
+      gameState.smVp += smGain;
+      gameState.pmVp += pmGain;
       
       gameState.smKillsScored = gameState.tempSmKills;
       gameState.pmKillsScored = gameState.tempPmKills;
       
       addLog(`\n--- Turning Point ${gameState.turningPoint} 回合结算结果 ---`);
-      addLog(`[死亡天使] 新增 ${smGain} VP (任务:${gameState.tempSmObjVp}, 击杀:${gameState.tempSmKillVp}) | 累计 VP: ${gameState.factionAVp}`);
-      addLog(`[瘟疫守卫] 新增 ${pmGain} VP (任务:${gameState.tempPmObjVp}, 击杀:${gameState.tempPmKillVp}) | 累计 VP: ${gameState.factionBVp}`);
+      addLog(`[死亡天使] 新增 ${smGain} VP (任务:${gameState.tempSmObjVp}, 击杀:${gameState.tempSmKillVp}) | 累计 VP: ${gameState.smVp}`);
+      addLog(`[瘟疫守卫] 新增 ${pmGain} VP (任务:${gameState.tempPmObjVp}, 击杀:${gameState.tempPmKillVp}) | 累计 VP: ${gameState.pmVp}`);
       
       hidePhaseOverlay();
       endTurningPoint();
@@ -5072,75 +4946,22 @@
       const smGain = gameState.tempSmKillVp + gameState.tempSmObjVp;
       const pmGain = gameState.tempPmKillVp + gameState.tempPmObjVp;
       
-      gameState.factionAVp += smGain;
-      gameState.factionBVp += pmGain;
+      gameState.smVp += smGain;
+      gameState.pmVp += pmGain;
       gameState.smKillsScored = gameState.tempSmKills;
       gameState.pmKillsScored = gameState.tempPmKills;
       
       gameState.gameOver = true;
       updateScoresUI();
       
-      let winReason = `双方经历五回合激烈交火，战斗正式落幕！\n最终战队积分：\n死亡天使: ${gameState.factionAVp} VP\n瘟疫守卫: ${gameState.factionBVp} VP\n\n`;
-      if (gameState.factionAVp === gameState.factionBVp) {
+      let winReason = `双方经历五回合激烈交火，战斗正式落幕！\n最终战队积分：\n死亡天使: ${gameState.smVp} VP\n瘟疫守卫: ${gameState.pmVp} VP\n\n`;
+      if (gameState.smVp === gameState.pmVp) {
         declareVictory('draw', winReason + '双方得分平分秋色，本局握手言和！');
-      } else if (gameState.factionAVp > gameState.factionBVp) {
+      } else if (gameState.smVp > gameState.pmVp) {
         declareVictory('sm', winReason + '死亡天使胜利点数更高，赢得最终胜利！');
       } else {
         declareVictory('pm', winReason + '瘟疫守卫胜利点数更高，赢得最终胜利！');
       }
-    }
-
-    // ------------------ 动态处决血条动画 ------------------
-    function playDamageCinematic(defender, damage, oldWounds, attackType = 'shoot') {
-      const newWounds = defender.wounds;
-      const cineAvatarUrl = getAvatarUrl(defender.id, defender.faction);
-
-      const overlay = document.createElement('div');
-      overlay.className = 'cinematic-damage-overlay';
-      overlay.innerHTML = `
-        <div class="cinematic-card" style="position:relative; ${damage === 0 ? 'border-color: #38bdf8; box-shadow: 0 0 50px rgba(56, 189, 248, 0.5);' : ''}">
-          <h2 style="margin:0 0 15px; color:var(--text-muted);">${defender.name}</h2>
-          <img src="${cineAvatarUrl}" class="cinematic-avatar" id="cine-avatar">
-          <div class="cinematic-hp-container">
-            <div class="cinematic-hp-bar" id="cine-hp-bar" style="width: ${(oldWounds / defender.maxWounds) * 100}%"></div>
-            <div class="cinematic-hp-text" id="cine-hp-text">${oldWounds} / ${defender.maxWounds}</div>
-          </div>
-          ${damage > 0 ? `<div class="cinematic-dmg-number">-${damage}</div>` : '<div class="cinematic-dmg-number" style="color:#38bdf8;">BLOCKED</div>'}
-        </div>
-      `;
-      document.body.appendChild(overlay);
-
-      setTimeout(() => {
-        overlay.classList.add('show');
-        if (damage > 0) playSound('heavy_strike');
-        
-        setTimeout(() => {
-          const hpBar = overlay.querySelector('#cine-hp-bar');
-          const hpText = overlay.querySelector('#cine-hp-text');
-          const avatar = overlay.querySelector('#cine-avatar');
-          
-          if (damage > 0) {
-            hpBar.style.width = `${(newWounds / defender.maxWounds) * 100}%`;
-            hpText.textContent = `${newWounds} / ${defender.maxWounds}`;
-            avatar.style.filter = 'sepia(1) hue-rotate(-50deg) saturate(5) brightness(0.8)';
-            
-            document.body.classList.remove('intense-shake');
-            void document.body.offsetWidth;
-            document.body.classList.add('intense-shake');
-            setTimeout(() => document.body.classList.remove('intense-shake'), 400);
-          } else {
-            playSound('click'); // Placeholder for block sound
-          }
-          
-          setTimeout(() => {
-            overlay.classList.remove('show');
-            setTimeout(() => overlay.remove(), 300);
-            
-            // Render operatives again just to be sure DOM is clean
-            renderOperatives();
-          }, 1500);
-        }, 400);
-      }, 50);
     }
 
     // 激情战斗视觉特效：屏幕抖动与飘字
@@ -5230,7 +5051,3 @@
   <input type="file" id="global-avatar-uploader" accept="image/*" style="display:none" onchange="handleAvatarFileSelect(event)">
 </body>
 </html>
-
-
-
-
