@@ -2969,7 +2969,7 @@
 
       if (wizardState.step === 1) {
         title.textContent = '射击结算 - 步骤 1: 选择目标';
-        const enemyFaction = wizardState.attacker.faction === gameState.factionA ? 'Plague Marine' : 'Space Marine';
+        const enemyFaction = wizardState.attacker.faction === gameState.factionA ? gameState.factionB : gameState.factionA;
         const targets = gameState.operatives.filter(o => o.faction === enemyFaction && !o.isDead);
 
         if (targets.length === 0) {
@@ -3889,7 +3889,7 @@
 
       if (wizardState.step === 1) {
         title.textContent = '近战结算 - 步骤 1: 选择目标';
-        const enemyFaction = wizardState.attacker.faction === gameState.factionA ? 'Plague Marine' : 'Space Marine';
+        const enemyFaction = wizardState.attacker.faction === gameState.factionA ? gameState.factionB : gameState.factionA;
         const targets = gameState.operatives.filter(o => o.faction === enemyFaction && !o.isDead);
 
         if (targets.length === 0) {
