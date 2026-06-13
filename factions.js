@@ -1,4 +1,4 @@
-    class Weapon {
+﻿    window.Weapon = class Weapon {
       constructor(name, attacks, targetSkill, normalDmg, criticalDmg, isRanged = true) {
         this.name = name;
         this.attacks = attacks;
@@ -9,7 +9,7 @@
       }
     }
 
-    class Operative {
+    window.Operative = class Operative {
       constructor(id, name, faction, wounds, apl, df, sv, weapons = [], defaultAvatar = '') {
         this.id = id;
         this.name = name;
@@ -94,7 +94,7 @@
       }
     }
 
-    const gameState = {
+    window.gameState = {
       turningPoint: 1,
       phase: 'Initiative', 
       initiative: '',
@@ -119,7 +119,7 @@
       rollMode: 'manual' // 'manual' = 物理录入, 'random' = 自动动画
     };
 
-    function toggleRollMode() {
+    window.toggleRollMode = function() {
       playSound('click');
       if (gameState.rollMode === 'manual') {
         gameState.rollMode = 'random';
@@ -136,7 +136,7 @@
     //       官方 Starter Set 7个特工的原始数据库
     // ==========================================
     
-    const SM_TEMPLATES = [
+    window.SM_TEMPLATES = [
       { id: 'sm_1', name: 'Angels Captain (船长)', wounds: 14, apl: 3, df: 3, sv: 3, isLeader: true, defaultAvatar: './sm_captain.png',
         weapons: [new Weapon('等离子手枪 (Plasma Pistol)', 4, 2, 5, 6, true), new Weapon('动力剑 (Power Sword)', 5, 2, 4, 6, false)] },
       { id: 'sm_2', name: 'Intercessor Sergeant (军士)', wounds: 14, apl: 3, df: 3, sv: 3, isLeader: true, defaultAvatar: './sm_sergeant.png',
@@ -153,7 +153,7 @@
         weapons: [new Weapon('标准爆弹步枪 (Bolt Rifle)', 4, 3, 3, 4, true), new Weapon('军用重拳 (Fists)', 4, 3, 3, 4, false)] }
     ];
 
-    const PM_TEMPLATES = [
+    window.PM_TEMPLATES = [
       { id: 'pm_1', name: 'Plague Champion (冠军队长)', wounds: 13, apl: 2, df: 3, sv: 3, isLeader: true, defaultAvatar: './pm_champion.png',
         weapons: [new Weapon('等离子手枪 (Plasma Pistol)', 4, 3, 5, 6, true), new Weapon('瘟疫利刃 (Plague Knife)', 5, 3, 4, 6, false)] },
       { id: 'pm_2', name: 'Malignant Plaguecaster (施法者)', wounds: 12, apl: 2, df: 3, sv: 3, isLeader: false, defaultAvatar: './pm_caster.png',
@@ -170,7 +170,7 @@
         weapons: [new Weapon('瘟疫爆弹步枪 (Plague Boltgun)', 4, 3, 3, 4, true), new Weapon('瘟疫重拳 (Fists)', 3, 3, 3, 4, false)] }
     ];
 
-    const LEGIONARY_TEMPLATES = [
+    window.LEGIONARY_TEMPLATES = [
       { id: 'leg_1', name: 'Aspiring Champion (铁血冠军)', wounds: 12, apl: 3, df: 3, sv: 3, isLeader: true, defaultAvatar: './leg_1_champion_1781370493441.png',
         weapons: [new Weapon('等离子手枪 (Plasma Pistol)', 4, 2, 5, 6, true), new Weapon('动力拳套 (Power Fist)', 5, 4, 5, 7, false)] },
       { id: 'leg_2', name: 'Chosen (神选者)', wounds: 12, apl: 3, df: 3, sv: 3, isLeader: false, defaultAvatar: './leg_2_chosen_1781370505034.png',
@@ -193,7 +193,7 @@
         weapons: [new Weapon('爆弹枪 (Boltgun)', 4, 3, 3, 4, true), new Weapon('拳头 (Fists)', 3, 3, 3, 4, false)] }
     ];
 
-    const FACTIONS_DB = {
+    window.FACTIONS_DB = {
       "Space Marine": {
         id: "Space Marine",
         name: "死亡天使 (Angels of Death)",
