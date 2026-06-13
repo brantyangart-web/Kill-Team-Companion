@@ -541,6 +541,7 @@
       background: #1e293b; border: 1px solid #334155; color: #fff;
       padding: 10px 14px; border-radius: 8px; font-size: 0.85rem; font-weight: 600;
       cursor: pointer; display: flex; align-items: center; gap: 10px; transition: all 0.2s;
+      position: relative; z-index: 50;
     }
     .combat-action-btn:hover:not(:disabled) { background: #334155; border-color: #475569; }
     .combat-action-btn:disabled { opacity: 0.3; cursor: not-allowed; }
@@ -550,6 +551,7 @@
       width: 36px; height: 36px; border-radius: 8px; background: rgba(255, 255, 255, 0.05);
       border: 1px solid var(--panel-border); color: var(--text-muted); font-size: 1rem;
       cursor: pointer; display: flex; align-items: center; justify-content: center;
+      position: relative; z-index: 50;
     }
     .help-icon-btn:hover { background: rgba(255, 255, 255, 0.15); color: #fff; }
 
@@ -1087,6 +1089,55 @@
       80% { opacity: 1; }
       100% { left: 100%; opacity: 0; }
     }
+    .cinematic-damage-overlay {
+      position: fixed; top: 0; left: 0; right: 0; bottom: 0;
+      background: rgba(0, 0, 0, 0.85); z-index: 9999;
+      display: flex; flex-direction: column; align-items: center; justify-content: center;
+      opacity: 0; transition: opacity 0.3s; pointer-events: none;
+    }
+    .cinematic-damage-overlay.show { opacity: 1; pointer-events: auto; }
+    
+    .cinematic-card {
+      background: linear-gradient(to bottom, #1e293b, #0f172a);
+      border: 3px solid var(--red);
+      border-radius: 16px; padding: 30px; width: 400px; max-width: 90%;
+      text-align: center; box-shadow: 0 0 50px rgba(225, 29, 72, 0.5);
+      transform: scale(0.8); transition: transform 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+    }
+    .cinematic-damage-overlay.show .cinematic-card { transform: scale(1); }
+    
+    .cinematic-avatar {
+      width: 150px; height: 150px; border-radius: 50%;
+      border: 4px solid var(--panel-border); object-fit: cover;
+      margin: 0 auto 20px; display: block; box-shadow: 0 0 20px rgba(0,0,0,0.8);
+      transition: filter 0.3s;
+    }
+    
+    .cinematic-hp-container {
+      width: 100%; height: 24px; background: rgba(0,0,0,0.5);
+      border-radius: 12px; border: 2px solid #334155; overflow: hidden;
+      margin-top: 15px; position: relative;
+    }
+    .cinematic-hp-bar {
+      height: 100%; background: linear-gradient(90deg, #ef4444, #b91c1c);
+      width: 100%; transition: width 0.8s cubic-bezier(0.25, 1, 0.5, 1);
+    }
+    .cinematic-hp-text {
+      position: absolute; width: 100%; text-align: center;
+      top: 0; line-height: 24px; font-weight: bold; color: white;
+      text-shadow: 1px 1px 2px black; font-size: 0.9rem;
+    }
+    .cinematic-dmg-number {
+      position: absolute; right: 0; top: 10px; font-size: 4.5rem; color: #ef4444;
+      font-weight: 900; text-shadow: 0 0 20px black;
+      animation: dmgPop 0.5s ease-out forwards;
+      opacity: 0; transform-origin: right bottom;
+    }
+    @keyframes dmgPop {
+      0% { transform: scale(0.5) translate(0, 50px); opacity: 0; }
+      50% { transform: scale(1.1) translate(-20px, -20px); opacity: 1; }
+      100% { transform: scale(1) translate(-20px, -20px); opacity: 1; }
+    }
   </style>
 </head>
 <body>
@@ -1384,6 +1435,10 @@
     // ==========================================
     //           游戏音效系统 (Procedural SFX)
     // ==========================================
+    window.onerror = function(message, source, lineno, colno, error) {
+      alert('全局系统错误: ' + message + '\\n行号: ' + lineno);
+    };
+
     const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
 
     function playSound(type) {
@@ -1644,7 +1699,7 @@
         addLog(`[伤害] ${this.name} 准备分配 ${amount} 点伤害...`);
 
         if (this.faction === gameState.factionB) {
-          const hasPloyActive = gameState.pmActivePloys.includes('contagious_resilience');
+          const hasPloyActive = gameState.factionBPloys.includes('contagious_resilience');
           addLog(`[特性] 触发瘟疫守卫专属【恶心作呕 (DR 5+)】 ${hasPloyActive ? '(已开启传染韧性，允许首个失败重投)' : ''}：`);
           
           let drRollIndex = 0;
@@ -1702,13 +1757,13 @@
       activeTurn: '',
       activeAgent: null,
       
-      smVp: 0,
-      smCp: 2,
-      pmVp: 0,
-      pmCp: 2,
+      factionAVp: 0,
+      factionACp: 2,
+      factionBVp: 0,
+      factionBCp: 2,
 
-      smActivePloys: [], 
-      pmActivePloys: [], 
+      factionAPloys: [], 
+      factionBPloys: [], 
 
       operatives: [],
 
@@ -1797,7 +1852,7 @@
         diceClass: "sm-dice",
         headerImg: "url('./faction_header_sm_1781315989603.png')",
         ploys: [
-          { name: '风暴开火 (Bolter Discipline)', type: 'Strategic', cp: 1, desc: '特工在使用爆弹类武器时可进行第二次射击行动。' },
+          { id: 'shoot_twice', name: '风暴开火 (Bolter Discipline)', type: 'Strategic', cp: 1, desc: '特工在使用爆弹类武器时可进行第二次射击行动。' },
           { name: '震慑突击 (Shock Assault)', type: 'Strategic', cp: 1, desc: '冲锋后近战搏斗时获得额外重投。' },
           { name: '极限减伤 (Transhuman Physiology)', type: 'Firefight', cp: 1, desc: '遭到致命一击时可将 1 个暴击伤害降为普通伤害。' }
         ]
@@ -1811,8 +1866,8 @@
         headerImg: "url('./faction_header_pm_1781316000042.png')",
         ploys: [
           { name: '无尽行军 (Inexorable Advance)', type: 'Strategic', cp: 1, desc: '忽略移动减损惩罚，强行推进。' },
-          { name: '剧毒喷洒 (Malicious Volleys)', type: 'Strategic', cp: 1, desc: '爆弹武器即使移动过也能双击。' },
-          { name: '恶心减伤 (Disgustingly Resilient)', type: 'Firefight', cp: 1, desc: '防守时可以将一枚失败骰改为普通成功。' }
+          { id: 'shoot_twice', name: '剧毒喷洒 (Malicious Volleys)', type: 'Strategic', cp: 1, desc: '爆弹武器即使移动过也能双击。' },
+          { id: 'contagious_resilience', name: '恶心减伤 (Disgustingly Resilient)', type: 'Firefight', cp: 1, desc: '防守时可以将一枚失败骰改为普通成功。' }
         ]
       },
       "Legionary": {
@@ -1824,8 +1879,8 @@
         headerImg: "url('./faction_header_pm_1781316000042.png')", // Can replace later
         ploys: [
           { name: '黑暗诸神之怒 (Wrath of the Gods)', type: 'Strategic', cp: 1, desc: '本回合近战暴击判定+1。' },
-          { name: '恶意齐射 (Malicious Volleys)', type: 'Strategic', cp: 1, desc: '所有装备爆弹枪的特工可执行两次射击。' },
-          { name: '恶魔恩赐 (Daemonic Ward)', type: 'Firefight', cp: 1, desc: '在防守投骰时，可以重投 1 枚防御骰。' }
+          { id: 'shoot_twice', name: '恶意齐射 (Malicious Volleys)', type: 'Strategic', cp: 1, desc: '所有装备爆弹枪的特工可执行两次射击。' },
+          { id: 'contagious_resilience', name: '恶魔恩赐 (Daemonic Ward)', type: 'Firefight', cp: 1, desc: '在防守投骰时，可以重投 1 枚防御骰。' }
         ]
       }
     };
@@ -2103,9 +2158,8 @@
       startInitiativePhase();
     }
 
-    // 初始化页面加载选人行
-    renderRosterPickers();
-
+    // 初始化页面加载选人行将在 enterRosterSelection() 中被调用
+    
     // ==========================================
     //            界面日志与指示更新
     // ==========================================
@@ -2120,10 +2174,10 @@
     }
 
     function updateScoresUI() {
-      document.getElementById('sm-vp').textContent = gameState.smVp;
-      document.getElementById('sm-cp').textContent = gameState.smCp;
-      document.getElementById('pm-vp').textContent = gameState.pmVp;
-      document.getElementById('pm-cp').textContent = gameState.pmCp;
+      document.getElementById('sm-vp').textContent = gameState.factionAVp;
+      document.getElementById('sm-cp').textContent = gameState.factionACp;
+      document.getElementById('pm-vp').textContent = gameState.factionBVp;
+      document.getElementById('pm-cp').textContent = gameState.factionBCp;
       document.getElementById('dash-tp').textContent = gameState.turningPoint;
       
       let phaseName = gameState.phase;
@@ -2135,16 +2189,16 @@
       // Update ploy tags
       const smTags = document.getElementById('sm-ploy-tags');
       smTags.innerHTML = '';
-      gameState.smActivePloys.forEach(ploy => {
+      gameState.factionAPloys.forEach(ploy => {
         const span = document.createElement('span');
         span.className = 'ploy-tag sm';
-        span.textContent = ploy === 'bolter_discipline' ? '爆弹惩戒' : ploy;
+        span.textContent = ploy === 'shoot_twice' ? '爆弹惩戒' : ploy;
         smTags.appendChild(span);
       });
 
       const pmTags = document.getElementById('pm-ploy-tags');
       pmTags.innerHTML = '';
-      gameState.pmActivePloys.forEach(ploy => {
+      gameState.factionBPloys.forEach(ploy => {
         const span = document.createElement('span');
         span.className = 'ploy-tag pm';
         span.textContent = ploy === 'contagious_resilience' ? '传染韧性' : ploy;
@@ -2167,11 +2221,11 @@
     function adjustScore(faction, type, amount) {
       playSound('click');
       if (faction === 'sm') {
-        if (type === 'vp') gameState.smVp = Math.max(0, gameState.smVp + amount);
-        else gameState.smCp = Math.max(0, gameState.smCp + amount);
+        if (type === 'vp') gameState.factionAVp = Math.max(0, gameState.factionAVp + amount);
+        else gameState.factionACp = Math.max(0, gameState.factionACp + amount);
       } else {
-        if (type === 'vp') gameState.pmVp = Math.max(0, gameState.pmVp + amount);
-        else gameState.pmCp = Math.max(0, gameState.pmCp + amount);
+        if (type === 'vp') gameState.factionBVp = Math.max(0, gameState.factionBVp + amount);
+        else gameState.factionBCp = Math.max(0, gameState.factionBCp + amount);
       }
       updateScoresUI();
     }
@@ -2181,12 +2235,12 @@
         playSound('click');
         gameState.turningPoint = 1;
         gameState.phase = 'Initiative';
-        gameState.smVp = 0;
-        gameState.smCp = 2;
-        gameState.pmVp = 0;
-        gameState.pmCp = 2;
-        gameState.smActivePloys = [];
-        gameState.pmActivePloys = [];
+        gameState.factionAVp = 0;
+        gameState.factionACp = 2;
+        gameState.factionBVp = 0;
+        gameState.factionBCp = 2;
+        gameState.factionAPloys = [];
+        gameState.factionBPloys = [];
         gameState.operatives = [];
         gameState.activeAgent = null;
         gameState.gameOver = false;
@@ -2217,12 +2271,12 @@
       gameState.phase = 'Initiative';
       
       // CP gains at start of TP
-      gameState.smCp += 1;
-      gameState.pmCp += 1;
+      gameState.factionACp += 1;
+      gameState.factionBCp += 1;
       
       // Reset active ploys
-      gameState.smActivePloys = [];
-      gameState.pmActivePloys = [];
+      gameState.factionAPloys = [];
+      gameState.factionBPloys = [];
 
       // Reset operatives
       gameState.operatives.forEach(op => {
@@ -2268,27 +2322,30 @@
       let winnerText = '';
       let descText = '';
 
+      const facA = FACTIONS_DB[gameState.factionA];
+      const facB = FACTIONS_DB[gameState.factionB];
+
       if (reasonCode === 'DRAW_WIPEOUT') {
         winnerText = '平局 (DRAW)';
         descText = '双方全军覆没！鲜血染红了战场...';
       } else if (reasonCode === 'PM_WIPEOUT') {
-        winnerText = '死亡守卫 胜利！ (Plague Marines Win)';
-        descText = '死亡天使全军覆没，瘟疫的赐福覆盖了战场。';
+        winnerText = `${facB.name} 胜利！ (${gameState.factionB} Win)`;
+        descText = `${facA.name} 全军覆没，${facB.name} 的意志得到了贯彻。`;
       } else if (reasonCode === 'SM_WIPEOUT') {
-        winnerText = '死亡天使 胜利！ (Space Marines Win)';
-        descText = '死亡守卫被彻底肃清，帝皇的意志得到了贯彻。';
+        winnerText = `${facA.name} 胜利！ (${gameState.factionA} Win)`;
+        descText = `${facB.name} 被彻底肃清，${facA.name} 的意志得到了贯彻。`;
       } else if (reasonCode === 'TP5') {
-        const smVp = gameState.smVp;
-        const pmVp = gameState.pmVp;
-        if (smVp > pmVp) {
-          winnerText = '死亡天使 胜利！ (Space Marines Win)';
-          descText = `第4回合结束。死亡天使以 ${smVp} : ${pmVp} 的胜利点优势赢得了战役！`;
-        } else if (pmVp > smVp) {
-          winnerText = '死亡守卫 胜利！ (Plague Marines Win)';
-          descText = `第4回合结束。死亡守卫以 ${pmVp} : ${smVp} 的胜利点优势赢得了战役！`;
+        const factionAVp = gameState.factionAVp;
+        const factionBVp = gameState.factionBVp;
+        if (factionAVp > factionBVp) {
+          winnerText = `${facA.name} 胜利！ (${gameState.factionA} Win)`;
+          descText = `第4回合结束。${facA.name} 以 ${factionAVp} : ${factionBVp} 的胜利点优势赢得了战役！`;
+        } else if (factionBVp > factionAVp) {
+          winnerText = `${facB.name} 胜利！ (${gameState.factionB} Win)`;
+          descText = `第4回合结束。${facB.name} 以 ${factionBVp} : ${factionAVp} 的胜利点优势赢得了战役！`;
         } else {
           winnerText = '平局 (DRAW)';
-          descText = `第4回合结束。双方胜利点相同 (${smVp} : ${pmVp})，战局陷入僵持！`;
+          descText = `第4回合结束。双方胜利点相同 (${factionAVp} : ${factionBVp})，战局陷入僵持！`;
         }
       }
 
@@ -2303,13 +2360,13 @@
             <p style="font-size: 1.2rem; color: #cbd5e1; margin-bottom: 30px;">${descText}</p>
             
             <div style="display: flex; justify-content: center; gap: 20px;">
-              <div style="background: rgba(59,130,246,0.2); padding: 15px; border-radius: 8px; border: 1px solid #3b82f6; flex: 1;">
-                <h3 style="color:#60a5fa; margin-bottom: 10px;">Space Marine</h3>
-                <div style="font-size: 2rem; font-weight: bold; color: white;">${gameState.smVp} VP</div>
+              <div style="background: rgba(0,0,0,0.5); padding: 15px; border-radius: 8px; border: 1px solid var(--sm-accent); flex: 1;">
+                <h3 style="color:var(--sm-accent); margin-bottom: 10px;">${facA.name}</h3>
+                <div style="font-size: 2rem; font-weight: bold; color: white;">${gameState.factionAVp} VP</div>
               </div>
-              <div style="background: rgba(34,197,94,0.2); padding: 15px; border-radius: 8px; border: 1px solid #22c55e; flex: 1;">
-                <h3 style="color:#86efac; margin-bottom: 10px;">Plague Marine</h3>
-                <div style="font-size: 2rem; font-weight: bold; color: white;">${gameState.pmVp} VP</div>
+              <div style="background: rgba(0,0,0,0.5); padding: 15px; border-radius: 8px; border: 1px solid var(--pm-accent); flex: 1;">
+                <h3 style="color:var(--pm-accent); margin-bottom: 10px;">${facB.name}</h3>
+                <div style="font-size: 2rem; font-weight: bold; color: white;">${gameState.factionBVp} VP</div>
               </div>
             </div>
 
@@ -2354,9 +2411,9 @@
         const weaponNames = op.weapons.map(w => w.name.split(' ')[0]).join(' / ');
 
         let tagHtml = '';
-        if (isSm && gameState.smActivePloys.includes('bolter_discipline') && !op.isDead) {
+        if (isSm && gameState.factionAPloys.includes('shoot_twice') && !op.isDead) {
           tagHtml = '<span class="card-ploy-tag">双重射击</span>';
-        } else if (!isSm && gameState.pmActivePloys.includes('contagious_resilience') && !op.isDead) {
+        } else if (!isSm && gameState.factionBPloys.includes('contagious_resilience') && !op.isDead) {
           tagHtml = '<span class="card-ploy-tag" style="border-color:var(--pm-accent); color:var(--pm-accent); background:rgba(132,204,22,0.15);">减伤重投</span>';
         }
 
@@ -2523,74 +2580,94 @@
       updateScoresUI();
       showPhaseOverlay();
 
+      const facA = FACTIONS_DB[gameState.factionA];
+      const facB = FACTIONS_DB[gameState.factionB];
       const overlayBox = document.getElementById('phase-overlay-content');
       
-      overlayBox.innerHTML = `
+      let html = `
         <h3>Turning Point ${gameState.turningPoint} - 策略阶段</h3>
         <p style="color:var(--text-muted); font-size:0.85rem; margin-bottom:12px;">
           在此阶段，双方可以使用命令点 (CP) 激活计策 (Strategic Ploys)。
         </p>
-
         <div style="display:grid; grid-template-columns:1fr 1fr; gap:16px; width:100%; text-align:left; margin-bottom:16px;">
-          <div class="ploy-choice-card ${gameState.smActivePloys.includes('bolter_discipline') ? 'selected' : ''}" onclick="buyPloy('sm')">
-            <div class="ploy-title">
-              <span>🔥 爆弹惩戒 (1 CP)</span>
-              <span style="font-size:0.75rem; color:#60a5fa;">Astartes</span>
-            </div>
-            <div class="ploy-desc">
-              死亡天使特工本回合激活内，可以使用<b>两次</b>射击行动。
-            </div>
-            <div style="margin-top:6px; font-weight:bold; font-size:0.75rem; color:var(--sm-accent);">
-              ${gameState.smActivePloys.includes('bolter_discipline') ? '● 生效中' : '点击启用'}
-            </div>
-          </div>
+      `;
 
-          <div class="ploy-choice-card ${gameState.pmActivePloys.includes('contagious_resilience') ? 'selected' : ''}" onclick="buyPloy('pm')">
-            <div class="ploy-title">
-              <span>🛡️ 传染韧性 (1 CP)</span>
-              <span style="font-size:0.75rem; color:var(--pm-accent);">Death Guard</span>
+      // Render faction A ploys
+      html += \`<div style="display:flex; flex-direction:column; gap:8px;">\`;
+      facA.ploys.forEach(ploy => {
+        if (ploy.id) {
+          const isActive = gameState.factionAPloys.includes(ploy.id);
+          html += \`
+            <div class="ploy-choice-card \${isActive ? 'selected' : ''}" onclick="buyPloy('A', '\${ploy.id}', '\${ploy.name}')" style="border-color:\${facA.themeColor};">
+              <div class="ploy-title">
+                <span>⚡ \${ploy.name} (\${ploy.cp} CP)</span>
+                <span style="font-size:0.75rem; color:\${facA.themeColor};">\${facA.id}</span>
+              </div>
+              <div class="ploy-desc">\${ploy.desc}</div>
+              <div style="margin-top:6px; font-weight:bold; font-size:0.75rem; color:\${facA.themeColor};">
+                \${isActive ? '● 生效中' : '点击启用'}
+              </div>
             </div>
-            <div class="ploy-desc">
-              瘟疫守卫在结算【恶心作呕 (DR)】伤害减免时，可<b>重投第一个失败的减伤骰</b>。
-            </div>
-            <div style="margin-top:6px; font-weight:bold; font-size:0.75rem; color:var(--pm-accent);">
-              ${gameState.pmActivePloys.includes('contagious_resilience') ? '● 生效中' : '点击启用'}
-            </div>
-          </div>
-        </div>
+          \`;
+        }
+      });
+      html += \`</div>\`;
 
+      // Render faction B ploys
+      html += \`<div style="display:flex; flex-direction:column; gap:8px;">\`;
+      facB.ploys.forEach(ploy => {
+        if (ploy.id) {
+          const isActive = gameState.factionBPloys.includes(ploy.id);
+          html += \`
+            <div class="ploy-choice-card \${isActive ? 'selected' : ''}" onclick="buyPloy('B', '\${ploy.id}', '\${ploy.name}')" style="border-color:\${facB.themeColor};">
+              <div class="ploy-title">
+                <span>⚡ \${ploy.name} (\${ploy.cp} CP)</span>
+                <span style="font-size:0.75rem; color:\${facB.themeColor};">\${facB.id}</span>
+              </div>
+              <div class="ploy-desc">\${ploy.desc}</div>
+              <div style="margin-top:6px; font-weight:bold; font-size:0.75rem; color:\${facB.themeColor};">
+                \${isActive ? '● 生效中' : '点击启用'}
+              </div>
+            </div>
+          \`;
+        }
+      });
+      html += \`</div></div>\`;
+
+      html += \`
         <button class="btn-large" onclick="proceedToFirefight()" style="padding: 10px 40px; font-size:0.9rem; background:linear-gradient(135deg, var(--green), #065f46); border-color:#059669; box-shadow:none;">
           进入战斗阶段 (Proceed to Firefight)
         </button>
-      `;
+      \`;
 
+      overlayBox.innerHTML = html;
       updateGuidance('【策略阶段】双方轮流消费 1 CP 采购策略 Ploys。按 Proceed 按钮进入实际交火战斗。');
     }
 
-    function buyPloy(faction) {
-      if (faction === 'sm') {
-        if (gameState.smActivePloys.includes('bolter_discipline')) {
+    function buyPloy(side, ployId, ployName) {
+      if (side === 'A') {
+        if (gameState.factionAPloys.includes(ployId)) {
           playSound('click');
-          gameState.smActivePloys = [];
-          gameState.smCp += 1;
+          gameState.factionAPloys = gameState.factionAPloys.filter(id => id !== ployId);
+          gameState.factionACp += 1;
         } else {
-          if (gameState.smCp < 1) { playSound('alert'); alert('死亡天使 CP 不足！'); return; }
+          if (gameState.factionACp < 1) { playSound('alert'); alert(FACTIONS_DB[gameState.factionA].name + ' CP 不足！'); return; }
           playSound('crit');
-          gameState.smActivePloys.push('bolter_discipline');
-          gameState.smCp -= 1;
-          addLog('  - 死亡天使激活策略：【爆弹惩戒】！本回合可双击开火！');
+          gameState.factionAPloys.push(ployId);
+          gameState.factionACp -= 1;
+          addLog(\`  - \${FACTIONS_DB[gameState.factionA].name} 激活策略：【\${ployName}】！\`);
         }
       } else {
-        if (gameState.pmActivePloys.includes('contagious_resilience')) {
+        if (gameState.factionBPloys.includes(ployId)) {
           playSound('click');
-          gameState.pmActivePloys = [];
-          gameState.pmCp += 1;
+          gameState.factionBPloys = gameState.factionBPloys.filter(id => id !== ployId);
+          gameState.factionBCp += 1;
         } else {
-          if (gameState.pmCp < 1) { playSound('alert'); alert('瘟疫守卫 CP 不足！'); return; }
+          if (gameState.factionBCp < 1) { playSound('alert'); alert(FACTIONS_DB[gameState.factionB].name + ' CP 不足！'); return; }
           playSound('crit');
-          gameState.pmActivePloys.push('contagious_resilience');
-          gameState.pmCp -= 1;
-          addLog('  - 瘟疫守卫激活策略：【传染韧性】！DR首发失败可重投！');
+          gameState.factionBPloys.push(ployId);
+          gameState.factionBCp -= 1;
+          addLog(\`  - \${FACTIONS_DB[gameState.factionB].name} 激活策略：【\${ployName}】！\`);
         }
       }
       startStrategyPhase();
@@ -2660,7 +2737,9 @@
         const hasCharged = op.actionsPerformed.includes('Charge');
         
         const shootCount = op.actionsPerformed.filter(a => a === 'Shoot').length;
-        const maxShoots = (op.faction === gameState.factionA && gameState.smActivePloys.includes('bolter_discipline')) ? 2 : 1;
+        const hasShootTwice = (op.faction === gameState.factionA && gameState.factionAPloys.includes('shoot_twice')) || 
+                              (op.faction === gameState.factionB && gameState.factionBPloys.includes('shoot_twice'));
+        const maxShoots = hasShootTwice ? 2 : 1;
         const hasShotLimit = shootCount >= maxShoots;
 
         const hasFought = op.actionsPerformed.includes('Fight');
@@ -2670,20 +2749,20 @@
         document.getElementById('action-shoot').disabled = op.apl < 1 || hasShotLimit || hasCharged;
         document.getElementById('action-fight').disabled = op.apl < 1 || hasFought;
 
-        const hasBolterDiscipline = op.faction === gameState.factionA && gameState.smActivePloys.includes('bolter_discipline');
-        const hasContagiousResilience = op.faction === gameState.factionB && gameState.pmActivePloys.includes('contagious_resilience');
+        const hasContagiousResilience = (op.faction === gameState.factionA && gameState.factionAPloys.includes('contagious_resilience')) || 
+                                        (op.faction === gameState.factionB && gameState.factionBPloys.includes('contagious_resilience'));
 
         const ployDisplay = document.getElementById('active-ploys-display');
         if (ployDisplay) {
             const ploysText = [];
-            if (hasBolterDiscipline) ploysText.push('<span style="color:gold;">🔥 爆弹惩戒生效中</span>');
-            if (hasContagiousResilience) ploysText.push('<span style="color:var(--pm-accent);">🛡️ 传染韧性生效中</span>');
+            if (hasShootTwice) ploysText.push('<span style="color:gold;">🔥 连射策略生效中</span>');
+            if (hasContagiousResilience) ploysText.push('<span style="color:var(--pm-accent);">🛡️ 减伤策略生效中</span>');
             ployDisplay.innerHTML = ploysText.length > 0 ? ploysText.join(' | ') : '';
         }
 
         const shootBtnText = document.querySelector('#action-shoot span:first-child');
         if (shootBtnText) {
-            if (hasBolterDiscipline) {
+            if (hasShootTwice) {
                 shootBtnText.innerHTML = `💥 射击 [${shootCount < 2 ? 2 - shootCount : 0}次剩余]`;
             } else {
                 shootBtnText.innerHTML = `💥 射击 (Shoot)`;
@@ -2765,12 +2844,16 @@
     }
 
     function showRuleHelp(actionKey) {
-      playSound('click');
-      const rule = RULE_TEXTS[actionKey];
+      try {
+        playSound('click');
+        const rule = RULE_TEXTS[actionKey];
       if (!rule) return;
       document.getElementById('help-title').textContent = rule.title;
       document.getElementById('help-body').innerHTML = rule.body;
-      document.getElementById('help-modal').style.display = 'flex';
+        document.getElementById('help-modal').style.display = 'flex';
+      } catch (e) {
+        alert('Help Error: ' + e.message);
+      }
     }
 
     function closeHelpModal() {
@@ -2922,6 +3005,7 @@
 
     // ------------------ 射击行动结算 ------------------
     function openShootWizard() {
+      alert('【调试】进入了 Shoot 射击按键事件！');
       playSound('click');
       const op = gameState.activeAgent;
       if (!op) return;
@@ -3057,7 +3141,7 @@
         title.textContent = '射击结算 - 步骤 4: 攻击方掷骰 (Angels of Death)';
         
         let rerollHint = '';
-        const curCp = wizardState.attacker.faction === gameState.factionA ? gameState.smCp : gameState.pmCp;
+        const curCp = wizardState.attacker.faction === gameState.factionA ? gameState.factionACp : gameState.factionBCp;
         
         if (wizardState.attackRolls.length > 0) {
           rerollHint = `
@@ -3120,7 +3204,7 @@
         }
 
         let rerollHint = '';
-        const curCp = wizardState.defender.faction === gameState.factionA ? gameState.smCp : gameState.pmCp;
+        const curCp = wizardState.defender.faction === gameState.factionA ? gameState.factionACp : gameState.factionBCp;
         if (wizardState.defenseRolls.length > 0 && dfCount > 0) {
           rerollHint = `
             <div class="roll-summary-block" style="margin-top:10px;">
@@ -3323,7 +3407,17 @@
       triggerCombatVisual("🔥 OPEN FIRE!", "shoot");
       playSound('shoot');
 
-      // 3. 顺序停下 (逐个确定点数并播放音效)
+      // 3. 悬念特效：所有骰子开始疯狂滚动数字
+      const cubes = pool.getElementsByClassName('kt-dice-cube');
+      const spinInterval = setInterval(() => {
+        for (let i = 0; i < cubes.length; i++) {
+          if (cubes[i].classList.contains('rolling')) {
+            cubes[i].textContent = Math.floor(Math.random() * 6) + 1;
+          }
+        }
+      }, 50);
+
+      // 4. 顺序停下 (逐个确定点数并播放音效)
       const finalRolls = [];
       let currentSettleIndex = 0;
 
@@ -3333,8 +3427,7 @@
           finalRolls.push(val);
           
           // 更新 DOM
-          const diceCubes = pool.getElementsByClassName('kt-dice-cube');
-          const cube = diceCubes[currentSettleIndex];
+          const cube = cubes[currentSettleIndex];
           cube.classList.remove('rolling');
           cube.textContent = val;
           
@@ -3352,6 +3445,7 @@
           // 400ms 顺序延迟
           setTimeout(settleNextDice, 400);
         } else {
+          clearInterval(spinInterval);
           // 全部掷骰完毕，计算并呈现结果
           wizardState.attackRolls = finalRolls;
           recalculateAttackStats();
@@ -3369,8 +3463,8 @@
         }
       }
 
-      // 1200ms 初始翻滚延迟
-      setTimeout(settleNextDice, 1200);
+      // 1500ms 初始翻滚延迟
+      setTimeout(settleNextDice, 1500);
     }
 
     function renderAttackDiceView() {
@@ -3379,7 +3473,7 @@
       pool.innerHTML = '';
       
       const faction = wizardState.attacker.faction;
-      const curCp = faction === gameState.factionA ? gameState.smCp : gameState.pmCp;
+      const curCp = faction === gameState.factionA ? gameState.factionACp : gameState.factionBCp;
       const attDiceClass = faction === gameState.factionA ? 'sm-dice' : 'pm-dice';
 
       wizardState.attackRolls.forEach((val, idx) => {
@@ -3414,9 +3508,9 @@
     function rerollSingleAttackDice(idx) {
       playSound('shoot');
       if (wizardState.attacker.faction === gameState.factionA) {
-        gameState.smCp -= 1;
+        gameState.factionACp -= 1;
       } else {
-        gameState.pmCp -= 1;
+        gameState.factionBCp -= 1;
       }
       updateScoresUI();
 
@@ -3468,14 +3562,22 @@
 
       const finalRolls = [];
       let currentSettleIndex = 0;
+      // 3. 悬念特效：疯狂滚动数字
+      const cubes = pool.getElementsByClassName('kt-dice-cube');
+      const spinInterval = setInterval(() => {
+        for (let i = 0; i < cubes.length; i++) {
+          if (cubes[i].classList.contains('rolling')) {
+            cubes[i].textContent = Math.floor(Math.random() * 6) + 1;
+          }
+        }
+      }, 50);
 
       function settleNextDice() {
         if (currentSettleIndex < dfCount) {
           const val = Math.floor(Math.random() * 6) + 1;
           finalRolls.push(val);
 
-          const diceCubes = pool.getElementsByClassName('kt-dice-cube');
-          const cube = diceCubes[currentSettleIndex];
+          const cube = cubes[currentSettleIndex];
           cube.classList.remove('rolling');
           cube.textContent = val;
 
@@ -3493,6 +3595,7 @@
           // 400ms 顺序延迟
           setTimeout(settleNextDice, 400);
         } else {
+          clearInterval(spinInterval);
           wizardState.defenseRolls = finalRolls;
           recalculateDefenseStats();
 
@@ -3512,8 +3615,8 @@
         }
       }
 
-      // 1200ms 初始翻滚延迟
-      setTimeout(settleNextDice, 1200);
+      // 1500ms 初始翻滚延迟
+      setTimeout(settleNextDice, 1500);
     }
 
     function renderDefenseDiceView(dfCount) {
@@ -3522,7 +3625,7 @@
       pool.innerHTML = '';
 
       const faction = wizardState.defender.faction;
-      const curCp = faction === gameState.factionA ? gameState.smCp : gameState.pmCp;
+      const curCp = faction === gameState.factionA ? gameState.factionACp : gameState.factionBCp;
       const defDiceClass = faction === gameState.factionA ? 'sm-dice' : 'pm-dice';
 
       wizardState.defenseRolls.forEach((val, idx) => {
@@ -3557,9 +3660,9 @@
     function rerollSingleDefenseDice(idx, dfCount) {
       playSound('save');
       if (wizardState.defender.faction === gameState.factionA) {
-        gameState.smCp -= 1;
+        gameState.factionACp -= 1;
       } else {
-        gameState.pmCp -= 1;
+        gameState.factionBCp -= 1;
       }
       updateScoresUI();
 
@@ -3817,10 +3920,11 @@
       
       closeModal();
       
+      playDamageCinematic(defender, actualDamage, 'shoot');
       if (actualDamage > 0) {
         setTimeout(() => {
           triggerAvatarHitEffect(defender.id, 'shoot');
-        }, 100);
+        }, 1500); // Trigger after cinematic ends
       }
     }
 
@@ -3829,6 +3933,7 @@
     // ==========================================
 
     function openFightWizard() {
+      alert('【调试】进入了 Fight 近战按键事件！');
       playSound('click');
       const op = gameState.activeAgent;
       if (!op) return;
@@ -4418,8 +4523,7 @@
         wizardState.meleeLogs += msg;
         
         targetOpponent.applyWounds(dmg);
-        playSound('heavy_strike');
-        triggerCombatVisual("⚔️ STRIKE! -" + dmg, "strike");
+        playDamageCinematic(targetOpponent, dmg, 'fight');
       } else {
         let targetIdx = -1;
         if (dice.isCrit) {
@@ -4758,8 +4862,8 @@
 
     function renderTurnEndScoringContent() {
       const overlayBox = document.getElementById('phase-overlay-content');
-      const totalSmVpThisTurn = gameState.tempSmKillVp + gameState.tempSmObjVp;
-      const totalPmVpThisTurn = gameState.tempPmKillVp + gameState.tempPmObjVp;
+      const totalfactionAVpThisTurn = gameState.tempSmKillVp + gameState.tempSmObjVp;
+      const totalfactionBVpThisTurn = gameState.tempPmKillVp + gameState.tempPmObjVp;
       
       const isFinalTP = gameState.turningPoint >= 5;
       const confirmBtnText = isFinalTP ? '确认结算并完成对局' : '确认结算并推进回合';
@@ -4818,7 +4922,7 @@
               </div>
               <div style="border-top:1px dashed rgba(255,255,255,0.1); padding-top:8px; display:flex; justify-content:space-between; align-items:center; font-weight:bold; font-size:0.95rem;">
                 <span>本回合得分小计：</span>
-                <span style="color:#60a5fa;">+${totalSmVpThisTurn} VP</span>
+                <span style="color:#60a5fa;">+${totalfactionAVpThisTurn} VP</span>
               </div>
             </div>
           </div>
@@ -4868,7 +4972,7 @@
               </div>
               <div style="border-top:1px dashed rgba(255,255,255,0.1); padding-top:8px; display:flex; justify-content:space-between; align-items:center; font-weight:bold; font-size:0.95rem;">
                 <span>本回合得分小计：</span>
-                <span style="color:var(--pm-accent);">+${totalPmVpThisTurn} VP</span>
+                <span style="color:var(--pm-accent);">+${totalfactionBVpThisTurn} VP</span>
               </div>
             </div>
           </div>
@@ -4911,15 +5015,15 @@
       const smGain = gameState.tempSmKillVp + gameState.tempSmObjVp;
       const pmGain = gameState.tempPmKillVp + gameState.tempPmObjVp;
       
-      gameState.smVp += smGain;
-      gameState.pmVp += pmGain;
+      gameState.factionAVp += smGain;
+      gameState.factionBVp += pmGain;
       
       gameState.smKillsScored = gameState.tempSmKills;
       gameState.pmKillsScored = gameState.tempPmKills;
       
       addLog(`\n--- Turning Point ${gameState.turningPoint} 回合结算结果 ---`);
-      addLog(`[死亡天使] 新增 ${smGain} VP (任务:${gameState.tempSmObjVp}, 击杀:${gameState.tempSmKillVp}) | 累计 VP: ${gameState.smVp}`);
-      addLog(`[瘟疫守卫] 新增 ${pmGain} VP (任务:${gameState.tempPmObjVp}, 击杀:${gameState.tempPmKillVp}) | 累计 VP: ${gameState.pmVp}`);
+      addLog(`[死亡天使] 新增 ${smGain} VP (任务:${gameState.tempSmObjVp}, 击杀:${gameState.tempSmKillVp}) | 累计 VP: ${gameState.factionAVp}`);
+      addLog(`[瘟疫守卫] 新增 ${pmGain} VP (任务:${gameState.tempPmObjVp}, 击杀:${gameState.tempPmKillVp}) | 累计 VP: ${gameState.factionBVp}`);
       
       hidePhaseOverlay();
       endTurningPoint();
@@ -4931,22 +5035,75 @@
       const smGain = gameState.tempSmKillVp + gameState.tempSmObjVp;
       const pmGain = gameState.tempPmKillVp + gameState.tempPmObjVp;
       
-      gameState.smVp += smGain;
-      gameState.pmVp += pmGain;
+      gameState.factionAVp += smGain;
+      gameState.factionBVp += pmGain;
       gameState.smKillsScored = gameState.tempSmKills;
       gameState.pmKillsScored = gameState.tempPmKills;
       
       gameState.gameOver = true;
       updateScoresUI();
       
-      let winReason = `双方经历五回合激烈交火，战斗正式落幕！\n最终战队积分：\n死亡天使: ${gameState.smVp} VP\n瘟疫守卫: ${gameState.pmVp} VP\n\n`;
-      if (gameState.smVp === gameState.pmVp) {
+      let winReason = `双方经历五回合激烈交火，战斗正式落幕！\n最终战队积分：\n死亡天使: ${gameState.factionAVp} VP\n瘟疫守卫: ${gameState.factionBVp} VP\n\n`;
+      if (gameState.factionAVp === gameState.factionBVp) {
         declareVictory('draw', winReason + '双方得分平分秋色，本局握手言和！');
-      } else if (gameState.smVp > gameState.pmVp) {
+      } else if (gameState.factionAVp > gameState.factionBVp) {
         declareVictory('sm', winReason + '死亡天使胜利点数更高，赢得最终胜利！');
       } else {
         declareVictory('pm', winReason + '瘟疫守卫胜利点数更高，赢得最终胜利！');
       }
+    }
+
+    // ------------------ 动态处决血条动画 ------------------
+    function playDamageCinematic(defender, damage, attackType = 'shoot') {
+      const oldWounds = Math.min(defender.wounds + damage, defender.maxWounds);
+      const newWounds = defender.wounds;
+
+      const overlay = document.createElement('div');
+      overlay.className = 'cinematic-damage-overlay';
+      overlay.innerHTML = `
+        <div class="cinematic-card" style="position:relative; ${damage === 0 ? 'border-color: #38bdf8; box-shadow: 0 0 50px rgba(56, 189, 248, 0.5);' : ''}">
+          <h2 style="margin:0 0 15px; color:var(--text-muted);">${defender.name}</h2>
+          <img src="${defender.avatar}" class="cinematic-avatar" id="cine-avatar">
+          <div class="cinematic-hp-container">
+            <div class="cinematic-hp-bar" id="cine-hp-bar" style="width: ${(oldWounds / defender.maxWounds) * 100}%"></div>
+            <div class="cinematic-hp-text" id="cine-hp-text">${oldWounds} / ${defender.maxWounds}</div>
+          </div>
+          ${damage > 0 ? `<div class="cinematic-dmg-number">-${damage}</div>` : '<div class="cinematic-dmg-number" style="color:#38bdf8;">BLOCKED</div>'}
+        </div>
+      `;
+      document.body.appendChild(overlay);
+
+      setTimeout(() => {
+        overlay.classList.add('show');
+        if (damage > 0) playSound('heavy_strike');
+        
+        setTimeout(() => {
+          const hpBar = overlay.querySelector('#cine-hp-bar');
+          const hpText = overlay.querySelector('#cine-hp-text');
+          const avatar = overlay.querySelector('#cine-avatar');
+          
+          if (damage > 0) {
+            hpBar.style.width = `${(newWounds / defender.maxWounds) * 100}%`;
+            hpText.textContent = `${newWounds} / ${defender.maxWounds}`;
+            avatar.style.filter = 'sepia(1) hue-rotate(-50deg) saturate(5) brightness(0.8)';
+            
+            document.body.classList.remove('intense-shake');
+            void document.body.offsetWidth;
+            document.body.classList.add('intense-shake');
+            setTimeout(() => document.body.classList.remove('intense-shake'), 400);
+          } else {
+            playSound('click'); // Placeholder for block sound
+          }
+          
+          setTimeout(() => {
+            overlay.classList.remove('show');
+            setTimeout(() => overlay.remove(), 300);
+            
+            // Render operatives again just to be sure DOM is clean
+            renderOperatives();
+          }, 1500);
+        }, 400);
+      }, 50);
     }
 
     // 激情战斗视觉特效：屏幕抖动与飘字
@@ -5036,3 +5193,5 @@
   <input type="file" id="global-avatar-uploader" accept="image/*" style="display:none" onchange="handleAvatarFileSelect(event)">
 </body>
 </html>
+
+
