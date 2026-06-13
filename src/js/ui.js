@@ -61,7 +61,7 @@ export function showConfirmDialog(message, onConfirm) {
       </div>
       <div class="modal-footer">
         <button class="modal-btn" id="confirm-dialog-cancel">取消</button>
-        <button class="modal-btn primary" id="confirm-dialog-ok" style="background: linear-gradient(135deg, var(--red), #991b1b); border-color: #f43f5e;">确认</button>
+        <button class="modal-btn primary" id="confirm-dialog-ok" style="background: linear-gradient(135deg, var(--red), #5a2020); border-color: #b84c4c;">确认</button>
       </div>
     </div>
   `;
@@ -344,7 +344,7 @@ function buildRosterRowHtml(tmpl, faction, isLeader, checked, disabled, toggleFn
   const checkedAttr = checked ? 'checked' : '';
   const disabledAttr = disabled ? 'disabled' : '';
   const avatarHtml = getAvatarHtml(tmpl.id, faction);
-  const warriorTag = tmpl.isWarrior ? ' <span style="color:#fbbf24; font-size:0.65rem;">[Warrior]</span>' : '';
+  const warriorTag = tmpl.isWarrior ? ' <span style="color:#c9a84c; font-size:0.65rem;">[Warrior]</span>' : '';
 
   // Warrior 使用计数器（可复选多个同型单位），其他使用复选框
   let controlHtml;
@@ -366,7 +366,7 @@ function buildRosterRowHtml(tmpl, faction, isLeader, checked, disabled, toggleFn
     <div class="roster-op-info">
       <div class="roster-op-name">${tmpl.name} ${badge}${warriorTag}</div>
       <div class="roster-op-weapons">Move: ${tmpl.move || 6}" | HP: ${tmpl.wounds} | APL: ${tmpl.apl}</div>
-      <div style="font-size:0.65rem; color:#94a3b8; margin-top:2px;">武器: ${buildWeaponSummary(tmpl)}</div>
+      <div style="font-size:0.65rem; color:#9a9da5; margin-top:2px;">武器: ${buildWeaponSummary(tmpl)}</div>
     </div>
   `;
 }
@@ -488,7 +488,7 @@ export function renderRosterPickers() {
 
   // Leader 分组标题
   smLeaderSection.innerHTML = `
-    <div style="font-size:0.8rem; font-weight:600; color:#60a5fa; margin-bottom:6px; padding-left:4px;">
+    <div style="font-size:0.8rem; font-weight:600; color:#6a9ad4; margin-bottom:6px; padding-left:4px;">
       🎖️ LEADER — 单选 1 名 (3 选 1)
     </div>
   `;
@@ -503,9 +503,9 @@ export function renderRosterPickers() {
 
   // Operator 分组标题
   smOperatorSection.innerHTML = `
-    <div style="font-size:0.8rem; font-weight:600; color:#60a5fa; margin:12px 0 6px 4px; display:flex; justify-content:space-between; align-items:center;">
+    <div style="font-size:0.8rem; font-weight:600; color:#6a9ad4; margin:12px 0 6px 4px; display:flex; justify-content:space-between; align-items:center;">
       <span>🎯 OPERATORS — 共选 5 名 (Warrior 可用计数器重复选取)</span>
-      <span id="sm-op-count" style="font-size:0.75rem; color:#94a3b8; font-family:'Pirata One',serif;">0 / 5</span>
+      <span id="sm-op-count" style="font-size:0.75rem; color:#9a9da5; font-family:'Pirata One',serif;">0 / 5</span>
     </div>
     <p style="font-size:0.7rem; color:var(--text-muted); margin-bottom:8px; padding-left:4px;">
       ⚠️ 非 Warrior 每种只能带一名。Warrior [Warrior] 可用 +/− 按钮选取最多 5 名同型单位。
@@ -535,7 +535,7 @@ export function renderRosterPickers() {
       🎖️ LEADER — 必选
     </div>
   `;
-  const pmBadgeStyle = 'border-color:var(--pm-accent); color:var(--pm-accent); background:rgba(132,204,22,0.15)';
+  const pmBadgeStyle = 'border-color:var(--pm-accent); color:var(--pm-accent); background:rgba(122,184,138,0.15)';
   pmLeaders.forEach(tmpl => {
     const row = document.createElement('div');
     row.className = 'roster-pick-row selected';
@@ -548,7 +548,7 @@ export function renderRosterPickers() {
   pmOperatorSection.innerHTML = `
     <div style="font-size:0.8rem; font-weight:600; color:var(--pm-accent); margin:12px 0 6px 4px; display:flex; justify-content:space-between; align-items:center;">
       <span>🎯 OPERATORS — 共选 5 名 (6 类型, Warrior 可重复)</span>
-      <span id="pm-op-count" style="font-size:0.75rem; color:#94a3b8; font-family:'Pirata One',serif;">0 / 5</span>
+      <span id="pm-op-count" style="font-size:0.75rem; color:#9a9da5; font-family:'Pirata One',serif;">0 / 5</span>
     </div>
     <p style="font-size:0.7rem; color:var(--text-muted); margin-bottom:8px; padding-left:4px;">
       ⚠️ 非 Warrior 每种只能带一名。Warrior [Warrior] 可用 +/− 按钮选取多名同型单位。
@@ -801,7 +801,7 @@ export function renderOperatives() {
 
     let tagHtml = '';
     if (!isSm && gameState.pmActivePloys.includes('contagious_resilience') && !op.isDead) {
-      tagHtml = '<span class="card-ploy-tag" style="border-color:var(--pm-accent); color:var(--pm-accent); background:rgba(132,204,22,0.15);">减伤重投</span>';
+      tagHtml = '<span class="card-ploy-tag" style="border-color:var(--pm-accent); color:var(--pm-accent); background:rgba(122,184,138,0.15);">减伤重投</span>';
     }
 
     // 状态标记：Conceal / Injured / Poison Token
@@ -811,10 +811,10 @@ export function renderOperatives() {
         statusTagsHtml += '<span class="card-ploy-tag" style="border-color:#818cf8; color:#818cf8; background:rgba(129,140,248,0.15); font-size:0.6rem;">隐蔽</span>';
       }
       if (op.isInjured) {
-        statusTagsHtml += '<span class="card-ploy-tag" style="border-color:var(--red); color:var(--red); background:rgba(239,68,68,0.15); font-size:0.6rem;">重伤</span>';
+        statusTagsHtml += '<span class="card-ploy-tag" style="border-color:var(--red); color:var(--red); background:rgba(184,76,76,0.15); font-size:0.6rem;">重伤</span>';
       }
       if (op.poisonTokens > 0) {
-        statusTagsHtml += '<span class="card-ploy-tag" style="border-color:#a3e635; color:#a3e635; background:rgba(163,230,53,0.15); font-size:0.6rem;">毒素×' + op.poisonTokens + '</span>';
+        statusTagsHtml += '<span class="card-ploy-tag" style="border-color:#7ab88a; color:#7ab88a; background:rgba(122,184,138,0.15); font-size:0.6rem;">毒素×' + op.poisonTokens + '</span>';
       }
     }
 
@@ -845,7 +845,7 @@ export function renderOperatives() {
         <span>Move: <strong>${op.currentMove}"</strong>${op.isInjured ? ' <span style="color:var(--red); font-size:0.55rem;">(-2)</span>' : ''}</span>
         <span>DF: <strong>${op.df}</strong></span>
         <span>SV: <strong>${op.sv}+</strong></span>
-        <span style="font-size: 0.65rem; color: #64748b; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 120px;">
+        <span style="font-size: 0.65rem; color: #5a5d65; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 120px;">
           ${weaponNames}
         </span>
       </div>
@@ -959,17 +959,20 @@ export function updateActivePanel() {
 
     // Astartes 双重行动规则: 可选择 2 Shoot 或 2 Fight (但不能混合)
     const isAstartes = true; // 所有 SM 和 PM 都是 Astartes
-    const maxShoots = isAstartes ? 2 : 1;
-    const maxFights = isAstartes ? 2 : 1;
+    const isCounteracting = op.counteracting === true;
+
+    // Counteract 模式下: 仅 1 次行动, 禁止冲锋, 移动不超过 2"
+    const maxShoots = isCounteracting ? 1 : (isAstartes ? 2 : 1);
+    const maxFights = isCounteracting ? 1 : (isAstartes ? 2 : 1);
 
     // 互斥约束：做了 Shoot 就不能 Fight，做了 Fight 就不能 Shoot
-    const shootLocked = isAstartes && hasFought;    // 已近战, 锁定射击
-    const fightLocked = isAstartes && hasShot;       // 已射击, 锁定近战
+    const shootLocked = (isAstartes && !isCounteracting) && hasFought;
+    const fightLocked = (isAstartes && !isCounteracting) && hasShot;
     const shootLimitReached = shootCount >= maxShoots;
     const fightLimitReached = fightCount >= maxFights;
 
     document.getElementById('action-move').disabled = op.apl < 1 || hasMoved || hasCharged;
-    document.getElementById('action-charge').disabled = op.apl < 1 || hasMoved || hasCharged || hasFought;
+    document.getElementById('action-charge').disabled = isCounteracting ? true : (op.apl < 1 || hasMoved || hasCharged || hasFought);
     document.getElementById('action-shoot').disabled = op.apl < 1 || shootLimitReached || shootLocked || hasCharged;
     document.getElementById('action-fight').disabled = op.apl < 1 || fightLimitReached || fightLocked;
 
@@ -978,7 +981,7 @@ export function updateActivePanel() {
     const ployDisplay = document.getElementById('active-ploys-display');
     if (ployDisplay) {
         const ploysText = [];
-        if (hasShot) ploysText.push(`<span style="color:#60a5fa;">💥 Astartes: 已射击×${shootCount}，锁定近战</span>`);
+        if (hasShot) ploysText.push(`<span style="color:#6a9ad4;">💥 Astartes: 已射击×${shootCount}，锁定近战</span>`);
         if (hasFought) ploysText.push(`<span style="color:#f87171;">⚔️ Astartes: 已近战×${fightCount}，锁定射击</span>`);
         if (hasContagiousResilience) ploysText.push('<span style="color:var(--pm-accent);">🛡️ 传染韧性生效中</span>');
         ployDisplay.innerHTML = ploysText.length > 0 ? ploysText.join(' | ') : '';
@@ -1055,6 +1058,13 @@ export function endActivation() {
   playSound('click');
   const op = gameState.activeAgent;
   if (!op) return;
+
+  // Counteract 激活结束后: 重新标记为 hasActed, 清除 counteracting 标记
+  if (op.counteracting) {
+    addLog(`[反击结束] ${op.name} 的反击行动完毕。`);
+    op.counteracting = false;
+  }
+
   op.hasActed = true;
   op.apl = 0;
   addLog(`[结束激活] ${op.name} 结束了本次激活。`);
@@ -1081,7 +1091,7 @@ export function startInitiativePhase() {
 
     <div class="init-roll-grid" style="margin-bottom:12px;">
       <div class="init-team-col sm">
-        <h4 style="color:#60a5fa; font-size:0.9rem;">死亡天使先攻骰</h4>
+        <h4 style="color:#6a9ad4; font-size:0.9rem;">死亡天使先攻骰</h4>
         <div class="dice-pool-view" id="overlay-init-sm-dice">
           <div class="kt-dice-cube sm-dice">?</div>
         </div>
@@ -1183,7 +1193,30 @@ export function selectTurnOrder(faction) {
 }
 
 export function startStrategyPhase() {
+  const wasPrevPhase = gameState.phase;
   gameState.phase = 'Strategy';
+
+  // ---- 策略阶段 CP 收益 (按规则: 第1回合双方+1, 之后先攻方+1 / 非先攻方+2) ----
+  if (wasPrevPhase !== 'Strategy') {
+    if (gameState.turningPoint === 1) {
+      gameState.smCp += 1;
+      gameState.pmCp += 1;
+      addLog(`  💰 第1回合策略阶段：双方各获得 1 CP。`);
+    } else {
+      const initFaction = gameState.initiative;
+      const nonInitFaction = initFaction === 'Space Marine' ? 'Plague Marine' : 'Space Marine';
+      if (initFaction === 'Space Marine') {
+        gameState.smCp += 1;
+        gameState.pmCp += 2;
+      } else {
+        gameState.pmCp += 1;
+        gameState.smCp += 2;
+      }
+      const fName = f => f === 'Space Marine' ? '死亡天使' : '瘟疫守卫';
+      addLog(`  💰 TP${gameState.turningPoint} 策略阶段：${fName(initFaction)}(先攻) +1 CP, ${fName(nonInitFaction)} +2 CP。`);
+    }
+  }
+
   updateScoresUI();
   showPhaseOverlay();
 
@@ -1199,7 +1232,7 @@ export function startStrategyPhase() {
       <div class="ploy-choice-card ${gameState.smActivePloys.includes('bolter_discipline') ? 'selected' : ''}" role="button" tabindex="0" onclick="buyPloy('sm')" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();buyPloy('sm')}">
         <div class="ploy-title">
           <span>🔥 爆弹惩戒 (1 CP)</span>
-          <span style="font-size:0.75rem; color:#60a5fa;">Astartes</span>
+          <span style="font-size:0.75rem; color:#6a9ad4;">Astartes</span>
         </div>
         <div class="ploy-desc">
           死亡天使特工本回合激活内，可以使用<b>两次</b>射击行动。
@@ -1223,7 +1256,7 @@ export function startStrategyPhase() {
       </div>
     </div>
 
-    <button class="btn-large" onclick="proceedToFirefight()" style="padding: 10px 40px; font-size:0.9rem; background:linear-gradient(135deg, var(--green), #065f46); border-color:#059669; box-shadow:none;">
+    <button class="btn-large" onclick="proceedToFirefight()" style="padding: 10px 40px; font-size:0.9rem; background:linear-gradient(135deg, var(--green), #2a5a3a); border-color:#4a7c59; box-shadow:none;">
       进入战斗阶段 (Proceed to Firefight)
     </button>
   `;
@@ -1357,7 +1390,7 @@ export function declareVictory(winner, text) {
   let titleColor = 'var(--text-main)';
   if (winner === 'sm') {
     winnerTitle = '🏆 死亡天使 (Angels of Death) 荣获胜利！ 🏆';
-    titleColor = '#60a5fa';
+    titleColor = '#6a9ad4';
   } else if (winner === 'pm') {
     winnerTitle = '🏆 瘟疫守卫 (Plague Marines) 荣获胜利！ 🏆';
     titleColor = 'var(--pm-accent)';
@@ -1371,7 +1404,7 @@ export function declareVictory(winner, text) {
     <div class="qa-card" style="margin-bottom: 20px; font-size: 0.95rem; text-align: center; line-height: 1.6; border-color: rgba(255,255,255,0.1);">
       <p style="white-space: pre-line; color: var(--text-main);">${text}</p>
     </div>
-    <button class="btn-large" onclick="confirmReset()" style="padding: 10px 30px; font-size:0.9rem; background: var(--red); border-color: #f43f5e; width: 100%;">
+    <button class="btn-large" onclick="confirmReset()" style="padding: 10px 30px; font-size:0.9rem; background: var(--red); border-color: #b84c4c; width: 100%;">
       返回主菜单并重置对局
     </button>
   `;
@@ -1427,8 +1460,8 @@ export function renderTurnEndScoringContent() {
     <div style="display:grid; grid-template-columns: 1fr 1fr; gap:16px; width:100%; text-align:left; margin-bottom:16px;">
 
       <!-- SM 结算 -->
-      <div class="init-team-col sm" style="align-items:stretch; background: rgba(59,130,246,0.02); border: 1px solid rgba(59,130,246,0.1);">
-        <h4 style="color:#60a5fa; font-size:0.95rem; border-bottom:1px solid rgba(255,255,255,0.08); padding-bottom:6px; margin-bottom:10px; text-align:center; font-family:'Pirata One',serif;">
+      <div class="init-team-col sm" style="align-items:stretch; background: rgba(74,106,154,0.02); border: 1px solid rgba(74,106,154,0.1);">
+        <h4 style="color:#6a9ad4; font-size:0.95rem; border-bottom:1px solid rgba(255,255,255,0.08); padding-bottom:6px; margin-bottom:10px; text-align:center; font-family:'Pirata One',serif;">
           死亡天使 (SM)
         </h4>
         <div style="font-size:0.85rem; display:flex; flex-direction:column; gap:12px;">
@@ -1471,13 +1504,13 @@ export function renderTurnEndScoringContent() {
           </div>
           <div style="border-top:1px dashed rgba(255,255,255,0.1); padding-top:8px; display:flex; justify-content:space-between; align-items:center; font-weight:bold; font-size:0.95rem;">
             <span>本回合得分小计：</span>
-            <span style="color:#60a5fa;">+${totalSmVpThisTurn} VP</span>
+            <span style="color:#6a9ad4;">+${totalSmVpThisTurn} VP</span>
           </div>
         </div>
       </div>
 
       <!-- PM 结算 -->
-      <div class="init-team-col pm" style="align-items:stretch; background: rgba(34,197,94,0.02); border: 1px solid rgba(34,197,94,0.1);">
+      <div class="init-team-col pm" style="align-items:stretch; background: rgba(74,124,89,0.02); border: 1px solid rgba(74,124,89,0.1);">
         <h4 style="color:var(--pm-accent); font-size:0.95rem; border-bottom:1px solid rgba(255,255,255,0.08); padding-bottom:6px; margin-bottom:10px; text-align:center; font-family:'Pirata One',serif;">
           瘟疫守卫 (PM)
         </h4>
@@ -1528,7 +1561,7 @@ export function renderTurnEndScoringContent() {
 
     </div>
 
-    <button class="btn-large" onclick="${confirmAction}" style="padding: 12px 30px; font-size:0.9rem; background:linear-gradient(135deg, var(--green), #065f46); border-color:#059669; box-shadow:none; width: 100%;">
+    <button class="btn-large" onclick="${confirmAction}" style="padding: 12px 30px; font-size:0.9rem; background:linear-gradient(135deg, var(--green), #2a5a3a); border-color:#4a7c59; box-shadow:none; width: 100%;">
       ${confirmBtnText}
     </button>
   `;
@@ -1668,7 +1701,7 @@ export function triggerCombatVisual(text, type = 'normal') {
   } else if (type === 'shoot') {
     el.style.color = 'var(--sm-accent)';
   } else if (type === 'deflect') {
-    el.style.color = '#a3e635'; // 柠檬绿
+    el.style.color = '#7ab88a'; // 柠檬绿
     el.style.textShadow = '0 0 20px rgba(163, 230, 53, 0.85), 0 0 40px #000';
   }
 

@@ -181,7 +181,7 @@ export function renderShootStep() {
     let listHtml = '<div class="weapon-picker-list">';
     targets.forEach(t => {
       const injuredTag = t.isInjured ? ' <span style="color:var(--red); font-size:0.7rem;">[重伤]</span>' : '';
-      const poisonTag = t.poisonTokens > 0 ? ' <span style="color:#a3e635; font-size:0.7rem;">[毒素]</span>' : '';
+      const poisonTag = t.poisonTokens > 0 ? ' <span style="color:#7ab88a; font-size:0.7rem;">[毒素]</span>' : '';
       listHtml += `
         <div class="weapon-pick-item ${wizardState.defender && wizardState.defender.id === t.id ? 'selected' : ''}" role="button" tabindex="0" onclick="selectShootDefender('${t.id}')" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();selectShootDefender('${t.id}')}">
           <span class="weapon-pick-name">${t.name}${injuredTag}${poisonTag}</span>
@@ -268,7 +268,7 @@ export function renderShootStep() {
     if (wizardState.attackRolls.length > 0) {
       rerollHint = `
         <div class="roll-summary-block" style="margin-top:10px;">
-          🎯 <b>命中统计:</b> 暴击(6点): <span style="color:var(--sm-accent); font-weight:bold;">${wizardState.attackCrit}</span>, 普通命中(${wizardState.weapon.ts}+): <span style="color:#60a5fa;">${wizardState.attackNorm}</span>
+          🎯 <b>命中统计:</b> 暴击(6点): <span style="color:var(--sm-accent); font-weight:bold;">${wizardState.attackCrit}</span>, 普通命中(${wizardState.weapon.ts}+): <span style="color:#6a9ad4;">${wizardState.attackNorm}</span>
           ${curCp >= 1 && wizardState.attRerollIndex === -1 ? '<br><span style="color:var(--sm-accent);">💡 战术重投：你可以消耗 1 CP 点击上方任何一个未命中的灰色骰子重投。</span>' : ''}
         </div>
       `;
@@ -327,7 +327,7 @@ export function renderShootStep() {
     if (wizardState.defenseRolls.length > 0 && dfCount > 0) {
       rerollHint = `
         <div class="roll-summary-block" style="margin-top:10px;">
-          🛡️ <b>防守统计:</b> 暴击防守: <span style="color:var(--pm-accent); font-weight:bold;">${wizardState.defCrit}</span>, 普通防守(${wizardState.defender.sv}+): <span style="color:#86efac;">${wizardState.defNorm}</span>
+          🛡️ <b>防守统计:</b> 暴击防守: <span style="color:var(--pm-accent); font-weight:bold;">${wizardState.defCrit}</span>, 普通防守(${wizardState.defender.sv}+): <span style="color:#b0d4ba;">${wizardState.defNorm}</span>
           ${curCp >= 1 && wizardState.defRerollIndex === -1 ? '<br><span style="color:var(--sm-accent);">💡 战术重投：你可以消耗 1 CP 点击上面任何一个未命中的灰色骰子重投。</span>' : ''}
         </div>
       `;
@@ -1034,7 +1034,7 @@ export function renderFightStep() {
     let listHtml = '<div class="weapon-picker-list">';
     targets.forEach(t => {
       const injuredTag = t.isInjured ? ' <span style="color:var(--red); font-size:0.7rem;">[重伤]</span>' : '';
-      const poisonTag = t.poisonTokens > 0 ? ' <span style="color:#a3e635; font-size:0.7rem;">[毒素]</span>' : '';
+      const poisonTag = t.poisonTokens > 0 ? ' <span style="color:#7ab88a; font-size:0.7rem;">[毒素]</span>' : '';
       listHtml += `
         <div class="weapon-pick-item ${wizardState.defender && wizardState.defender.id === t.id ? 'selected' : ''}" role="button" tabindex="0" onclick="selectFightDefender('${t.id}')" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();selectFightDefender('${t.id}')}">
           <span class="weapon-pick-name">${t.name}${injuredTag}${poisonTag}</span>
@@ -1183,7 +1183,7 @@ export function renderFightStep() {
       if (d.used) cls += ' used';
 
       const isSelected = wizardState.selectedMeleeDice && wizardState.selectedMeleeDice.side === 'attacker' && wizardState.selectedMeleeDice.idx === idx;
-      const style = isSelected ? 'outline: 3px solid #60a5fa; transform: scale(1.15); box-shadow: 0 0 15px rgba(96,165,250,0.8); z-index: 2;' : '';
+      const style = isSelected ? 'outline: 3px solid #6a9ad4; transform: scale(1.15); box-shadow: 0 0 15px rgba(96,165,250,0.8); z-index: 2;' : '';
 
       attackerDiceHtml += `<button class="${cls}" style="${style}" onclick="chooseMeleeDice('attacker', ${idx})">${d.val}</button>`;
     });
@@ -1196,14 +1196,14 @@ export function renderFightStep() {
       if (d.used) cls += ' used';
 
       const isSelected = wizardState.selectedMeleeDice && wizardState.selectedMeleeDice.side === 'defender' && wizardState.selectedMeleeDice.idx === idx;
-      const style = isSelected ? 'outline: 3px solid var(--pm-accent); transform: scale(1.15); box-shadow: 0 0 15px rgba(34,197,94,0.8); z-index: 2;' : '';
+      const style = isSelected ? 'outline: 3px solid var(--pm-accent); transform: scale(1.15); box-shadow: 0 0 15px rgba(74,124,89,0.8); z-index: 2;' : '';
 
       defenderDiceHtml += `<button class="${cls}" style="${style}" onclick="chooseMeleeDice('defender', ${idx})">${d.val}</button>`;
     });
     if (wizardState.activeDefenderDice.length === 0) defenderDiceHtml = '<span style="color:var(--text-muted); font-size:0.8rem;">无成功骰</span>';
 
     const turnCN = wizardState.meleeTurn === 'attacker' ? '攻击方' : '防守方';
-    const turnColor = wizardState.meleeTurn === 'attacker' ? '#60a5fa' : 'var(--pm-accent)';
+    const turnColor = wizardState.meleeTurn === 'attacker' ? '#6a9ad4' : 'var(--pm-accent)';
 
     // 渲染分配动作选择卡
     let choiceCardHtml = '';
@@ -1227,16 +1227,16 @@ export function renderFightStep() {
       choiceCardHtml = `
         <div class="melee-choice-card" style="background: rgba(30, 41, 59, 0.95); border: 2px solid ${turnColor}; border-radius: 12px; padding: 16px; margin-bottom: 16px; text-align: center; box-shadow: 0 0 20px rgba(0,0,0,0.5);">
           <div style="font-weight: bold; font-size: 0.95rem; margin-bottom: 12px; color: #fff;">
-            🎯 已选中点数 <span style="display:inline-block; padding: 2px 8px; border-radius: 4px; background: ${side === 'attacker' ? 'rgba(59,130,246,0.3)' : 'rgba(34,197,94,0.3)'}; color: ${side === 'attacker' ? '#60a5fa' : 'var(--pm-accent)'}; font-weight: 900; font-family:'Pirata One',serif;">${dice.val}${dice.isCrit ? ' (⚡暴击)' : ''}</span>，请选择分配动作：
+            🎯 已选中点数 <span style="display:inline-block; padding: 2px 8px; border-radius: 4px; background: ${side === 'attacker' ? 'rgba(74,106,154,0.3)' : 'rgba(74,124,89,0.3)'}; color: ${side === 'attacker' ? '#6a9ad4' : 'var(--pm-accent)'}; font-weight: 900; font-family:'Pirata One',serif;">${dice.val}${dice.isCrit ? ' (⚡暴击)' : ''}</span>，请选择分配动作：
           </div>
 
           <div style="display: flex; gap: 16px; justify-content: center;">
-            <button onclick="resolveMeleeChoice('strike')" class="melee-action-btn strike-btn" style="flex: 1; padding: 12px 15px; font-size: 0.95rem; font-weight: bold; color: #fff; background: linear-gradient(135deg, var(--red), #991b1b); border: 2px solid #ef4444; border-radius: 8px; cursor: pointer; box-shadow: 0 4px 15px rgba(239, 68, 68, 0.3); transition: all 0.2s ease;">
+            <button onclick="resolveMeleeChoice('strike')" class="melee-action-btn strike-btn" style="flex: 1; padding: 12px 15px; font-size: 0.95rem; font-weight: bold; color: #fff; background: linear-gradient(135deg, var(--red), #5a2020); border: 2px solid #b84c4c; border-radius: 8px; cursor: pointer; box-shadow: 0 4px 15px rgba(184, 76, 76, 0.3); transition: all 0.2s ease;">
               ⚔️ 打击 (STRIKE)<br>
               <span style="font-size: 0.75rem; font-weight: normal; opacity: 0.9;">造成 ${dmg} 点伤害</span>
             </button>
 
-            <button onclick="resolveMeleeChoice('parry')" class="melee-action-btn parry-btn" ${!hasOpponentDice ? 'disabled style="opacity: 0.4; cursor: not-allowed;"' : ''} style="flex: 1; padding: 12px 15px; font-size: 0.95rem; font-weight: bold; color: #fff; background: linear-gradient(135deg, #0284c7, #075985); border: 2px solid #0ea5e9; border-radius: 8px; cursor: pointer; box-shadow: 0 4px 15px rgba(14, 165, 233, 0.3); transition: all 0.2s ease;">
+            <button onclick="resolveMeleeChoice('parry')" class="melee-action-btn parry-btn" ${!hasOpponentDice ? 'disabled style="opacity: 0.4; cursor: not-allowed;"' : ''} style="flex: 1; padding: 12px 15px; font-size: 0.95rem; font-weight: bold; color: #fff; background: linear-gradient(135deg, #4a6a9a, #3a5580); border: 2px solid #6a9ad4; border-radius: 8px; cursor: pointer; box-shadow: 0 4px 15px rgba(74, 106, 154, 0.3); transition: all 0.2s ease;">
               🛡️ 格挡 (PARRY)<br>
               <span style="font-size: 0.75rem; font-weight: normal; opacity: 0.9;">消去对方一个成功骰</span>
             </button>
@@ -1538,11 +1538,11 @@ export function getMeleeDuelHeaderHtml() {
   const defHpPct = Math.max(0, (def.wounds / def.maxWounds) * 100);
 
   return `
-    <div class="melee-duel-header" style="display:flex; justify-content:space-around; align-items:center; background:rgba(15,23,42,0.4); border:1px solid rgba(255,255,255,0.08); border-radius:12px; padding:12px; margin-bottom:16px;">
+    <div class="melee-duel-header" style="display:flex; justify-content:space-around; align-items:center; background:rgba(26,29,36,0.4); border:1px solid rgba(255,255,255,0.08); border-radius:12px; padding:12px; margin-bottom:16px;">
       <!-- Attacker Panel -->
       <div style="display:flex; flex-direction:column; align-items:center; flex:1; gap:6px; min-width: 0;">
         ${getDuelAvatarHtml(att.id, att.faction)}
-        <div style="font-weight:bold; font-size:0.85rem; color:#60a5fa; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; max-width:100%;" title="${att.name}">${att.name}</div>
+        <div style="font-weight:bold; font-size:0.85rem; color:#6a9ad4; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; max-width:100%;" title="${att.name}">${att.name}</div>
         <div style="font-size:0.7rem; color:var(--text-muted); font-family:'Pirata One',serif; text-transform:uppercase;">攻击方</div>
         <!-- HP bar -->
         <div style="width:100%; background:rgba(255,255,255,0.08); height:6px; border-radius:3px; overflow:hidden; margin-top:4px;">
@@ -1577,11 +1577,11 @@ export function getShootDuelHeaderHtml() {
   const defHpPct = Math.max(0, (def.wounds / def.maxWounds) * 100);
 
   return `
-    <div class="melee-duel-header" style="display:flex; justify-content:space-around; align-items:center; background:rgba(15,23,42,0.4); border:1px solid rgba(255,255,255,0.08); border-radius:12px; padding:12px; margin-bottom:16px;">
+    <div class="melee-duel-header" style="display:flex; justify-content:space-around; align-items:center; background:rgba(26,29,36,0.4); border:1px solid rgba(255,255,255,0.08); border-radius:12px; padding:12px; margin-bottom:16px;">
       <!-- Attacker Panel -->
       <div style="display:flex; flex-direction:column; align-items:center; flex:1; gap:6px; min-width: 0;">
         ${getDuelAvatarHtml(att.id, att.faction)}
-        <div style="font-weight:bold; font-size:0.85rem; color:#60a5fa; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; max-width:100%;" title="${att.name}">${att.name}</div>
+        <div style="font-weight:bold; font-size:0.85rem; color:#6a9ad4; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; max-width:100%;" title="${att.name}">${att.name}</div>
         <div style="font-size:0.7rem; color:var(--text-muted); font-family:'Pirata One',serif; text-transform:uppercase;">射击方</div>
         <!-- HP bar -->
         <div style="width:100%; background:rgba(255,255,255,0.08); height:6px; border-radius:3px; overflow:hidden; margin-top:4px;">
