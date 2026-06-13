@@ -8,8 +8,8 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Pirata+One&family=Outfit:wght@300;400;500;600;700&display=swap" rel="stylesheet">
-  <script type="module" crossorigin src="/Kill-Team-Companion/assets/index-fIkVDL0U.js"></script>
-  <link rel="stylesheet" crossorigin href="/Kill-Team-Companion/assets/index-DP3sKEt1.css">
+  <script type="module" crossorigin src="/Kill-Team-Companion/assets/index-_vQPouuT.js"></script>
+  <link rel="stylesheet" crossorigin href="/Kill-Team-Companion/assets/index-CDCe5mkI.css">
 </head>
 <body>
 
@@ -42,11 +42,9 @@
                 </div>
               </div>
               <div class="score-group">
-                <span class="label">命令点 CP</span>
+                <span class="label">命令点 CP <span style="font-size:0.6rem; color:#60a5fa;">(自动)</span></span>
                 <div class="val-control">
-                  <button class="adjust-btn" aria-label="减少死亡天使命令点" onclick="adjustScore('sm', 'cp', -1)">-</button>
-                  <span class="val" id="sm-cp" aria-live="polite">2</span>
-                  <button class="adjust-btn" aria-label="增加死亡天使命令点" onclick="adjustScore('sm', 'cp', 1)">+</button>
+                  <span class="val" id="sm-cp" aria-live="polite" style="font-size:1.4rem; color:#60a5fa;">2</span>
                 </div>
               </div>
             </div>
@@ -67,11 +65,9 @@
                 </div>
               </div>
               <div class="score-group">
-                <span class="label">命令点 CP</span>
+                <span class="label">命令点 CP <span style="font-size:0.6rem; color:var(--pm-accent);">(自动)</span></span>
                 <div class="val-control">
-                  <button class="adjust-btn" aria-label="减少瘟疫守卫命令点" onclick="adjustScore('pm', 'cp', -1)">-</button>
-                  <span class="val" id="pm-cp" aria-live="polite">2</span>
-                  <button class="adjust-btn" aria-label="增加瘟疫守卫命令点" onclick="adjustScore('pm', 'cp', 1)">+</button>
+                  <span class="val" id="pm-cp" aria-live="polite" style="font-size:1.4rem; color:var(--pm-accent);">2</span>
                 </div>
               </div>
             </div>
@@ -81,7 +77,7 @@
       </div>
 
       <div class="dash-ops">
-        <button class="system-btn" id="btn-next-phase" style="display: none; background: var(--green); border-color: #059669; margin-bottom: 4px;"></button>
+        <button class="system-btn" id="btn-next-phase" style="display: none; background: var(--green); border-color: #4a7c59; margin-bottom: 4px;"></button>
         <button class="system-btn" onclick="confirmReset()">重置对局</button>
       </div>
     </div>
@@ -99,7 +95,7 @@
         请根据<b>《战锤40K：杀戮小队 新手手册 (2024)》</b>规则，为双方战队选择出战特工。各战队拥有 7 个可选模型，必须刚好派遣 <b>6 名</b> 特工上场，且必须遵循必要的角色上场限制。
       </p>
 
-      <div style="background: rgba(217, 119, 6, 0.1); border: 1px dashed var(--gold); border-radius: 12px; padding: 16px; margin: 0 auto 20px auto; font-size: 0.85rem; line-height: 1.6; max-width: 900px; text-align: left; box-shadow: inset 0 0 10px rgba(217, 119, 6, 0.05); width: 100%;">
+      <div style="background: rgba(201, 168, 76, 0.1); border: 1px dashed var(--gold); border-radius: 12px; padding: 16px; margin: 0 auto 20px auto; font-size: 0.85rem; line-height: 1.6; max-width: 900px; text-align: left; box-shadow: inset 0 0 10px rgba(201, 168, 76, 0.05); width: 100%;">
         <span style="font-family: 'Pirata One', serif; font-weight: bold; color: var(--sm-accent); font-size: 0.95rem; display: block; margin-bottom: 6px;">💡 实体桌游布局与部署指南 (Tabletop Setup & Deployment Guide)</span>
         <ul style="margin-left: 20px; color: var(--text-muted);">
           <li><b>第一步：地形摆放</b> — 按照官方新手手册的战场推荐，摆放好遮蔽物（Cover）与阻挡视线地形（Obstacle）。</li>
@@ -264,6 +260,11 @@
     <div class="phase-lock-box" id="phase-overlay-content"></div>
   </div>
 
+  <!-- Counteract 反击挡板 -->
+  <div class="phase-lock-overlay" id="counteract-overlay" style="display: none;" role="dialog" aria-modal="true" aria-labelledby="counteract-title">
+    <div class="phase-lock-box" id="counteract-content" style="max-width: 500px;"></div>
+  </div>
+
   <!-- 特工阵亡大屏提示与恶搞动画 -->
   <div class="death-overlay" id="death-overlay" role="alertdialog" aria-modal="true" aria-labelledby="death-title" aria-describedby="death-model-name">
     <div class="death-card">
@@ -279,17 +280,17 @@
         <svg viewBox="0 0 100 100" class="tombstone-svg" aria-hidden="true">
           <title>墓碑</title>
           <path d="M20,90 L20,40 C20,20 80,20 80,40 L80,90 Z" />
-          <path d="M10,90 L90,90" stroke="#0f172a" stroke-width="6" stroke-linecap="round" />
-          <path d="M50,35 L50,65 M38,45 L62,45" stroke="#0f172a" stroke-width="5" stroke-linecap="round" />
-          <text x="50" y="80" font-size="10" font-weight="bold" text-anchor="middle" fill="#0f172a">R.I.P</text>
+          <path d="M10,90 L90,90" stroke="#1a1d24" stroke-width="6" stroke-linecap="round" />
+          <path d="M50,35 L50,65 M38,45 L62,45" stroke="#1a1d24" stroke-width="5" stroke-linecap="round" />
+          <text x="50" y="80" font-size="10" font-weight="bold" text-anchor="middle" fill="#1a1d24">R.I.P</text>
         </svg>
 
         <svg viewBox="0 0 100 100" class="ghost-svg" aria-hidden="true">
           <title>幽灵</title>
           <path d="M20,50 C20,30 35,15 50,15 C65,15 80,30 80,50 C80,65 85,80 75,80 C70,80 65,70 60,75 C55,80 50,70 45,75 C40,70 35,80 30,80 C20,80 20,65 20,50 Z" fill="#e2e8f0" />
-          <circle cx="42" cy="40" r="4" fill="#0f172a" />
-          <circle cx="58" cy="40" r="4" fill="#0f172a" />
-          <ellipse cx="50" cy="50" rx="3" ry="5" fill="#0f172a" />
+          <circle cx="42" cy="40" r="4" fill="#1a1d24" />
+          <circle cx="58" cy="40" r="4" fill="#1a1d24" />
+          <ellipse cx="50" cy="50" rx="3" ry="5" fill="#1a1d24" />
         </svg>
       </div>
 
@@ -297,7 +298,7 @@
         恶搞台词加载中...
       </div>
 
-      <button class="btn-large" onclick="confirmOperativeDeath()" style="padding: 12px 40px; font-size: 1rem; background: var(--red); border-color: #f43f5e; box-shadow: 0 0 15px rgba(244, 63, 94, 0.4); width: 100%;">
+      <button class="btn-large" onclick="confirmOperativeDeath()" style="padding: 12px 40px; font-size: 1rem; background: var(--red); border-color: #b84c4c; box-shadow: 0 0 15px rgba(184, 76, 76, 0.4); width: 100%;">
         已移出沙盘 (Model Removed)
       </button>
     </div>
@@ -306,6 +307,6 @@
   <!-- 全局隐藏上传控件 -->
   <label for="global-avatar-uploader" class="sr-only">上传特工头像照片</label>
   <input type="file" id="global-avatar-uploader" accept="image/*" style="display:none" onchange="handleAvatarFileSelect(event)">
-
+
 </body>
 </html>
