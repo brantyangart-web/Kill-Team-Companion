@@ -1318,7 +1318,7 @@
         <div class="board-header">
           <img src="faction_header_sm.png" class="board-header-img">
           <div class="board-header-content">
-            <span>死亡天使战队 (Angels of Death)</span>
+            <span id="label-team-a">死亡天使战队 (Angels of Death)</span>
             <span class="team-status" id="sm-alive-count">6/6 存活</span>
           </div>
         </div>
@@ -1403,7 +1403,7 @@
         <div class="board-header">
           <img src="faction_header_pm.png" class="board-header-img">
           <div class="board-header-content">
-            <span>瘟疫守卫战队 (Plague Marines)</span>
+            <span id="label-team-b">瘟疫守卫战队 (Plague Marines)</span>
             <span class="team-status" id="pm-alive-count">5/5 存活</span>
           </div>
         </div>
@@ -2940,7 +2940,7 @@
       }
 
       else if (wizardState.step === 4) {
-        title.textContent = '射击结算 - 步骤 4: 攻击方掷骰 (Angels of Death)';
+        title.textContent = '射击结算 - 步骤 4: 攻击方掷骰 (' + FACTIONS_DB[wizardState.attacker.faction].name + ')';
         
         let rerollHint = '';
         const curCp = wizardState.attacker.faction === gameState.factionA ? gameState.factionACp : gameState.factionBCp;
@@ -2996,7 +2996,7 @@
       }
 
       else if (wizardState.step === 5) {
-        title.textContent = '射击结算 - 步骤 5: 防守方防御掷骰 (Plague Marines)';
+        title.textContent = '射击结算 - 步骤 5: 防守方防御掷骰 (' + FACTIONS_DB[wizardState.defender.faction].name + ')';
         
         let coverDesc = '';
         let dfCount = wizardState.defender.df;
@@ -4581,7 +4581,7 @@
       
       if (overlay) {
         modelName.textContent = op.name;
-        modelFaction.textContent = op.faction === gameState.factionA ? '死亡天使 (Angels of Death)' : '瘟疫守卫 (Plague Marines)';
+        modelFaction.textContent = op.faction === gameState.factionA ? FACTIONS_DB[gameState.factionA].name : FACTIONS_DB[gameState.factionB].name;
         
         const randIdx = Math.floor(Math.random() * GAG_MESSAGES.length);
         gagText.textContent = GAG_MESSAGES[randIdx];
@@ -4613,10 +4613,10 @@
         declareVictory('draw', '双方均全员阵亡，战斗以同归于尽平局告终！');
       } else if (smAlive === 0) {
         gameState.gameOver = true;
-        declareVictory('pm', '死亡天使战队全员阵亡！\n瘟疫守卫 (Plague Marines) 成功清剿了残敌，夺取了战场的完全控制权！');
+        declareVictory('pm', `${FACTIONS_DB[gameState.factionA].name} 战队全员阵亡！\n${FACTIONS_DB[gameState.factionB].name} 成功清剿了残敌，夺取了战场的完全控制权！`);
       } else if (pmAlive === 0) {
         gameState.gameOver = true;
-        declareVictory('sm', '瘟疫守卫战队全员阵亡！\n死亡天使 (Angels of Death) 肃清了战场，坚守住帝国的光荣防线！');
+        declareVictory('sm', `${FACTIONS_DB[gameState.factionB].name} 战队全员阵亡！\n${FACTIONS_DB[gameState.factionA].name} 肃清了战场，坚守住防线！`);
       }
     }
 
@@ -4627,14 +4627,14 @@
       let winnerTitle = '🎉 对局结束 🎉';
       let titleColor = 'var(--text-main)';
       if (winner === 'sm') {
-        winnerTitle = '🏆 死亡天使 (Angels of Death) 荣获胜利！ 🏆';
-        titleColor = '#60a5fa';
+        winnerTitle = `🏆 ${FACTIONS_DB[gameState.factionA].name} 荣获胜利！ 🏆`;
+        titleColor = 'var(--faction-a-color)';
       } else if (winner === 'pm') {
-        winnerTitle = '🏆 瘟疫守卫 (Plague Marines) 荣获胜利！ 🏆';
-        titleColor = 'var(--pm-accent)';
+        winnerTitle = `🏆 ${FACTIONS_DB[gameState.factionB].name} 荣获胜利！ 🏆`;
+        titleColor = 'var(--faction-b-color)';
       } else if (winner === 'draw') {
         winnerTitle = '🤝 双方同归于尽 (Match Draw) 🤝';
-        titleColor = 'var(--sm-accent)';
+        titleColor = 'var(--faction-a-color)';
       }
       
       overlayBox.innerHTML = `
