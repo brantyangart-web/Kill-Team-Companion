@@ -138,12 +138,12 @@
       border-radius: 4px;
       border: 1px solid transparent;
     }
-    .ploy-tag.sm {
+    .ploy-tag.team-a {
       background: rgba(59, 130, 246, 0.2);
       border-color: rgba(59, 130, 246, 0.4);
       color: #93c5fd;
     }
-    .ploy-tag.pm {
+    .ploy-tag.team-b {
       background: rgba(74, 222, 128, 0.2);
       border-color: rgba(74, 222, 128, 0.4);
       color: #a7f3d0;
@@ -162,8 +162,8 @@
       gap: 16px;
     }
 
-    .score-card.sm { border-left: 3px solid var(--sm-blue); padding-left: 12px; }
-    .score-card.pm { border-left: 3px solid var(--pm-green); padding-left: 12px; }
+    .score-card.team-a { border-left: 3px solid var(--faction-a-color); padding-left: 12px; }
+    .score-card.team-b { border-left: 3px solid var(--faction-b-color); padding-left: 12px; }
 
     .score-values { display: flex; gap: 16px; }
 
@@ -180,8 +180,8 @@
     .adjust-btn:hover { background: #334155; }
 
     .score-card-title { font-size: 0.95rem; font-weight: 700; }
-    .score-card.sm .score-card-title { color: #60a5fa; }
-    .score-card.pm .score-card-title { color: var(--pm-accent); }
+    .score-card.team-a .score-card-title { color: var(--faction-a-color); }
+    .score-card.team-b .score-card-title { color: var(--faction-b-color); }
 
     .dash-ops { display: flex; flex-direction: column; gap: 6px; }
     .system-btn {
@@ -260,8 +260,8 @@
       gap: 12px;
     }
 
-    .roster-picker-card.sm { border-top: 4px solid var(--sm-blue); }
-    .roster-picker-card.pm { border-top: 4px solid var(--pm-green); }
+    .roster-picker-card.team-a { border-top: 4px solid var(--faction-a-color); }
+    .roster-picker-card.team-b { border-top: 4px solid var(--faction-b-color); }
 
     .roster-picker-header {
       display: flex;
@@ -276,8 +276,8 @@
       font-size: 1.05rem;
       font-weight: 700;
     }
-    .roster-picker-card.sm .roster-picker-title { color: #60a5fa; }
-    .roster-picker-card.pm .roster-picker-title { color: var(--pm-accent); }
+    .roster-picker-card.team-a .roster-picker-title { color: var(--faction-a-color); }
+    .roster-picker-card.team-b .roster-picker-title { color: var(--faction-b-color); }
 
     .roster-picker-limit {
       font-size: 0.75rem;
@@ -315,11 +315,11 @@
       background: rgba(234, 179, 8, 0.04);
       border-color: rgba(234, 179, 8, 0.4);
     }
-    .roster-picker-card.sm .roster-pick-row.selected {
+    .roster-picker-card.team-a .roster-pick-row.selected {
       background: rgba(59, 130, 246, 0.05);
       border-color: rgba(59, 130, 246, 0.4);
     }
-    .roster-picker-card.pm .roster-pick-row.selected {
+    .roster-picker-card.team-b .roster-pick-row.selected {
       background: rgba(132, 204, 22, 0.05);
       border-color: rgba(132, 204, 22, 0.4);
     }
@@ -450,8 +450,8 @@
       border-radius: 6px;
       box-shadow: 0 4px 6px rgba(0,0,0,0.5);
     }
-    .operative-board.sm-team .board-header { color: #60a5fa; }
-    .operative-board.pm-team .board-header { color: var(--pm-accent); }
+    .operative-board.team-a .board-header { color: var(--faction-a-color); }
+    .operative-board.team-b .board-header { color: var(--faction-b-color); }
     .team-status { font-size: 0.75rem; color: var(--text-muted); }
 
     .operatives-list {
@@ -475,8 +475,8 @@
       border-color: #64748b;
       transform: translateY(-2px);
     }
-    .op-card.sm-theme { border-left: 4px solid var(--sm-blue); }
-    .op-card.pm-theme { border-left: 4px solid var(--pm-green); }
+    .op-card.team-a { border-left: 4px solid var(--faction-a-color); }
+    .op-card.team-b { border-left: 4px solid var(--faction-b-color); }
 
     .op-card.active-target {
       border-color: var(--sm-accent) !important;
@@ -529,8 +529,8 @@
       padding: 16px; backdrop-filter: blur(10px); text-align: center;
       display: flex; flex-direction: column; gap: 12px;
     }
-    .active-card.sm-active { border-color: var(--sm-blue); box-shadow: 0 0 15px var(--sm-glow); }
-    .active-card.pm-active { border-color: var(--pm-green); box-shadow: 0 0 15px var(--pm-glow); }
+    .active-card.team-a { border-color: var(--faction-a-color); box-shadow: 0 0 15px var(--faction-a-color); }
+    .active-card.team-b { border-color: var(--faction-b-color); box-shadow: 0 0 15px var(--faction-b-color); }
     .active-card-title { font-family: 'Orbitron', sans-serif; font-size: 0.8rem; color: var(--sm-accent); font-weight: 700; }
     .active-agent-name { font-size: 1.2rem; font-weight: 700; color: #fff; }
     .active-agent-faction { font-size: 0.75rem; color: var(--text-muted); }
@@ -608,7 +608,7 @@
     .modal-btn:disabled { opacity: 0.4; cursor: not-allowed; border-color: #334155; }
 
     .modal-btn.primary {
-      background: linear-gradient(135deg, var(--sm-blue), #1e3a8a);
+      background: linear-gradient(135deg, var(--faction-a-color), #1e3a8a);
       border-color: #3b82f6;
       color: #fff;
       box-shadow: 0 4px 15px rgba(59, 130, 246, 0.4);
@@ -624,7 +624,7 @@
     .qa-options { display: flex; gap: 10px; }
     .qa-btn { flex-grow: 1; background: #1e293b; border: 1px solid #334155; color: #fff; padding: 10px; border-radius: 6px; font-weight: 600; cursor: pointer; text-align: center; }
     .qa-btn:hover { background: #334155; }
-    .qa-btn.selected { background: var(--sm-blue); border-color: #3b82f6; box-shadow: 0 0 10px rgba(59, 130, 246, 0.3); }
+    .qa-btn.selected { background: var(--faction-a-color); border-color: #3b82f6; box-shadow: 0 0 10px rgba(59, 130, 246, 0.3); }
 
     .ploy-choice-card { background: var(--dark-card); border: 1px solid var(--panel-border); border-radius: 10px; padding: 16px; cursor: pointer; }
     .ploy-choice-card.selected { border-color: var(--sm-accent); background: rgba(234, 179, 8, 0.04); }
@@ -788,8 +788,8 @@
 
     .init-roll-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; width: 100%; text-align: center; }
     .init-team-col { display: flex; flex-direction: column; align-items: center; gap: 10px; background: rgba(255,255,255,0.02); padding: 16px; border-radius: 12px; }
-    .init-team-col.sm { border-top: 3px solid var(--sm-blue); }
-    .init-team-col.pm { border-top: 3px solid var(--pm-green); }
+    .init-team-col.team-a { border-top: 3px solid var(--faction-a-color); }
+    .init-team-col.team-b { border-top: 3px solid var(--faction-b-color); }
 
     .melee-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
     .melee-pool-card { background: var(--dark-card); border: 1px solid var(--panel-border); border-radius: 10px; padding: 12px; display: flex; flex-direction: column; gap: 10px; }
@@ -801,8 +801,8 @@
       cursor: pointer; border: 1px solid #475569; background: #1e293b; color: #fff;
     }
     .melee-dice-btn:hover { transform: translateY(-2px); box-shadow: 0 0 8px rgba(255, 255, 255, 0.2); }
-    .melee-dice-btn.sm-dice { background: var(--sm-blue); border-color: #3b82f6; }
-    .melee-dice-btn.pm-dice { background: var(--pm-green); border-color: #22c55e; }
+    .melee-dice-btn.sm-dice { background: var(--faction-a-color); border-color: #3b82f6; }
+    .melee-dice-btn.pm-dice { background: var(--faction-b-color); border-color: #22c55e; }
     .melee-dice-btn.leg-dice { background: #374151; border-color: #facc15; color: #facc15; }
     .melee-dice-btn.crit { border-color: var(--sm-accent); box-shadow: 0 0 10px var(--sm-accent); }
     .melee-dice-btn.used { opacity: 0.15; cursor: not-allowed; }
@@ -1194,7 +1194,7 @@
       </div>
 
       <div class="faction-scores">
-        <div class="score-card sm">
+        <div class="score-card team-a">
           <div>
             <div class="score-card-title" id="dash-title-a">Faction A</div>
             <div class="score-values">
@@ -1219,7 +1219,7 @@
           </div>
         </div>
 
-        <div class="score-card pm">
+        <div class="score-card team-b">
           <div>
             <div class="score-card-title" id="dash-title-b">瘟疫守卫 (Plague Marines)</div>
             <div class="score-values">
@@ -1278,7 +1278,7 @@
       <div class="roster-picker-grid">
         
         <!-- Angels of Death (星际战士) 选人栏 -->
-        <div class="roster-picker-card sm">
+        <div class="roster-picker-card team-a">
           <div class="roster-picker-header">
             <span class="roster-picker-title" id="picker-title-a">Faction A</span>
             <span class="roster-picker-limit" id="sm-roster-count">已选: 0 / 6 人</span>
@@ -1292,7 +1292,7 @@
         </div>
         
         <!-- Plague Marines (瘟疫守卫) 选人栏 -->
-        <div class="roster-picker-card pm">
+        <div class="roster-picker-card team-b">
           <div class="roster-picker-header">
             <span class="roster-picker-title" id="picker-title-b">Faction B</span>
             <span class="roster-picker-limit" id="pm-roster-count">已选: 0 / 6 人</span>
@@ -1314,7 +1314,7 @@
     <div class="battleground" id="battle-area" style="display: none; position: relative;">
 
       <!-- 星际战士特工列表 -->
-      <div class="operative-board sm-team">
+      <div class="operative-board team-a">
         <div class="board-header">
           <img src="faction_header_sm.png" class="board-header-img">
           <div class="board-header-content">
@@ -1399,7 +1399,7 @@
       </div>
 
       <!-- 瘟疫战士特工列表 -->
-      <div class="operative-board pm-team">
+      <div class="operative-board team-b">
         <div class="board-header">
           <img src="faction_header_pm.png" class="board-header-img">
           <div class="board-header-content">
@@ -1699,8 +1699,8 @@
       document.getElementById('setup-overlay').style.display = 'none';
       document.getElementById('start-screen').style.display = 'block';
       
-      document.querySelector('.roster-picker-card.sm .roster-picker-title').textContent = facA.name;
-      document.querySelector('.roster-picker-card.pm .roster-picker-title').textContent = facB.name;
+      document.querySelector('.roster-picker-card.team-a .roster-picker-title').textContent = facA.name;
+      document.querySelector('.roster-picker-card.team-b .roster-picker-title').textContent = facB.name;
       
       renderRosterPickers();
     }
@@ -2269,6 +2269,10 @@
       showPhaseOverlay();
       
       const overlayBox = document.getElementById('phase-overlay-content');
+      const facAName = FACTIONS_DB[gameState.factionA].name;
+      const facBName = FACTIONS_DB[gameState.factionB].name;
+      const facADice = FACTIONS_DB[gameState.factionA].diceClass;
+      const facBDice = FACTIONS_DB[gameState.factionB].diceClass;
       
       overlayBox.innerHTML = `
         <h3>Turning Point ${gameState.turningPoint} - 先攻掷骰</h3>
@@ -2277,17 +2281,17 @@
         </p>
 
         <div class="init-roll-grid" style="margin-bottom:12px;">
-          <div class="init-team-col sm">
-            <h4 style="color:#60a5fa; font-size:0.9rem;">死亡天使先攻骰</h4>
+          <div class="init-team-col team-a">
+            <h4 style="color:var(--faction-a-color); font-size:0.9rem;">${facAName} 先攻骰</h4>
             <div class="dice-pool-view" id="overlay-init-sm-dice">
-              <div class="kt-dice-cube sm-dice">?</div>
+              <div class="kt-dice-cube ${facADice}">?</div>
             </div>
             <div id="overlay-init-sm-val" style="font-weight:bold; font-size: 0.9rem; color:var(--text-muted);">未投骰</div>
           </div>
-          <div class="init-team-col pm">
-            <h4 style="color:var(--pm-accent); font-size:0.9rem;">瘟疫守卫先攻骰</h4>
+          <div class="init-team-col team-b">
+            <h4 style="color:var(--faction-b-color); font-size:0.9rem;">${facBName} 先攻骰</h4>
             <div class="dice-pool-view" id="overlay-init-pm-dice">
-              <div class="kt-dice-cube pm-dice">?</div>
+              <div class="kt-dice-cube ${facBDice}">?</div>
             </div>
             <div id="overlay-init-pm-val" style="font-weight:bold; font-size: 0.9rem; color:var(--text-muted);">未投骰</div>
           </div>
@@ -2316,20 +2320,22 @@
       rollBtn.disabled = true;
 
       // 滚动动画
-      smDiceEl.innerHTML = `<div class="kt-dice-cube sm-dice rolling">?</div>`;
-      pmDiceEl.innerHTML = `<div class="kt-dice-cube pm-dice rolling">?</div>`;
+      const facADice = FACTIONS_DB[gameState.factionA].diceClass;
+      const facBDice = FACTIONS_DB[gameState.factionB].diceClass;
+      smDiceEl.innerHTML = `<div class="kt-dice-cube ${facADice} rolling">?</div>`;
+      pmDiceEl.innerHTML = `<div class="kt-dice-cube ${facBDice} rolling">?</div>`;
       playSound('shoot');
 
       // 顺序停下
       setTimeout(() => {
         const smVal = Math.floor(Math.random() * 6) + 1;
-        smDiceEl.innerHTML = `<div class="kt-dice-cube sm-dice ${smVal===6?'crit-dice':''}">${smVal}</div>`;
+        smDiceEl.innerHTML = `<div class="kt-dice-cube ${FACTIONS_DB[gameState.factionA].diceClass} ${smVal===6?'crit-dice':''}">${smVal}</div>`;
         playSound('click');
         if (smVal === 6) playSound('crit');
 
         setTimeout(() => {
           const pmVal = Math.floor(Math.random() * 6) + 1;
-          pmDiceEl.innerHTML = `<div class="kt-dice-cube pm-dice ${pmVal===6?'crit-dice':''}">${pmVal}</div>`;
+          pmDiceEl.innerHTML = `<div class="kt-dice-cube ${FACTIONS_DB[gameState.factionB].diceClass} ${pmVal===6?'crit-dice':''}">${pmVal}</div>`;
           playSound('click');
           if (pmVal === 6) playSound('crit');
 
@@ -2341,14 +2347,14 @@
             rollBtn.textContent = '平局！重新投骰';
             addLog(`  - 先攻判定平局 [${smVal}]，准备重投...`);
           } else {
-            const winner = smVal > pmVal ? 'Space Marine' : 'Plague Marine';
-            const winnerCN = winner === gameState.factionA ? '死亡天使' : '瘟疫守卫';
+            const winner = smVal > pmVal ? gameState.factionA : gameState.factionB;
+            const winnerCN = winner === gameState.factionA ? FACTIONS_DB[gameState.factionA].name : FACTIONS_DB[gameState.factionB].name;
             playSound('crit');
 
             document.getElementById('overlay-init-sm-val').textContent = `点数: ${smVal}`;
             document.getElementById('overlay-init-pm-val').textContent = `点数: ${pmVal}`;
             
-            addLog(`  - 先攻判定掷骰：死亡天使 [${smVal}] vs 瘟疫守卫 [${pmVal}]`);
+            addLog(`  - 先攻判定掷骰：${FACTIONS_DB[gameState.factionA].name} [${smVal}] vs ${FACTIONS_DB[gameState.factionB].name} [${pmVal}]`);
             addLog(`  - 【${winnerCN}】赢得了投骰，准备选择先攻权归属。`);
 
             const overlayBox = document.getElementById('phase-overlay-content');
@@ -2356,8 +2362,8 @@
               <div style="border-top:1px solid var(--panel-border); margin-top:16px; padding-top:16px; width:100%;">
                 <p style="color:var(--sm-accent); font-weight:bold; margin-bottom:10px;">👑 【${winnerCN}】选择首发玩家：</p>
                 <div style="display:flex; gap:10px;">
-                  <button class="qa-btn" onclick="selectTurnOrder(gameState.factionA)">死亡天使先攻 (Astartes First)</button>
-                  <button class="qa-btn" onclick="selectTurnOrder(gameState.factionB)">瘟疫守卫先攻 (Death Guard First)</button>
+                  <button class="qa-btn" onclick="selectTurnOrder(gameState.factionA)">${FACTIONS_DB[gameState.factionA].name} 先攻</button>
+                  <button class="qa-btn" onclick="selectTurnOrder(gameState.factionB)">${FACTIONS_DB[gameState.factionB].name} 先攻</button>
                 </div>
               </div>
             `;
@@ -2371,7 +2377,7 @@
       playSound('click');
       gameState.initiative = faction;
       gameState.activeTurn = faction;
-      addLog(`  - 确认：【${faction === gameState.factionA ? '死亡天使' : '瘟疫守卫'}】获得本回合的先攻优势！`);
+      addLog(`  - 确认：【${FACTIONS_DB[faction].name}】获得本回合的先攻优势！`);
       
       startStrategyPhase();
     }
@@ -2482,7 +2488,7 @@
       updateScoresUI();
       
       addLog(`\n【战斗阶段开始】Turning Point ${gameState.turningPoint}`);
-      addLog(`>>> 首发方【${gameState.activeTurn === 'Space Marine' ? '死亡天使' : '瘟疫守卫'}】可以激活一名特工。`);
+      addLog(`>>> 首发方【${FACTIONS_DB[gameState.activeTurn].name}】可以激活一名特工。`);
       
       renderOperatives();
       updateActivePanel();
@@ -2523,9 +2529,9 @@
           avatarContainer.innerHTML = getAvatarHtml(op.id, op.faction);
         }
         
-        activeCard.className = `active-card ${op.faction === gameState.factionA ? 'sm-active' : 'pm-active'}`;
+        activeCard.className = `active-card ${op.faction === gameState.factionA ? 'team-a' : 'team-b'}`;
         document.getElementById('active-op-name').textContent = op.name;
-        document.getElementById('active-op-faction').textContent = op.faction === gameState.factionA ? '死亡天使' : '瘟疫守卫';
+        document.getElementById('active-op-faction').textContent = FACTIONS_DB[op.faction].name;
         
         const dots = document.getElementById('active-apl-dots');
         dots.innerHTML = '';
@@ -2579,14 +2585,14 @@
         activeCard.className = 'active-card';
 
         const nextFaction = gameState.activeTurn;
-        const cn = nextFaction === gameState.factionA ? '死亡天使' : '瘟疫守卫';
+        const cn = FACTIONS_DB[nextFaction].name;
         
         const hasUsable = hasUsableOperatives(nextFaction);
         if (hasUsable) {
           const sideName = nextFaction === gameState.factionA ? '左边' : '右边';
           updateGuidance(`【激活提示】请从${sideName}【${cn}】战队卡片列表中选择点击发亮的特工卡片，载入动作。`);
         } else {
-          const oppFaction = nextFaction === gameState.factionA ? 'Plague Marine' : 'Space Marine';
+          const oppFaction = nextFaction === gameState.factionA ? gameState.factionB : gameState.factionA;
           if (hasUsableOperatives(oppFaction)) {
             updateGuidance(`【激活换边】因为当前轮次已无可用单位，权能自动转回另一方。请继续点击激活。`);
           } else {
@@ -2628,15 +2634,15 @@
     }
 
     function switchSides() {
-      const nextFaction = gameState.activeTurn === 'Space Marine' ? 'Plague Marine' : 'Space Marine';
+      const nextFaction = gameState.activeTurn === gameState.factionA ? gameState.factionB : gameState.factionA;
       const nextHasUsable = hasUsableOperatives(nextFaction);
       const currentHasUsable = hasUsableOperatives(gameState.activeTurn);
 
       if (nextHasUsable) {
         gameState.activeTurn = nextFaction;
-        addLog(`>>> 交替轮转：轮到【${nextFaction === gameState.factionA ? '死亡天使' : '瘟疫守卫'}】选择特工激活。`);
+        addLog(`>>> 交替轮转：轮到【${FACTIONS_DB[nextFaction].name}】选择特工激活。`);
       } else if (currentHasUsable) {
-        addLog(`>>> 【${nextFaction === gameState.factionA ? '死亡天使' : '瘟疫守卫'}】已无可用特工。继续激活【${gameState.activeTurn === 'Space Marine' ? '死亡天使' : '瘟疫守卫'}】。`);
+        addLog(`>>> 【${FACTIONS_DB[nextFaction].name}】已无可用特工。继续激活【${FACTIONS_DB[gameState.activeTurn].name}】。`);
       } else {
         addLog(`>>> 双方全部特工激活完毕。准备开始回合得分结算。`);
         showTurnEndScoringOverlay();
@@ -4698,9 +4704,9 @@
         <div style="display:grid; grid-template-columns: 1fr 1fr; gap:16px; width:100%; text-align:left; margin-bottom:16px;">
           
           <!-- SM 结算 -->
-          <div class="init-team-col sm" style="align-items:stretch; background: rgba(59,130,246,0.02); border: 1px solid rgba(59,130,246,0.1);">
+          <div class="init-team-col team-a" style="align-items:stretch; background: rgba(59,130,246,0.02); border: 1px solid rgba(59,130,246,0.1);">
             <h4 style="color:#60a5fa; font-size:0.95rem; border-bottom:1px solid rgba(255,255,255,0.08); padding-bottom:6px; margin-bottom:10px; text-align:center; font-family:'Orbitron',sans-serif;">
-              死亡天使 (SM)
+              ${FACTIONS_DB[gameState.factionA].name}
             </h4>
             <div style="font-size:0.85rem; display:flex; flex-direction:column; gap:12px;">
               <div style="display:flex; justify-content:space-between; align-items:center;">
@@ -4748,9 +4754,9 @@
           </div>
           
           <!-- PM 结算 -->
-          <div class="init-team-col pm" style="align-items:stretch; background: rgba(34,197,94,0.02); border: 1px solid rgba(34,197,94,0.1);">
+          <div class="init-team-col team-b" style="align-items:stretch; background: rgba(34,197,94,0.02); border: 1px solid rgba(34,197,94,0.1);">
             <h4 style="color:var(--pm-accent); font-size:0.95rem; border-bottom:1px solid rgba(255,255,255,0.08); padding-bottom:6px; margin-bottom:10px; text-align:center; font-family:'Orbitron',sans-serif;">
-              瘟疫守卫 (PM)
+              ${FACTIONS_DB[gameState.factionB].name}
             </h4>
             <div style="font-size:0.85rem; display:flex; flex-direction:column; gap:12px;">
               <div style="display:flex; justify-content:space-between; align-items:center;">
@@ -4761,23 +4767,23 @@
               <div class="scoring-checklist-card">
                 <div style="font-weight:600; font-size:0.75rem; color:var(--text-muted); margin-bottom:4px; text-transform:uppercase;">任务结算助手 (Objective Checklist)</div>
                 <label class="scoring-item">
-                  <input type="checkbox" style="accent-color: var(--pm-accent);" ${gameState.tempPmChecklist[0] ? 'checked' : ''} onchange="toggleScoringChecklist('pm', 0)">
+                  <input type="checkbox" style="accent-color: var(--faction-b-color);" ${gameState.tempPmChecklist[0] ? 'checked' : ''} onchange="toggleScoringChecklist('pm', 0)">
                   <span>控制1+目标点 (+1 VP)</span>
                 </label>
                 <label class="scoring-item">
-                  <input type="checkbox" style="accent-color: var(--pm-accent);" ${gameState.tempPmChecklist[1] ? 'checked' : ''} onchange="toggleScoringChecklist('pm', 1)">
+                  <input type="checkbox" style="accent-color: var(--faction-b-color);" ${gameState.tempPmChecklist[1] ? 'checked' : ''} onchange="toggleScoringChecklist('pm', 1)">
                   <span>控制目标多于对手 (+1 VP)</span>
                 </label>
                 <label class="scoring-item">
-                  <input type="checkbox" style="accent-color: var(--pm-accent);" ${gameState.tempPmChecklist[2] ? 'checked' : ''} onchange="toggleScoringChecklist('pm', 2)">
+                  <input type="checkbox" style="accent-color: var(--faction-b-color);" ${gameState.tempPmChecklist[2] ? 'checked' : ''} onchange="toggleScoringChecklist('pm', 2)">
                   <span>完成特定任务动作 (+1 VP)</span>
                 </label>
                 <label class="scoring-item">
-                  <input type="checkbox" style="accent-color: var(--pm-accent);" ${gameState.tempPmChecklist[3] ? 'checked' : ''} onchange="toggleScoringChecklist('pm', 3)">
+                  <input type="checkbox" style="accent-color: var(--faction-b-color);" ${gameState.tempPmChecklist[3] ? 'checked' : ''} onchange="toggleScoringChecklist('pm', 3)">
                   <span>本回合秘密任务1 (+1 VP)</span>
                 </label>
                 <label class="scoring-item">
-                  <input type="checkbox" style="accent-color: var(--pm-accent);" ${gameState.tempPmChecklist[4] ? 'checked' : ''} onchange="toggleScoringChecklist('pm', 4)">
+                  <input type="checkbox" style="accent-color: var(--faction-b-color);" ${gameState.tempPmChecklist[4] ? 'checked' : ''} onchange="toggleScoringChecklist('pm', 4)">
                   <span>本回合秘密任务2 (+1 VP)</span>
                 </label>
               </div>
@@ -4842,8 +4848,8 @@
       gameState.pmKillsScored = gameState.tempPmKills;
       
       addLog(`\n--- Turning Point ${gameState.turningPoint} 回合结算结果 ---`);
-      addLog(`[死亡天使] 新增 ${smGain} VP (任务:${gameState.tempSmObjVp}, 击杀:${gameState.tempSmKillVp}) | 累计 VP: ${gameState.factionAVp}`);
-      addLog(`[瘟疫守卫] 新增 ${pmGain} VP (任务:${gameState.tempPmObjVp}, 击杀:${gameState.tempPmKillVp}) | 累计 VP: ${gameState.factionBVp}`);
+      addLog(`[${FACTIONS_DB[gameState.factionA].name}] 新增 ${smGain} VP (任务:${gameState.tempSmObjVp}, 击杀:${gameState.tempSmKillVp}) | 累计 VP: ${gameState.factionAVp}`);
+      addLog(`[${FACTIONS_DB[gameState.factionB].name}] 新增 ${pmGain} VP (任务:${gameState.tempPmObjVp}, 击杀:${gameState.tempPmKillVp}) | 累计 VP: ${gameState.factionBVp}`);
       
       hidePhaseOverlay();
       endTurningPoint();
@@ -4863,13 +4869,13 @@
       gameState.gameOver = true;
       updateScoresUI();
       
-      let winReason = `双方经历五回合激烈交火，战斗正式落幕！\n最终战队积分：\n死亡天使: ${gameState.factionAVp} VP\n瘟疫守卫: ${gameState.factionBVp} VP\n\n`;
+      let winReason = `双方经历五回合激烈交火，战斗正式落幕！\n最终战队积分：\n${FACTIONS_DB[gameState.factionA].name}: ${gameState.factionAVp} VP\n${FACTIONS_DB[gameState.factionB].name}: ${gameState.factionBVp} VP\n\n`;
       if (gameState.factionAVp === gameState.factionBVp) {
         declareVictory('draw', winReason + '双方得分平分秋色，本局握手言和！');
       } else if (gameState.factionAVp > gameState.factionBVp) {
-        declareVictory('sm', winReason + '死亡天使胜利点数更高，赢得最终胜利！');
+        declareVictory('sm', winReason + `${FACTIONS_DB[gameState.factionA].name}胜利点数更高，赢得最终胜利！`);
       } else {
-        declareVictory('pm', winReason + '瘟疫守卫胜利点数更高，赢得最终胜利！');
+        declareVictory('pm', winReason + `${FACTIONS_DB[gameState.factionB].name}胜利点数更高，赢得最终胜利！`);
       }
     }
 
