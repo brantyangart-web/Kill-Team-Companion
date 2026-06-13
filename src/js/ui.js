@@ -1,4 +1,4 @@
-import { gameState, wizardState, GAG_MESSAGES, hasUsableOperatives, switchSides, endTurningPoint } from './state.js';
+import { gameState, wizardState, GAG_MESSAGES, hasUsableOperatives, switchSides, endTurningPoint, startCounteractActivation, skipCounteract } from './state.js';
 import { playSound } from './audio.js';
 import { SM_TEMPLATES, PM_TEMPLATES, RULE_TEXTS } from './constants.js';
 import { Weapon, Operative } from './models.js';
@@ -255,12 +255,11 @@ export function updateScoresUI() {
 
 export function adjustScore(faction, type, amount) {
   playSound('click');
+  if (type === 'cp') return; // CP 由规则自动管理, 不允许手动调整
   if (faction === 'sm') {
-    if (type === 'vp') gameState.smVp = Math.max(0, gameState.smVp + amount);
-    else gameState.smCp = Math.max(0, gameState.smCp + amount);
+    gameState.smVp = Math.max(0, gameState.smVp + amount);
   } else {
-    if (type === 'vp') gameState.pmVp = Math.max(0, gameState.pmVp + amount);
-    else gameState.pmCp = Math.max(0, gameState.pmCp + amount);
+    gameState.pmVp = Math.max(0, gameState.pmVp + amount);
   }
   updateScoresUI();
 }
@@ -489,7 +488,7 @@ export function renderRosterPickers() {
   // Leader 分组标题
   smLeaderSection.innerHTML = `
     <div style="font-size:0.8rem; font-weight:600; color:#6a9ad4; margin-bottom:6px; padding-left:4px;">
-      🎖️ LEADER — 单选 1 名 (3 选 1)
+      ⚜ 🎖️ LEADER — 单选 1 名 (3 选 1) ⚜
     </div>
   `;
   smLeaders.forEach(tmpl => {
@@ -504,7 +503,7 @@ export function renderRosterPickers() {
   // Operator 分组标题
   smOperatorSection.innerHTML = `
     <div style="font-size:0.8rem; font-weight:600; color:#6a9ad4; margin:12px 0 6px 4px; display:flex; justify-content:space-between; align-items:center;">
-      <span>🎯 OPERATORS — 共选 5 名 (Warrior 可用计数器重复选取)</span>
+      <span>⚜ 🎯 OPERATORS — 共选 5 名 (Warrior 可用计数器重复选取) ⚜</span>
       <span id="sm-op-count" style="font-size:0.75rem; color:#9a9da5; font-family:'Pirata One',serif;">0 / 5</span>
     </div>
     <p style="font-size:0.7rem; color:var(--text-muted); margin-bottom:8px; padding-left:4px;">
@@ -532,7 +531,7 @@ export function renderRosterPickers() {
   // Leader (Champion 必选)
   pmLeaderSection.innerHTML = `
     <div style="font-size:0.8rem; font-weight:600; color:var(--pm-accent); margin-bottom:6px; padding-left:4px;">
-      🎖️ LEADER — 必选
+      ☠ 🎖️ LEADER — 必选 ☠
     </div>
   `;
   const pmBadgeStyle = 'border-color:var(--pm-accent); color:var(--pm-accent); background:rgba(122,184,138,0.15)';
@@ -547,7 +546,7 @@ export function renderRosterPickers() {
   // Operators
   pmOperatorSection.innerHTML = `
     <div style="font-size:0.8rem; font-weight:600; color:var(--pm-accent); margin:12px 0 6px 4px; display:flex; justify-content:space-between; align-items:center;">
-      <span>🎯 OPERATORS — 共选 5 名 (6 类型, Warrior 可重复)</span>
+      <span>☠ 🎯 OPERATORS — 共选 5 名 (6 类型, Warrior 可重复) ☠</span>
       <span id="pm-op-count" style="font-size:0.75rem; color:#9a9da5; font-family:'Pirata One',serif;">0 / 5</span>
     </div>
     <p style="font-size:0.7rem; color:var(--text-muted); margin-bottom:8px; padding-left:4px;">
@@ -827,6 +826,7 @@ export function renderOperatives() {
     const avatarHtml = getAvatarHtml(op.id, op.faction);
 
     card.innerHTML = `
+      <div style="position:absolute;top:3px;right:6px;color:var(--imperial-gold);font-size:10px;opacity:0.4;pointer-events:none;z-index:1;">✦</div>
       <div class="op-card-top">
         <div class="op-avatar-row">
           ${avatarHtml}
@@ -981,8 +981,9 @@ export function updateActivePanel() {
     const ployDisplay = document.getElementById('active-ploys-display');
     if (ployDisplay) {
         const ploysText = [];
-        if (hasShot) ploysText.push(`<span style="color:#6a9ad4;">💥 Astartes: 已射击×${shootCount}，锁定近战</span>`);
-        if (hasFought) ploysText.push(`<span style="color:#f87171;">⚔️ Astartes: 已近战×${fightCount}，锁定射击</span>`);
+        if (isCounteracting) ploysText.push('<span style="color:#f97316;">⚡ 反击 (Counteract): 仅限 1 次行动, 移动≤2", 不可冲锋</span>');
+        if (hasShot && !isCounteracting) ploysText.push(`<span style="color:#6a9ad4;">💥 Astartes: 已射击×${shootCount}，锁定近战</span>`);
+        if (hasFought && !isCounteracting) ploysText.push(`<span style="color:#f87171;">⚔️ Astartes: 已近战×${fightCount}，锁定射击</span>`);
         if (hasContagiousResilience) ploysText.push('<span style="color:var(--pm-accent);">🛡️ 传染韧性生效中</span>');
         ployDisplay.innerHTML = ploysText.length > 0 ? ploysText.join(' | ') : '';
     }
@@ -1040,7 +1041,11 @@ export function performMove() {
   playSound('click');
   op.apl -= 1;
   op.actionsPerformed.push('Move');
-  addLog(`  - ${op.name} 执行 [移动 (Move)]，消耗 1 APL。`);
+  if (op.counteracting) {
+    addLog(`  - ${op.name} 执行 [反击移动]，消耗 1 AP。⚠️ 物理沙盘移动不得超过 2"！`);
+  } else {
+    addLog(`  - ${op.name} 执行 [移动 (Move)]，消耗 1 APL。`);
+  }
   updateActivePanel();
 }
 
@@ -1115,12 +1120,100 @@ export function startInitiativePhase() {
 export function showPhaseOverlay() {
   const overlay = document.getElementById('phase-overlay');
   overlay.style.display = 'flex';
+  const content = document.getElementById('phase-overlay-content');
+  if (content) {
+    content.classList.add('gothic-panel');
+    if (!content.querySelector('.gothic-arch')) {
+      content.insertAdjacentHTML('afterbegin', '<div class="gothic-arch"></div>');
+    }
+  }
   trapFocus(overlay);
 }
 
 export function hidePhaseOverlay() {
   document.getElementById('phase-overlay').style.display = 'none';
   releaseFocusTrap();
+}
+
+export function hideCounteractOverlay() {
+  const overlay = document.getElementById('counteract-overlay');
+  if (overlay) overlay.style.display = 'none';
+  releaseFocusTrap();
+}
+
+// ==========================================
+//         Counteract (反击) 挡板
+// ==========================================
+
+export function showCounteractOverlay(faction) {
+  const overlay = document.getElementById('counteract-overlay');
+  const content = document.getElementById('counteract-content');
+  const factionName = faction === 'Space Marine' ? '死亡天使' : '瘟疫守卫';
+  const color = faction === 'Space Marine' ? '#60a5fa' : 'var(--pm-accent)';
+
+  // 找到所有已耗尽 + Engage 标记的特工
+  const eligibleOps = gameState.operatives.filter(op =>
+    op.faction === faction && !op.isDead && op.hasActed && !op.hasConceal
+  );
+
+  let opListHtml = '';
+  eligibleOps.forEach(op => {
+    opListHtml += `
+      <div class="counteract-op-row" onclick="selectCounteractOperative('${op.id}')" style="
+        background: rgba(255,255,255,0.03);
+        border: 1px solid rgba(255,255,255,0.1);
+        border-radius: 8px;
+        padding: 10px 12px;
+        margin-bottom: 6px;
+        cursor: pointer;
+        transition: all 0.15s;
+        display: flex;
+        align-items: center;
+        gap: 10px;
+      " onmouseover="this.style.borderColor='${color}'; this.style.background='rgba(255,255,255,0.06)'" onmouseout="this.style.borderColor='rgba(255,255,255,0.1)'; this.style.background='rgba(255,255,255,0.03)'">
+        <div style="width:32px; height:32px; border-radius:50%; background:rgba(255,255,255,0.1); overflow:hidden; flex-shrink:0;">
+          <img src="${op.defaultAvatar}" style="width:100%; height:100%; object-fit:cover;" alt="${op.name}" />
+        </div>
+        <div style="flex:1;">
+          <div style="font-weight:600; color:#fff; font-size:0.85rem;">${op.name}</div>
+          <div style="font-size:0.7rem; color:var(--text-muted);">HP: ${op.wounds}/${op.maxWounds} | 武器: ${op.weapons.length} 种</div>
+        </div>
+        <div style="color:${color}; font-size:0.75rem; font-weight:600;">选择 →</div>
+      </div>
+    `;
+  });
+
+  content.innerHTML = `
+    <h3 style="color:${color}; margin-bottom:8px;">⚡ 反击时机 (Counteract)</h3>
+    <p style="color:var(--text-muted); font-size:0.8rem; margin-bottom:12px; line-height:1.5;">
+      【${factionName}】所有特工已耗尽，但对方仍有未激活特工。<br>
+      可选择一名已耗尽的 <b>Engage 标记</b> 特工发动反击：<br>
+      <span style="color:#f97316;">• 免费获得 1 AP 执行一个行动 • 移动不得超过 2" • 不可冲锋</span>
+    </p>
+
+    <div style="margin-bottom:16px;">
+      ${eligibleOps.length > 0 ? opListHtml : '<p style="color:var(--text-muted); text-align:center; padding:20px;">无符合条件的特工 (需要 Engage 标记且存活)</p>'}
+    </div>
+
+    <div style="display:flex; gap:10px;">
+      <button class="btn-large" onclick="skipCounteract()" style="flex:1; padding:10px 20px; font-size:0.85rem; background:rgba(100,116,139,0.2); border-color:#475569;">
+        跳过反击 (Skip)
+      </button>
+    </div>
+  `;
+
+  overlay.style.display = 'flex';
+  trapFocus(overlay);
+}
+
+export function selectCounteractOperative(opId) {
+  playSound('crit');
+  startCounteractActivation(opId);
+}
+
+export function skipCounteractAction() {
+  playSound('click');
+  skipCounteract();
 }
 
 export function rollInitiativeOverlay() {
@@ -1227,6 +1320,8 @@ export function startStrategyPhase() {
     <p style="color:var(--text-muted); font-size:0.85rem; margin-bottom:12px;">
       在此阶段，双方可以使用命令点 (CP) 激活计策 (Strategic Ploys)。
     </p>
+
+    <div class="gothic-divider"><span style="color:var(--imperial-gold);font-size:8px;">⬥</span><span style="color:var(--imperial-gold);font-size:14px;">✠</span><span style="color:var(--imperial-gold);font-size:8px;">⬥</span></div>
 
     <div style="display:grid; grid-template-columns:1fr 1fr; gap:16px; width:100%; text-align:left; margin-bottom:16px;">
       <div class="ploy-choice-card ${gameState.smActivePloys.includes('bolter_discipline') ? 'selected' : ''}" role="button" tabindex="0" onclick="buyPloy('sm')" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();buyPloy('sm')}">

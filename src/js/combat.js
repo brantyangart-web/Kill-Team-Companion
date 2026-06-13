@@ -1225,7 +1225,7 @@ export function renderFightStep() {
       const hasOpponentDice = opponentDiceList.some(d => !d.used);
 
       choiceCardHtml = `
-        <div class="melee-choice-card" style="background: rgba(30, 41, 59, 0.95); border: 2px solid ${turnColor}; border-radius: 12px; padding: 16px; margin-bottom: 16px; text-align: center; box-shadow: 0 0 20px rgba(0,0,0,0.5);">
+        <div class="melee-choice-card" style="position:relative; background: linear-gradient(180deg, #2a2d35, #1e2128); border: 2px solid ${turnColor}; border-radius: 12px; padding: 16px; margin-bottom: 16px; text-align: center; box-shadow: 0 0 20px rgba(0,0,0,0.5);">
           <div style="font-weight: bold; font-size: 0.95rem; margin-bottom: 12px; color: #fff;">
             🎯 已选中点数 <span style="display:inline-block; padding: 2px 8px; border-radius: 4px; background: ${side === 'attacker' ? 'rgba(74,106,154,0.3)' : 'rgba(74,124,89,0.3)'}; color: ${side === 'attacker' ? '#6a9ad4' : 'var(--pm-accent)'}; font-weight: 900; font-family:'Pirata One',serif;">${dice.val}${dice.isCrit ? ' (⚡暴击)' : ''}</span>，请选择分配动作：
           </div>
@@ -1552,7 +1552,13 @@ export function getMeleeDuelHeaderHtml() {
       </div>
 
       <!-- VS icon -->
-      <div style="font-size:1.2rem; font-weight:900; color:var(--text-muted); padding:0 8px; font-family:'Pirata One',serif; font-style:italic;">VS</div>
+      <div style="display:flex;align-items:center;gap:6px;padding:0 8px;">
+        <div style="width:16px;height:1px;background:var(--imperial-gold);"></div>
+        <span style="color:var(--imperial-gold);font-size:8px;">⬥</span>
+        <span style="font-size:1rem;color:var(--text-muted);font-family:'Pirata One',serif;">VS</span>
+        <span style="color:var(--imperial-gold);font-size:8px;">⬥</span>
+        <div style="width:16px;height:1px;background:var(--imperial-gold);"></div>
+      </div>
 
       <!-- Defender Panel -->
       <div style="display:flex; flex-direction:column; align-items:center; flex:1; gap:6px; min-width: 0;">
@@ -1591,7 +1597,13 @@ export function getShootDuelHeaderHtml() {
       </div>
 
       <!-- VS icon -->
-      <div style="font-size:1.2rem; font-weight:900; color:var(--text-muted); padding:0 8px; font-family:'Pirata One',serif; font-style:italic;">VS</div>
+      <div style="display:flex;align-items:center;gap:6px;padding:0 8px;">
+        <div style="width:16px;height:1px;background:var(--imperial-gold);"></div>
+        <span style="color:var(--imperial-gold);font-size:8px;">⬥</span>
+        <span style="font-size:1rem;color:var(--text-muted);font-family:'Pirata One',serif;">VS</span>
+        <span style="color:var(--imperial-gold);font-size:8px;">⬥</span>
+        <div style="width:16px;height:1px;background:var(--imperial-gold);"></div>
+      </div>
 
       <!-- Defender Panel -->
       <div style="display:flex; flex-direction:column; align-items:center; flex:1; gap:6px; min-width: 0;">

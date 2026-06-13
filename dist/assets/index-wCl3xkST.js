@@ -71,11 +71,11 @@
     </div>
   `}function de(e,t,i,l=!1){e.onclick=n=>{if(n.target.className!=="roster-checkbox"&&!n.target.closest(".op-avatar-slot")&&!n.target.closest(".warrior-counter"))if(l)Me(t);else{const c=document.getElementById(`check-${t}`);c&&!c.disabled&&(c.checked=!c.checked,i(t))}}}function Me(e){u("click");const t=D.some(d=>d.id===e),i=t?"sm":"pm",l=t?D:O,n=t?G:U,c=l.find(d=>d.id===e);if(!c||!c.isWarrior)return;if(Q(i)>=5){H("Operator 数量已达上限 (5 名)！请先减少其他 Operator。","warning");return}n[e]=(n[e]||0)+1;const s=document.getElementById(`warrior-count-${e}`);s&&(s.textContent=n[e]);const m=document.getElementById(`picker-row-${e}`);m&&(n[e]>0?m.classList.add("selected"):m.classList.remove("selected")),Y(),Z(i)}function Je(e){u("click");const t=D.some(r=>r.id===e),i=t?"sm":"pm",l=t?G:U;if(!l[e]||l[e]<=0)return;l[e]--;const n=document.getElementById(`warrior-count-${e}`);n&&(n.textContent=l[e]);const c=document.getElementById(`picker-row-${e}`);c&&l[e]<=0&&c.classList.remove("selected"),Y(),Z(i)}function Q(e){const t=e==="sm"?D:O,i=e==="sm"?G:U;let l=0;return t.filter(n=>!n.isLeader&&!n.isWarrior).forEach(n=>{var c;(c=document.getElementById(`check-${n.id}`))!=null&&c.checked&&l++}),t.filter(n=>!n.isLeader&&n.isWarrior).forEach(n=>{l+=i[n.id]||0}),l}function we(e){const t=e==="sm"?D:O;let i=0;return t.filter(l=>l.isLeader).forEach(l=>{var n;e==="pm"?i=1:(n=document.getElementById(`check-${l.id}`))!=null&&n.checked&&i++}),i+Q(e)}function ge(){Object.keys(G).forEach(d=>delete G[d]),Object.keys(U).forEach(d=>delete U[d]);const e=D.filter(d=>d.isLeader),t=D.filter(d=>!d.isLeader),i=document.getElementById("sm-leader-section"),l=document.getElementById("sm-operator-section");i.innerHTML="",l.innerHTML="",i.innerHTML=`
     <div style="font-size:0.8rem; font-weight:600; color:#6a9ad4; margin-bottom:6px; padding-left:4px;">
-      🎖️ LEADER — 单选 1 名 (3 选 1)
+      ⚜ 🎖️ LEADER — 单选 1 名 (3 选 1) ⚜
     </div>
   `,e.forEach(d=>{const p=document.createElement("div");p.className="roster-pick-row",p.id=`picker-row-${d.id}`,p.innerHTML=ie(d,"Space Marine",!0,!1,!1,"toggleSelectSM"),de(p,d.id,pe,!1),i.appendChild(p)}),l.innerHTML=`
     <div style="font-size:0.8rem; font-weight:600; color:#6a9ad4; margin:12px 0 6px 4px; display:flex; justify-content:space-between; align-items:center;">
-      <span>🎯 OPERATORS — 共选 5 名 (Warrior 可用计数器重复选取)</span>
+      <span>⚜ 🎯 OPERATORS — 共选 5 名 (Warrior 可用计数器重复选取) ⚜</span>
       <span id="sm-op-count" style="font-size:0.75rem; color:#9a9da5; font-family:'Pirata One',serif;">0 / 5</span>
     </div>
     <p style="font-size:0.7rem; color:var(--text-muted); margin-bottom:8px; padding-left:4px;">
@@ -83,17 +83,18 @@
     </p>
   `,t.forEach(d=>{const p=document.createElement("div");p.className="roster-pick-row",p.id=`picker-row-${d.id}`,p.innerHTML=ie(d,"Space Marine",!1,!1,!1,"toggleSelectSM"),de(p,d.id,pe,d.isWarrior),l.appendChild(p)});const n=O.filter(d=>d.isLeader),c=O.filter(d=>!d.isLeader),r=document.getElementById("pm-leader-section"),s=document.getElementById("pm-operator-section");r.innerHTML="",s.innerHTML="",r.innerHTML=`
     <div style="font-size:0.8rem; font-weight:600; color:var(--pm-accent); margin-bottom:6px; padding-left:4px;">
-      🎖️ LEADER — 必选
+      ☠ 🎖️ LEADER — 必选 ☠
     </div>
   `;const m="border-color:var(--pm-accent); color:var(--pm-accent); background:rgba(122,184,138,0.15)";n.forEach(d=>{const p=document.createElement("div");p.className="roster-pick-row selected",p.id=`picker-row-${d.id}`,p.innerHTML=ie(d,"Plague Marine",!0,!0,!0,"toggleSelectPM",m),r.appendChild(p)}),s.innerHTML=`
     <div style="font-size:0.8rem; font-weight:600; color:var(--pm-accent); margin:12px 0 6px 4px; display:flex; justify-content:space-between; align-items:center;">
-      <span>🎯 OPERATORS — 共选 5 名 (6 类型, Warrior 可重复)</span>
+      <span>☠ 🎯 OPERATORS — 共选 5 名 (6 类型, Warrior 可重复) ☠</span>
       <span id="pm-op-count" style="font-size:0.75rem; color:#9a9da5; font-family:'Pirata One',serif;">0 / 5</span>
     </div>
     <p style="font-size:0.7rem; color:var(--text-muted); margin-bottom:8px; padding-left:4px;">
       ⚠️ 非 Warrior 每种只能带一名。Warrior [Warrior] 可用 +/− 按钮选取多名同型单位。
     </p>
   `,c.forEach(d=>{const p=document.createElement("div");p.className="roster-pick-row",p.id=`picker-row-${d.id}`,p.innerHTML=ie(d,"Plague Marine",!1,!1,!1,"toggleSelectPM",m),de(p,d.id,Pe,d.isWarrior),s.appendChild(p)}),Y(),Z("sm"),Z("pm")}function pe(e){u("click");const t=D.find(n=>n.id===e),i=document.getElementById(`check-${e}`),l=document.getElementById(`picker-row-${e}`);if(!(!t||!i)){if(t.isLeader)i.checked&&D.filter(n=>n.isLeader&&n.id!==e).forEach(n=>{var r;const c=document.getElementById(`check-${n.id}`);c&&(c.checked=!1,(r=document.getElementById(`picker-row-${n.id}`))==null||r.classList.remove("selected"))});else if(i.checked&&Q("sm")>5){i.checked=!1,H("Operator 数量已达上限 (5 名)！请先减少其他 Operator。","warning"),Y();return}i.checked?l.classList.add("selected"):l.classList.remove("selected"),Y(),Z("sm")}}function Pe(e){u("click");const t=O.find(n=>n.id===e),i=document.getElementById(`check-${e}`),l=document.getElementById(`picker-row-${e}`);if(!(!t||!i)&&!t.isLeader){if(i.checked&&Q("pm")>5){i.checked=!1,H("Operator 数量已达上限 (5 名)！请先减少其他 Operator。","warning"),Y();return}i.checked?l.classList.add("selected"):l.classList.remove("selected"),Y(),Z("pm")}}function Z(e){const t=e==="sm"?D:O,i=e==="sm"?G:U,n=Q(e)>=5;t.filter(c=>!c.isLeader).forEach(c=>{if(c.isWarrior){const r=document.querySelector(`#picker-row-${c.id} .warrior-counter-btn.plus`),s=document.querySelector(`#picker-row-${c.id} .warrior-counter-btn.minus`),m=i[c.id]||0;r&&(r.disabled=n),s&&(s.disabled=m<=0)}else{const r=document.getElementById(`check-${c.id}`);if(!r)return;n&&!r.checked?r.disabled=!0:r.disabled=!1}})}function Y(){const e=we("sm"),t=Q("sm");document.getElementById("sm-roster-count").textContent=`已选: ${e} / 6 人`;const i=document.getElementById("sm-op-count");i&&(i.textContent=`${t} / 5`);const l=we("pm"),n=Q("pm");document.getElementById("pm-roster-count").textContent=`已选: ${l} / 6 人`;const c=document.getElementById("pm-op-count");c&&(c.textContent=`${n} / 5`)}function Ze(){var r;u("click");const e=[];let t=0;D.forEach(s=>{var m;if(s.isWarrior){const d=G[s.id]||0;d>0&&e.push({tmpl:s,count:d})}else(m=document.getElementById(`check-${s.id}`))!=null&&m.checked&&(e.push({tmpl:s,count:1}),s.isLeader&&t++)});const i=e.reduce((s,m)=>s+m.count,0),l=[];O.forEach(s=>{var m;if(s.isWarrior){const d=U[s.id]||0;d>0&&l.push({tmpl:s,count:d})}else(m=document.getElementById(`check-${s.id}`))!=null&&m.checked&&l.push({tmpl:s,count:1})});const n=l.reduce((s,m)=>s+m.count,0);if(i!==6){u("alert"),H(`星际战士 (死亡天使) 必须刚好选择 6 人！当前选择了 ${i} 人。`,"error");return}if(t!==1){u("alert"),H("星际战士 必须选择且仅选择 1 名队长！","error");return}if(n!==6){u("alert"),H(`瘟疫守卫 必须刚好选择 6 人！当前选择了 ${n} 人。`,"error");return}if(!((r=document.getElementById("check-pm_1"))==null?void 0:r.checked)){u("alert"),H("瘟疫守卫 的 冠军队长 (Plague Champion) 是强制出战的 Leader 角色！","error");return}o.operatives=[],e.forEach(({tmpl:s,count:m})=>{for(let d=0;d<m;d++){const p=m>1?`${s.id}_${d+1}`:s.id,g=m>1?`${s.name} #${d+1}`:s.name;o.operatives.push(new xe(p,g,"Space Marine",s.wounds,s.apl,s.df,s.sv,s.weapons,s.defaultAvatar,s.move||6))}}),l.forEach(({tmpl:s,count:m})=>{for(let d=0;d<m;d++){const p=m>1?`${s.id}_${d+1}`:s.id,g=m>1?`${s.name} #${d+1}`:s.name;o.operatives.push(new xe(p,g,"Plague Marine",s.wounds,s.apl,s.df,s.sv,s.weapons,s.defaultAvatar,s.move||5))}}),document.getElementById("start-screen").style.display="none",document.getElementById("global-dash").style.display="grid",document.getElementById("battle-area").style.display="grid",document.getElementById("guidance-banner").style.display="flex",$(">>> 战队挑选部署完毕！"),$(`  - Angels of Death (星际战士) 登场: ${o.operatives.filter(s=>s.faction==="Space Marine").map(s=>s.name).join(", ")}`),$(`  - Plague Marines (瘟疫守卫) 登场: ${o.operatives.filter(s=>s.faction==="Plague Marine").map(s=>s.name).join(", ")}`),N(),j(),Se()}function j(){const e=document.getElementById("sm-ops-list"),t=document.getElementById("pm-ops-list");e.innerHTML="",t.innerHTML="";let i=0,l=0;o.operatives.forEach(n=>{const c=n.faction==="Space Marine";c&&!n.isDead&&i++,!c&&!n.isDead&&l++;const r=document.createElement("div");let s=`op-card ${c?"sm-theme":"pm-theme"}`;n.isDead?s+=" dead":n.hasActed&&(s+=" activated"),o.activeAgent&&o.activeAgent.id===n.id&&(s+=" active-target"),r.className=s;const m=n.wounds/n.maxWounds*100,d=n.weapons.map(x=>x.name.split(" ")[0]).join(" / ");let p="";!c&&o.pmActivePloys.includes("contagious_resilience")&&!n.isDead&&(p='<span class="card-ploy-tag" style="border-color:var(--pm-accent); color:var(--pm-accent); background:rgba(122,184,138,0.15);">减伤重投</span>');let g="";n.isDead||(n.hasConceal&&(g+='<span class="card-ploy-tag" style="border-color:#818cf8; color:#818cf8; background:rgba(129,140,248,0.15); font-size:0.6rem;">隐蔽</span>'),n.isInjured&&(g+='<span class="card-ploy-tag" style="border-color:var(--red); color:var(--red); background:rgba(184,76,76,0.15); font-size:0.6rem;">重伤</span>'),n.poisonTokens>0&&(g+='<span class="card-ploy-tag" style="border-color:#7ab88a; color:#7ab88a; background:rgba(122,184,138,0.15); font-size:0.6rem;">毒素×'+n.poisonTokens+"</span>"));const y=!n.isDead&&!n.hasActed&&o.phase==="Firefight"&&o.activeTurn===n.faction?`<button class="conceal-toggle-btn" onclick="event.stopPropagation(); toggleConceal('${n.id}')" title="切换隐蔽状态" style="font-size:0.65rem; padding:2px 6px; margin-left:4px; background:${n.hasConceal?"rgba(129,140,248,0.3)":"transparent"}; border:1px solid #818cf8; color:#818cf8; border-radius:4px; cursor:pointer;">${n.hasConceal?"🛡️隐蔽":"🛡️"}</button>`:"",T=fe(n.id,n.faction);r.innerHTML=`
+      <div style="position:absolute;top:3px;right:6px;color:var(--imperial-gold);font-size:10px;opacity:0.4;pointer-events:none;z-index:1;">✦</div>
       <div class="op-card-top">
         <div class="op-avatar-row">
           ${T}
@@ -140,7 +141,7 @@
     </div>
 
     <button class="btn-large" id="btn-overlay-roll" onclick="rollInitiativeOverlay()" style="padding: 10px 30px; font-size:0.9rem;">开始掷骰判定</button>
-  `,z("【先攻阶段】点击按钮开始判定本回合先手优势权。")}function ce(){const e=document.getElementById("phase-overlay");e.style.display="flex",te(e)}function ve(){document.getElementById("phase-overlay").style.display="none",ne()}function it(){const e=document.getElementById("counteract-overlay");e&&(e.style.display="none"),ne()}function Ee(e){const t=document.getElementById("counteract-overlay"),i=document.getElementById("counteract-content"),l=e==="Space Marine"?"死亡天使":"瘟疫守卫",n=e==="Space Marine"?"#60a5fa":"var(--pm-accent)",c=o.operatives.filter(s=>s.faction===e&&!s.isDead&&s.hasActed&&!s.hasConceal);let r="";c.forEach(s=>{r+=`
+  `,z("【先攻阶段】点击按钮开始判定本回合先手优势权。")}function ce(){const e=document.getElementById("phase-overlay");e.style.display="flex";const t=document.getElementById("phase-overlay-content");t&&(t.classList.add("gothic-panel"),t.querySelector(".gothic-arch")||t.insertAdjacentHTML("afterbegin",'<div class="gothic-arch"></div>')),te(e)}function ve(){document.getElementById("phase-overlay").style.display="none",ne()}function it(){const e=document.getElementById("counteract-overlay");e&&(e.style.display="none"),ne()}function Ee(e){const t=document.getElementById("counteract-overlay"),i=document.getElementById("counteract-content"),l=e==="Space Marine"?"死亡天使":"瘟疫守卫",n=e==="Space Marine"?"#60a5fa":"var(--pm-accent)",c=o.operatives.filter(s=>s.faction===e&&!s.isDead&&s.hasActed&&!s.hasConceal);let r="";c.forEach(s=>{r+=`
       <div class="counteract-op-row" onclick="selectCounteractOperative('${s.id}')" style="
         background: rgba(255,255,255,0.03);
         border: 1px solid rgba(255,255,255,0.1);
@@ -190,6 +191,8 @@
     <p style="color:var(--text-muted); font-size:0.85rem; margin-bottom:12px;">
       在此阶段，双方可以使用命令点 (CP) 激活计策 (Strategic Ploys)。
     </p>
+
+    <div class="gothic-divider"><span style="color:var(--imperial-gold);font-size:8px;">⬥</span><span style="color:var(--imperial-gold);font-size:14px;">✠</span><span style="color:var(--imperial-gold);font-size:8px;">⬥</span></div>
 
     <div style="display:grid; grid-template-columns:1fr 1fr; gap:16px; width:100%; text-align:left; margin-bottom:16px;">
       <div class="ploy-choice-card ${o.smActivePloys.includes("bolter_discipline")?"selected":""}" role="button" tabindex="0" onclick="buyPloy('sm')" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();buyPloy('sm')}">
@@ -550,7 +553,7 @@
           ${a.meleeLogs}
         </div>
       `,i.textContent="完成近战结算",i.disabled=!1,i.onclick=Ft,l.style.display="none";return}const m=a.attacker.faction==="Space Marine"?"sm-dice":"pm-dice",d=a.defender.faction==="Space Marine"?"sm-dice":"pm-dice";let p="";a.activeAttackerDice.forEach((k,M)=>{let h=`melee-dice-btn ${m}`;k.isCrit&&(h+=" crit"),k.used&&(h+=" used");const b=a.selectedMeleeDice&&a.selectedMeleeDice.side==="attacker"&&a.selectedMeleeDice.idx===M?"outline: 3px solid #6a9ad4; transform: scale(1.15); box-shadow: 0 0 15px rgba(96,165,250,0.8); z-index: 2;":"";p+=`<button class="${h}" style="${b}" onclick="chooseMeleeDice('attacker', ${M})">${k.val}</button>`}),a.activeAttackerDice.length===0&&(p='<span style="color:var(--text-muted); font-size:0.8rem;">无成功骰</span>');let g="";a.activeDefenderDice.forEach((k,M)=>{let h=`melee-dice-btn ${d}`;k.isCrit&&(h+=" crit"),k.used&&(h+=" used");const b=a.selectedMeleeDice&&a.selectedMeleeDice.side==="defender"&&a.selectedMeleeDice.idx===M?"outline: 3px solid var(--pm-accent); transform: scale(1.15); box-shadow: 0 0 15px rgba(74,124,89,0.8); z-index: 2;":"";g+=`<button class="${h}" style="${b}" onclick="chooseMeleeDice('defender', ${M})">${k.val}</button>`}),a.activeDefenderDice.length===0&&(g='<span style="color:var(--text-muted); font-size:0.8rem;">无成功骰</span>');const v=a.meleeTurn==="attacker"?"攻击方":"防守方",y=a.meleeTurn==="attacker"?"#6a9ad4":"var(--pm-accent)";let T="";if(a.selectedMeleeDice){const{side:k,idx:M}=a.selectedMeleeDice,P=(k==="attacker"?a.activeAttackerDice:a.activeDefenderDice)[M];let b;k==="attacker"?b=a.weapon:b=a.defender.weapons.filter(S=>!S.isRanged)[0]||new w("重拳 (Fists)",4,3,3,4,!1,null,[]);const A=P.isCrit?b.criticalDamage:b.normalDamage,ae=(k==="attacker"?a.activeDefenderDice:a.activeAttackerDice).some(S=>!S.used);T=`
-        <div class="melee-choice-card" style="background: rgba(30, 41, 59, 0.95); border: 2px solid ${y}; border-radius: 12px; padding: 16px; margin-bottom: 16px; text-align: center; box-shadow: 0 0 20px rgba(0,0,0,0.5);">
+        <div class="melee-choice-card" style="position:relative; background: linear-gradient(180deg, #2a2d35, #1e2128); border: 2px solid ${y}; border-radius: 12px; padding: 16px; margin-bottom: 16px; text-align: center; box-shadow: 0 0 20px rgba(0,0,0,0.5);">
           <div style="font-weight: bold; font-size: 0.95rem; margin-bottom: 12px; color: #fff;">
             🎯 已选中点数 <span style="display:inline-block; padding: 2px 8px; border-radius: 4px; background: ${k==="attacker"?"rgba(74,106,154,0.3)":"rgba(74,124,89,0.3)"}; color: ${k==="attacker"?"#6a9ad4":"var(--pm-accent)"}; font-weight: 900; font-family:'Pirata One',serif;">${P.val}${P.isCrit?" (⚡暴击)":""}</span>，请选择分配动作：
           </div>
@@ -629,7 +632,13 @@
       </div>
 
       <!-- VS icon -->
-      <div style="font-size:1.2rem; font-weight:900; color:var(--text-muted); padding:0 8px; font-family:'Pirata One',serif; font-style:italic;">VS</div>
+      <div style="display:flex;align-items:center;gap:6px;padding:0 8px;">
+        <div style="width:16px;height:1px;background:var(--imperial-gold);"></div>
+        <span style="color:var(--imperial-gold);font-size:8px;">⬥</span>
+        <span style="font-size:1rem;color:var(--text-muted);font-family:'Pirata One',serif;">VS</span>
+        <span style="color:var(--imperial-gold);font-size:8px;">⬥</span>
+        <div style="width:16px;height:1px;background:var(--imperial-gold);"></div>
+      </div>
 
       <!-- Defender Panel -->
       <div style="display:flex; flex-direction:column; align-items:center; flex:1; gap:6px; min-width: 0;">
@@ -658,7 +667,13 @@
       </div>
 
       <!-- VS icon -->
-      <div style="font-size:1.2rem; font-weight:900; color:var(--text-muted); padding:0 8px; font-family:'Pirata One',serif; font-style:italic;">VS</div>
+      <div style="display:flex;align-items:center;gap:6px;padding:0 8px;">
+        <div style="width:16px;height:1px;background:var(--imperial-gold);"></div>
+        <span style="color:var(--imperial-gold);font-size:8px;">⬥</span>
+        <span style="font-size:1rem;color:var(--text-muted);font-family:'Pirata One',serif;">VS</span>
+        <span style="color:var(--imperial-gold);font-size:8px;">⬥</span>
+        <div style="width:16px;height:1px;background:var(--imperial-gold);"></div>
+      </div>
 
       <!-- Defender Panel -->
       <div style="display:flex; flex-direction:column; align-items:center; flex:1; gap:6px; min-width: 0;">
