@@ -64,6 +64,26 @@ export function updateMissionDesc() {
   }
 }
 
+export function updateRulesVersion() {
+  const select = document.getElementById('rules-version');
+  const desc = document.getElementById('rules-version-desc');
+  if (select) {
+    gameState.rulesVersion = select.value;
+  }
+  if (desc) {
+    if (gameState.rulesVersion === 'lite') {
+      desc.innerHTML = '<b style="color:var(--sm-accent);">Lite 规则：</b>简化版规则，隐藏 Advance（前进）行动，Dash 固定 3"，适合新手快速上手。';
+    } else {
+      desc.innerHTML = '<b style="color:var(--imperial-gold);">Standard 规则：</b>完整版规则，包含所有行动（Advance/Dash/Fall Back），适合有经验的玩家。';
+    }
+  }
+  // 更新 Advance 按钮的可见性
+  const advanceBtn = document.getElementById('action-advance');
+  if (advanceBtn) {
+    advanceBtn.style.display = gameState.rulesVersion === 'lite' ? 'none' : '';
+  }
+}
+
 // ==========================================
 //           Toast Notification System
 // ==========================================
@@ -1162,12 +1182,15 @@ export function updateActivePanel() {
     document.getElementById('action-advance').disabled = op.apl < 1 || hasAnyMove || hasFought || hasShot || isCounteracting;
     // Dash: 同 Advance
     document.getElementById('action-dash').disabled = op.apl < 1 || hasAnyMove || hasFought || hasShot || isCounteracting;
-    // Fall Back: 同 Advance，且不能脱离已脱离状态
-    document.getElementById('action-fallback').disabled = op.apl < 1 || hasAnyMove || hasFought || hasShot || isCounteracting;
+    // Fall Back: lite 规则下消耗 2 APL，同 Advance 的其他约束
+    document.getElementById('action-fallback').disabled = op.apl < 2 || hasAnyMove || hasFought || hasShot || isCounteracting;
     // Shoot: 原有约束 + Advance/FallBack 后不能射击 + Dash 后仅 Heavy 武器可射
     // 特殊规则: 若所有武器都是 Heavy (Dash only)，未 Dash 时 Shoot 禁用；Dash 后 Shoot 可用
     const shootHeavyBlocked = hasHeavyWeapon && !hasDashed && op.weapons.every(w => w.hasRule('Heavy'));
-    document.getElementById('action-shoot').disabled = op.apl < 1 || shootLimitReached || shootLocked || hasCharged || noCombatAfterMove || shootBlockedAfterDash || shootHeavyBlocked;
+    // Conceal 命令: 不能射击 (除非携带 Silent 武器)
+    const hasSilentWeapon = op.weapons.some(w => w.hasRule('Silent'));
+    const shootConcealBlocked = op.hasConceal && !hasSilentWeapon;
+    document.getElementById('action-shoot').disabled = op.apl < 1 || shootLimitReached || shootLocked || hasCharged || noCombatAfterMove || shootBlockedAfterDash || shootHeavyBlocked || shootConcealBlocked;
     // Fight: 原有约束 + Advance/Dash/FallBack 后都不能近战
     document.getElementById('action-fight').disabled = op.apl < 1 || fightLimitReached || fightLocked || noCombatAfterMove || hasDashed;
 
@@ -1260,7 +1283,7 @@ export function performCharge() {
   playSound('click');
   op.apl -= 1;
   op.actionsPerformed.push('Charge');
-  addLog(`  - ${op.name} 执行 [冲锋 (Charge)] 移动近战位，消耗 1 APL。`);
+  addLog(`  - ${op.name} 执行 [冲锋 (Charge)]，移动最多 ${op.currentMove + 2}" 并贴入敌方控制范围，消耗 1 APL。`);
   updateActivePanel();
 }
 
@@ -1280,17 +1303,21 @@ export function performDash() {
   playSound('click');
   op.apl -= 1;
   op.actionsPerformed.push('Dash');
-  addLog(`  - ${op.name} 执行 [冲刺 (Dash)]，移动距离 ×2 (总计 ${op.currentMove * 2}")，但本激活不能再射击/近战。`);
+  addLog(`  - ${op.name} 执行 [冲刺 (Dash)]，移动最多 3" (lite 规则，且不能攀爬)，本激活不能再射击/近战 (Heavy Dash-only 武器除外)。`);
   updateActivePanel();
 }
 
 export function performFallBack() {
   const op = gameState.activeAgent;
-  if (!op || op.apl < 1) return;
+  // Fall Back 在 lite 规则中消耗 2 APL
+  if (!op || op.apl < 2) {
+    if (op) addLog(`  - ❌ ${op.name} APL 不足 (${op.apl}/2)，无法执行撤退 (Fall Back)。`);
+    return;
+  }
   playSound('click');
-  op.apl -= 1;
+  op.apl -= 2;
   op.actionsPerformed.push('FallBack');
-  addLog(`  - ${op.name} 执行 [撤退 (Fall Back)]，脱离交战区域。本激活不能再射击/近战。`);
+  addLog(`  - ${op.name} 执行 [撤退 (Fall Back)]，脱离交战区域 (移动最多 ${op.currentMove}")，消耗 2 APL。本激活不能再射击/近战。`);
   updateActivePanel();
 }
 

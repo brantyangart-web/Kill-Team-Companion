@@ -82,6 +82,8 @@ export class Operative {
     this.hasConceal = false;
     // Counteract 标记 (反击激活时为 true, 激活结束后重置)
     this.counteracting = false;
+    // Counteract 每 TP 限用 1 次 (per-operative)
+    this.hasCounteractedThisTP = false;
     // Order 切换标记 (每个激活可切换 1 次)
     this.orderSwitchedThisActivation = false;
   }

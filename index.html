@@ -104,6 +104,22 @@
         </ul>
       </div>
 
+      <!-- 规则版本选择 -->
+      <div id="rules-version-picker" style="max-width: 900px; margin: 0 auto 18px auto; padding: 14px 18px; background: rgba(10,20,35,0.55); border: 1px solid rgba(106,154,212,0.25); border-radius: 12px; box-shadow: 0 2px 10px rgba(0,0,0,0.25);">
+        <div style="display:flex; align-items:center; gap:12px; flex-wrap:wrap;">
+          <label for="rules-version" style="font-family:'Pirata One',serif; color:var(--sm-accent); font-size:1rem; font-weight:600; white-space:nowrap;">
+            📜 规则版本 (Rules Version):
+          </label>
+          <select id="rules-version" onchange="updateRulesVersion()" style="flex:1; min-width:220px; padding:8px 12px; background:rgba(20,30,45,0.9); color:var(--text-light); border:1px solid rgba(106,154,212,0.4); border-radius:6px; font-size:0.9rem; cursor:pointer;">
+            <option value="lite">Lite 规则 (新手标准) — 简化版，适合入门</option>
+            <option value="standard">Standard 规则 (标准版) — 完整版，包含所有行动</option>
+          </select>
+        </div>
+        <div id="rules-version-desc" style="margin-top:10px; font-size:0.8rem; color:var(--text-muted); line-height:1.5; padding:8px 10px; background:rgba(106,154,212,0.05); border-left:2px solid var(--sm-accent); border-radius:4px;">
+          <b style="color:var(--sm-accent);">Lite 规则：</b>简化版规则，隐藏 Advance（前进）行动，Dash 固定 3"，适合新手快速上手。
+        </div>
+      </div>
+
       <!-- 任务类型选择 -->
       <div id="mission-picker" style="max-width: 900px; margin: 0 auto 18px auto; padding: 14px 18px; background: rgba(10,20,35,0.55); border: 1px solid rgba(201,168,76,0.25); border-radius: 12px; box-shadow: 0 2px 10px rgba(0,0,0,0.25);">
         <div style="display:flex; align-items:center; gap:12px; flex-wrap:wrap;">
@@ -213,7 +229,7 @@
               <div class="action-btn-row">
                 <button class="combat-action-btn" id="action-charge" onclick="performCharge()">
                   <span><span aria-hidden="true">⚡</span> 冲锋 (Charge)</span>
-                  <span class="cost">1 APL</span>
+                  <span class="cost">1 APL | Move+2" 贴脸</span>
                 </button>
                 <button class="help-icon-btn" aria-label="查看冲锋规则说明" onclick="showRuleHelp('charge')">?</button>
               </div>
@@ -221,15 +237,15 @@
               <div class="action-btn-row">
                 <button class="combat-action-btn" id="action-advance" onclick="performAdvance()">
                   <span><span aria-hidden="true">🏃💨</span> 前进 (Advance)</span>
-                  <span class="cost">1 APL | +3"</span>
+                  <span class="cost">1 APL | Move+3" (standard)</span>
                 </button>
                 <button class="help-icon-btn" aria-label="查看前进规则说明" onclick="showRuleHelp('advance')">?</button>
               </div>
 
               <div class="action-btn-row">
                 <button class="combat-action-btn" id="action-dash" onclick="performDash()">
-                  <span><span aria-hidden="true">💨💨</span> 冲刺 (Dash)</span>
-                  <span class="cost">1 APL | ×2</span>
+                  <span><span aria-hidden="true">💨</span> 冲刺 (Dash)</span>
+                  <span class="cost">1 APL | ≤3"</span>
                 </button>
                 <button class="help-icon-btn" aria-label="查看冲刺规则说明" onclick="showRuleHelp('dash')">?</button>
               </div>
@@ -237,7 +253,7 @@
               <div class="action-btn-row">
                 <button class="combat-action-btn" id="action-fallback" onclick="performFallBack()">
                   <span><span aria-hidden="true">🔙</span> 撤退 (Fall Back)</span>
-                  <span class="cost">1 APL | 脱离交战</span>
+                  <span class="cost">2 APL | 脱离交战</span>
                 </button>
                 <button class="help-icon-btn" aria-label="查看撤退规则说明" onclick="showRuleHelp('fallback')">?</button>
               </div>

@@ -34,11 +34,11 @@ export const gameState = {
   smKillsScored: 0,
   pmKillsScored: 0,
 
-  // Counteract 每触发窗口限用 1 次
-  counteractUsedThisTrigger: false,
-
   // 任务类型 (mission picker)
-  missionType: 'seize_ground'
+  missionType: 'seize_ground',
+
+  // 规则版本 (lite/standard)
+  rulesVersion: 'lite'
 };
 
 // ==========================================
@@ -65,7 +65,8 @@ const defaultWizardState = {
 
   attRerollIndex: -1,
   defRerollIndex: -1,
-  brutalUsed: false,
+  stunApplied: false,
+  shockTriggered: false,
 
   activeAttackerDice: [],
   activeDefenderDice: [],
@@ -121,15 +122,13 @@ export function endTurningPoint() {
   gameState.smActivePloys = [];
   gameState.pmActivePloys = [];
 
-  // Reset Counteract 触发限制
-  gameState.counteractUsedThisTrigger = false;
-
   // Reset operatives
   gameState.operatives.forEach(op => {
     if (!op.isDead) {
       op.hasActed = false;
       op.apl = op.currentApl;  // Injured 时 APL -1
       op.actionsPerformed = [];
+      op.hasCounteractedThisTP = false; // 每 TP 重置反击限制
     }
   });
 
@@ -143,10 +142,10 @@ export function endTurningPoint() {
   ui.startInitiativePhase();
 }
 
-// ---- 判断是否有可用于 Counteract 的特工 (已耗尽 + Engage 标记, 即 hasConceal=false) ----
+// ---- 判断是否有可用于 Counteract 的特工 (已耗尽 + Engage 标记 + 本 TP 未反击过) ----
 export function hasCounteractOperatives(faction) {
   return gameState.operatives.some(op =>
-    op.faction === faction && !op.isDead && op.hasActed && !op.hasConceal
+    op.faction === faction && !op.isDead && op.hasActed && !op.hasConceal && !op.hasCounteractedThisTP
   );
 }
 
@@ -163,12 +162,11 @@ export function switchSides() {
   } else if (currentHasReady) {
     // Next has no ready, current still has ready → next may counteract
     gameState.activeTurn = nextFaction;
-    if (hasCounteractOperatives(nextFaction) && !gameState.counteractUsedThisTrigger) {
+    if (hasCounteractOperatives(nextFaction)) {
       ui.addLog(`>>> 【${factionName(nextFaction)}】无可用特工，但可发动反击 (Counteract)！`);
       ui.showCounteractOverlay(nextFaction);
     } else {
-      const reason = gameState.counteractUsedThisTrigger ? '反击机会已使用' : '无法反击';
-      ui.addLog(`>>> 【${factionName(nextFaction)}】已无可用特工且${reason}。轮到【${factionName(gameState.activeTurn === nextFaction ? gameState.activeTurn : nextFaction)}】继续。`);
+      ui.addLog(`>>> 【${factionName(nextFaction)}】已无可用特工且无反击机会。轮到【${factionName(gameState.activeTurn === nextFaction ? gameState.activeTurn : nextFaction)}】继续。`);
       // Turn passes to opponent (who still has ready units)
       gameState.activeTurn = nextFaction === 'Space Marine' ? 'Plague Marine' : 'Space Marine';
     }
@@ -211,10 +209,10 @@ export function startCounteractActivation(opId) {
   op.hasActed = false;
   op.apl = 1; // Counteract gives exactly 1AP
   op.counteracting = true; // Flag to enforce counteract restrictions
+  op.hasCounteractedThisTP = true; // 本 TP 已反击，不可再次反击
   op.actionsPerformed = [];
 
   gameState.activeAgent = op;
-  gameState.counteractUsedThisTrigger = true; // 本次反击窗口已使用
 
   ui.addLog(`>>> 【${op.name}】发动反击！获得 1 AP（移动不超过 2"）。`);
   ui.hideCounteractOverlay();

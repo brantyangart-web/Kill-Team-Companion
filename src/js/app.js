@@ -14,7 +14,7 @@ import {
   getAvatarHtml, renderRosterPickers, toggleSelectSM, toggleSelectPM,
   incrementWarrior, decrementWarrior,
   updateSelectionCounts, validateRostersAndDeploy, renderOperatives,
-  updateMissionDesc,
+  updateMissionDesc, updateRulesVersion,
   selectOperative, confirmActivation, cancelSelection,
   activateOperative, updateActivePanel, performMove, performCharge, performAdvance, performDash, performFallBack, toggleConceal,
   endActivation, startInitiativePhase, showPhaseOverlay, hidePhaseOverlay, hideCounteractOverlay,
@@ -35,7 +35,7 @@ import { skipCounteract } from './state.js';
 import {
   openModal, closeModal, nextModalStep,
   openShootWizard, renderShootStep, selectShootDefender, selectShootWeapon,
-  setQA, setRollMode, rollAttackDice, renderAttackDiceView, rerollSingleAttackDice, brutalReroll,
+  setQA, setRollMode, rollAttackDice, renderAttackDiceView, rerollSingleAttackDice,
   recalculateAttackStats, rollDefenseDice, renderDefenseDiceView, rerollSingleDefenseDice,
   recalculateDefenseStats, parseManualAttack, parseManualDefense, confirmShootResult,
   openFightWizard, selectFightDefender, selectFightWeapon, renderFightStep,
@@ -102,6 +102,7 @@ window.incrementWarrior = incrementWarrior;
 window.decrementWarrior = decrementWarrior;
 window.validateRostersAndDeploy = validateRostersAndDeploy;
 window.updateMissionDesc = updateMissionDesc;
+window.updateRulesVersion = updateRulesVersion;
 
 // Avatar Upload
 window.triggerAvatarUpload = triggerAvatarUpload;
@@ -134,7 +135,6 @@ window.selectShootWeapon = selectShootWeapon;
 window.setQA = setQA;
 window.setRollMode = setRollMode;
 window.rollAttackDice = rollAttackDice;
-window.brutalReroll = brutalReroll;
 window.rollDefenseDice = rollDefenseDice;
 window.selectFightDefender = selectFightDefender;
 window.selectFightWeapon = selectFightWeapon;
@@ -171,4 +171,5 @@ window.confirmTurnEndScoring = confirmTurnEndScoring;
 
 document.addEventListener('DOMContentLoaded', () => {
   renderRosterPickers();
+  updateRulesVersion(); // 初始化规则版本（默认 lite，隐藏 Advance）
 });

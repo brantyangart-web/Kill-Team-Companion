@@ -7,8 +7,12 @@
  *   - 策略 ploys
  *   - 主题色 / 骰子样式
  *
- * 未来扩展 dynamic-factions 时，FACTIONS_DB 将从这里读取，
- * UI 根据 FACTIONS_DB 动态渲染 setup-overlay。
+ * 动态阵营扩展路径 (Dynamic Factions Roadmap):
+ *   1. 当前状态：FACTIONS_DB 已定义，但 UI 仍硬编码 SM/PM。
+ *   2. 下一步：在 setup-overlay 中添加阵营选择器，从 FACTIONS_DB 动态渲染。
+ *   3. Legionary 阵营：已预留占位，需补充模板数据和 ploys。
+ *   4. UI 解耦：将 roster-picker-card 改为通用组件，根据 faction.id 动态渲染。
+ *   5. 战斗逻辑：combat.js 中的 faction 硬编码检查（如 'Space Marine'）需改为查询 FACTION_TRAITS。
  */
 
 // ==========================================

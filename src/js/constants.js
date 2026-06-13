@@ -7,7 +7,7 @@ import { Weapon } from './models.js';
 
 const SM_TEMPLATES = [
   // --- LEADER 选项 ---
-  { id: 'sm_1', name: 'Space Marine Captain (SM 船长)', wounds: 15, apl: 3, df: 3, sv: 3, isLeader: true, move: 6,
+  { id: 'sm_1', name: 'Space Marine Captain (SM 队长)', wounds: 15, apl: 3, df: 3, sv: 3, isLeader: true, move: 6,
     defaultAvatar: './assets/images/operatives/sm/sm_captain.png',
     weapons: [
       new Weapon('Master-crafted Bolt Rifle (精铸爆弹步枪)', 4, 3, 4, 5, true, 24, ['Indirect Fire']),
@@ -148,12 +148,13 @@ const RULE_TEXTS = {
     title: '⚡ 冲锋 (Charge Move) 规则帮助',
     body: `
           <p><b>行动点消耗:</b> 1 APL</p>
-          <p style="margin-top:6px;"><b>冲锋移动距离:</b> 4⚪ (即 8 英寸)。</p>
+          <p style="margin-top:6px;"><b>冲锋移动距离:</b> 移动值 + 2" (即 8 英寸)。</p>
           <p style="margin-top:6px;"><b>使用场景:</b> 当你想要近身与敌方搏斗时使用。</p>
           <p style="margin-top:6px;"><b>规则限制:</b></p>
           <ul>
             <li>冲锋移动结束时，该特工<b>必须</b>进入某个敌方特工的交战距离（1 英寸内）。</li>
             <li>如果本回合该特工已经执行过【移动】或【射击】动作，则<b>不能</b>执行冲锋。</li>
+            <li>冲锋后<b>不能再射击</b>（已贴脸）。</li>
           </ul>
         `
   },
@@ -206,8 +207,8 @@ const RULE_TEXTS = {
     title: '💨💨 冲刺 (Dash) 规则帮助',
     body: `
           <p><b>行动点消耗:</b> 1 APL</p>
-          <p style="margin-top:6px;"><b>移动距离:</b> 角色移动值 <b>×2</b> (即 12 英寸)。</p>
-          <p style="margin-top:6px;"><b>使用场景:</b> 需要最快速度穿越战场时使用。同时也是唯一能让 <b>Heavy (Dash only)</b> 武器开火的方式。</p>
+          <p style="margin-top:6px;"><b>移动距离:</b> 固定 <b>3"</b> (lite 规则，且不能攀爬)。</p>
+          <p style="margin-top:6px;"><b>使用场景:</b> 需要快速穿越战场时使用。同时也是唯一能让 <b>Heavy (Dash only)</b> 武器开火的方式。</p>
           <p style="margin-top:6px;"><b>规则限制:</b></p>
           <ul>
             <li>冲刺后<b>不能再射击或近战</b>（Heavy (Dash only) 武器例外：Dash 后可以射击）。</li>
@@ -218,7 +219,7 @@ const RULE_TEXTS = {
   fallback: {
     title: '🔙 撤退 (Fall Back) 规则帮助',
     body: `
-          <p><b>行动点消耗:</b> 1 APL</p>
+          <p><b>行动点消耗:</b> 2 APL</p>
           <p style="margin-top:6px;"><b>移动距离:</b> 角色正常移动值 (6 英寸)。</p>
           <p style="margin-top:6px;"><b>使用场景:</b> 脱离当前交战（敌方 1 英寸范围内），避免被近战缠住。</p>
           <p style="margin-top:6px;"><b>规则限制:</b></p>
@@ -250,6 +251,140 @@ const RULE_TEXTS = {
             <li>1 名特工进入敌方部署区 +1 VP；2 名以上 +1 VP；控制区内目标 +1 VP。</li>
           </ul>
           <p style="margin-top:8px;"><b>🛠️ 自定义 (Custom):</b> 根据自定规则勾选得分条件。</p>
+        `
+  },
+  brutal: {
+    title: '🔥 残暴 (Brutal) 武器规则帮助',
+    body: `
+          <p><b>规则类型:</b> 近战武器关键字</p>
+          <p style="margin-top:6px;"><b>效果:</b> 你的对手<b>只能用暴击骰(6点)</b>进行格挡 (Parry)。</p>
+          <p style="margin-top:6px;"><b>适用阶段:</b> 近战搏斗 (Fight) 的骰子分配阶段。</p>
+          <p style="margin-top:6px;"><b>规则说明:</b></p>
+          <ul>
+            <li>当你使用带 Brutal 关键字的武器发起近战时，对方在格挡 (Parry) 你的攻击骰时，必须使用<b>暴击骰(6)</b>。</li>
+            <li>如果对方没有剩余的暴击骰，则无法格挡，你的攻击骰将全部造成打击 (Strike) 伤害。</li>
+            <li>此规则<b>不影响</b>打击 (Strike) 选择，也不影响远程射击阶段。</li>
+            <li>如果双方武器都带 Brutal，效果叠加：双方都只能用暴击骰格挡。</li>
+          </ul>
+        `
+  },
+  severe: {
+    title: '⚠️ 严重 (Severe) 武器规则帮助',
+    body: `
+          <p><b>规则类型:</b> 保留阶段关键字</p>
+          <p style="margin-top:6px;"><b>效果:</b> 如果你没有保留任何暴击成功，你可以将 1 个普通成功升级为暴击成功。</p>
+          <p style="margin-top:6px;"><b>适用阶段:</b> 攻击骰保留阶段（投骰后、防御前）。</p>
+          <p style="margin-top:6px;"><b>规则说明:</b></p>
+          <ul>
+            <li>触发条件：保留的暴击骰数量 = 0 且普通成功骰 ≥ 1。</li>
+            <li>升级后：1 个普通成功 → 1 个暴击成功（造成暴击伤害）。</li>
+            <li>与 Rending 互斥：Severe 触发后，Punishing 和 Rending 不生效。</li>
+            <li>Devastating 和 Piercing Crits 仍然生效。</li>
+          </ul>
+        `
+  },
+  saturate: {
+    title: '🔥 饱和 (Saturate) 武器规则帮助',
+    body: `
+          <p><b>规则类型:</b> 防御阶段关键字</p>
+          <p style="margin-top:6px;"><b>效果:</b> 防御方<b>不能保留掩体骰</b>。</p>
+          <p style="margin-top:6px;"><b>适用阶段:</b> 防御骰计算阶段。</p>
+          <p style="margin-top:6px;"><b>规则说明:</b></p>
+          <ul>
+            <li>掩体提供的加成（+1 DF 骰、1 个自动普通成功）被完全移除。</li>
+            <li>防御方只能依赖投出的防御骰（SV 判定）。</li>
+            <li>即使目标在掩体中，也不会获得任何掩体保护。</li>
+          </ul>
+        `
+  },
+  stun: {
+    title: '💫 震慑 (Stun) 武器规则帮助',
+    body: `
+          <p><b>规则类型:</b> 保留阶段触发关键字</p>
+          <p style="margin-top:6px;"><b>效果:</b> 如果你保留了任何暴击成功，目标的 APL -1，直到其下一次激活结束。</p>
+          <p style="margin-top:6px;"><b>适用阶段:</b> 攻击骰保留后（射击或近战）。</p>
+          <p style="margin-top:6px;"><b>规则说明:</b></p>
+          <ul>
+            <li>触发条件：保留的暴击骰数量 ≥ 1。</li>
+            <li>效果：目标特工的 APL（行动点）-1，持续到其下一次激活结束。</li>
+            <li>适用于远程射击和近战。</li>
+            <li>每次攻击序列只触发一次。</li>
+          </ul>
+        `
+  },
+  shock: {
+    title: '⚡ 冲击 (Shock) 武器规则帮助',
+    body: `
+          <p><b>规则类型:</b> 近战关键字</p>
+          <p style="margin-top:6px;"><b>效果:</b> 每次序列中第一次暴击打击时，丢弃对手 1 个未解决的普通成功（或暴击成功，若无普通）。</p>
+          <p style="margin-top:6px;"><b>适用阶段:</b> 近战搏斗 (Fight) 的打击 (Strike) 阶段。</p>
+          <p style="margin-top:6px;"><b>规则说明:</b></p>
+          <ul>
+            <li>触发条件：使用暴击骰进行打击 (Strike)，且本序列尚未触发过 Shock。</li>
+            <li>效果：丢弃对手 1 个未使用的普通成功骰；若无普通，则丢弃 1 个暴击成功骰。</li>
+            <li>每次近战序列只触发一次（第一次暴击打击）。</li>
+            <li>仅适用于近战，不适用于远程射击。</li>
+          </ul>
+        `
+  },
+  lethal: {
+    title: '💀 致命 (Lethal) 武器规则帮助',
+    body: `
+          <p><b>规则类型:</b> 攻击骰关键字</p>
+          <p style="margin-top:6px;"><b>效果:</b> N+ 视为暴击成功（不仅是 6）。</p>
+          <p style="margin-top:6px;"><b>适用阶段:</b> 攻击骰结算阶段。</p>
+          <p style="margin-top:6px;"><b>规则说明:</b></p>
+          <ul>
+            <li>Lethal 5+ 表示 5 和 6 都视为暴击成功。</li>
+            <li>Lethal 4+ 表示 4、5、6 都视为暴击成功。</li>
+            <li>默认暴击阈值仍然是 6（如果没有 Lethal 关键字）。</li>
+            <li>与 Piercing Crits 和 Devastating 叠加生效。</li>
+          </ul>
+        `
+  },
+  devastating: {
+    title: '💥 毁灭 (Devastating) 武器规则帮助',
+    body: `
+          <p><b>规则类型:</b> 伤害计算关键字</p>
+          <p style="margin-top:6px;"><b>效果:</b> 暴击命中立即额外造成 N 点伤害。</p>
+          <p style="margin-top:6px;"><b>适用阶段:</b> 伤害计算阶段（匹配对消后）。</p>
+          <p style="margin-top:6px;"><b>规则说明:</b></p>
+          <ul>
+            <li>Devastating 2 表示每个暴击命中额外 +2 伤害。</li>
+            <li>额外伤害加在暴击伤害上（例如：暴击伤害 3 + Devastating 2 = 5）。</li>
+            <li>可带距离前缀（如 1" Devastating 3），表示 AoE 范围。</li>
+            <li>仅对暴击命中的攻击生效，普通命中不享受额外伤害。</li>
+          </ul>
+        `
+  },
+  piercing: {
+    title: '🔥 穿透 (Piercing) 武器规则帮助',
+    body: `
+          <p><b>规则类型:</b> 防御阶段关键字</p>
+          <p style="margin-top:6px;"><b>效果:</b> 防御骰池减少 N 点。</p>
+          <p style="margin-top:6px;"><b>适用阶段:</b> 防御骰计算阶段。</p>
+          <p style="margin-top:6px;"><b>规则说明:</b></p>
+          <ul>
+            <li>Piercing 2 表示防御方的 DF 骰池 -2。</li>
+            <li>DF 骰池最低为 0（不会变成负数）。</li>
+            <li>与 Piercing Crits 不同：Piercing 对所有命中生效，Piercing Crits 仅对暴击生效。</li>
+            <li>多个 Piercing 效果叠加。</li>
+          </ul>
+        `
+  },
+  hot: {
+    title: '🔥 过热 (Hot) 武器规则帮助',
+    body: `
+          <p><b>规则类型:</b> 使用后反噬关键字</p>
+          <p style="margin-top:6px;"><b>效果:</b> 使用后投 D6，若结果 < 武器的 Hit 值，攻击方受到 结果 × 2 点伤害。</p>
+          <p style="margin-top:6px;"><b>适用阶段:</b> 攻击结算完成后。</p>
+          <p style="margin-top:6px;"><b>规则说明:</b></p>
+          <ul>
+            <li>例如：武器 Hit = 4，投出 3 → 3 < 4 → 攻击方受到 3 × 2 = 6 点伤害。</li>
+            <li>例如：武器 Hit = 4，投出 5 → 5 ≥ 4 → 安全，无反噬。</li>
+            <li>即使武器多次使用（如 Blast），也只投 1 次反噬骰。</li>
+            <li>反噬伤害直接作用于攻击方特工。</li>
+          </ul>
         `
   }
 };
