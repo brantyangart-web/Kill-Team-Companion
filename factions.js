@@ -1,4 +1,4 @@
-﻿    window.Weapon = class Weapon {
+﻿﻿    window.Weapon = class Weapon {
       constructor(name, attacks, targetSkill, normalDmg, criticalDmg, isRanged = true) {
         this.name = name;
         this.attacks = attacks;
@@ -198,7 +198,7 @@
         id: "Space Marine",
         name: "死亡天使 (Angels of Death)",
         templates: SM_TEMPLATES,
-        themeColor: "var(--sm-accent)",
+        themeColor: "#60a5fa",
         diceClass: "sm-dice",
         headerImg: "url('./faction_header_sm_1781315989603.png')",
         ploys: [
@@ -211,7 +211,7 @@
         id: "Plague Marine",
         name: "死亡守卫 (Death Guard)",
         templates: PM_TEMPLATES,
-        themeColor: "var(--pm-accent)",
+        themeColor: "#4ade80",
         diceClass: "pm-dice",
         headerImg: "url('./faction_header_pm_1781316000042.png')",
         ploys: [

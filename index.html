@@ -101,7 +101,7 @@
       font-family: 'Orbitron', sans-serif;
       font-size: 1.8rem;
       font-weight: 900;
-      color: var(--sm-accent);
+      color: var(--faction-a-color);
       line-height: 1.2;
     }
 
@@ -118,7 +118,7 @@
       font-weight: 700;
       background: rgba(217, 119, 6, 0.15);
       border: 1px solid var(--gold);
-      color: var(--sm-accent);
+      color: var(--faction-a-color);
       padding: 3px 10px;
       border-radius: 6px;
       margin-top: 4px;
@@ -194,12 +194,12 @@
     /* 引导条 */
     .guidance-banner {
       background: rgba(217, 119, 6, 0.12); border: 1px solid rgba(245, 158, 11, 0.4);
-      border-left: 4px solid var(--sm-accent); border-radius: 8px;
+      border-left: 4px solid var(--faction-a-color); border-radius: 8px;
       padding: 10px 16px; margin-bottom: 16px; display: flex; align-items: center; gap: 12px;
       font-size: 0.85rem; line-height: 1.4;
     }
     .guidance-icon { font-size: 1.2rem; animation: pulse 1.5s infinite alternate; }
-    .guidance-text { color: var(--sm-accent); font-weight: 500; }
+    .guidance-text { color: var(--faction-a-color); font-weight: 500; }
 
     /* 启动与上场选人面板 */
     .start-screen {
@@ -327,7 +327,7 @@
     .roster-checkbox {
       width: 18px;
       height: 18px;
-      accent-color: var(--sm-accent);
+      accent-color: var(--faction-a-color);
       cursor: pointer;
     }
 
@@ -362,8 +362,8 @@
 
     .role-badge.leader {
       background: rgba(234, 179, 8, 0.15);
-      border-color: var(--sm-accent);
-      color: var(--sm-accent);
+      border-color: var(--faction-a-color);
+      color: var(--faction-a-color);
     }
 
     /* 战场区域 */
@@ -398,7 +398,7 @@
       font-size: 1.4rem;
       margin-bottom: 12px;
       text-transform: uppercase;
-      color: var(--sm-accent);
+      color: var(--faction-a-color);
     }
 
     .phase-lock-box {
@@ -479,7 +479,7 @@
     .op-card.team-b { border-left: 4px solid var(--faction-b-color); }
 
     .op-card.active-target {
-      border-color: var(--sm-accent) !important;
+      border-color: var(--faction-a-color) !important;
       box-shadow: 0 0 10px rgba(234, 179, 8, 0.2);
     }
 
@@ -508,7 +508,7 @@
     .op-card-title { font-size: 0.95rem; font-weight: 600; color: #fff; display: flex; align-items: center; gap: 6px; }
     .card-ploy-tag {
       font-size: 0.6rem; padding: 1px 4px; border-radius: 3px;
-      background: rgba(234, 179, 8, 0.15); border: 1px solid var(--sm-accent); color: var(--sm-accent);
+      background: rgba(234, 179, 8, 0.15); border: 1px solid var(--faction-a-color); color: var(--faction-a-color);
     }
     .op-card-tag {
       font-size: 0.65rem; font-family: 'Orbitron', sans-serif;
@@ -529,9 +529,14 @@
       padding: 16px; backdrop-filter: blur(10px); text-align: center;
       display: flex; flex-direction: column; gap: 12px;
     }
-    .active-card.team-a { border-color: var(--faction-a-color); box-shadow: 0 0 15px var(--faction-a-color); }
-    .active-card.team-b { border-color: var(--faction-b-color); box-shadow: 0 0 15px var(--faction-b-color); }
-    .active-card-title { font-family: 'Orbitron', sans-serif; font-size: 0.8rem; color: var(--sm-accent); font-weight: 700; }
+    
+    
+    .active-card { color: var(--text-main); }
+    .active-card.team-a { --active-color: var(--faction-a-color); border-color: var(--active-color); box-shadow: 0 0 15px var(--active-color); color: var(--active-color); }
+    .active-card.team-b { --active-color: var(--faction-b-color); border-color: var(--active-color); box-shadow: 0 0 15px var(--active-color); color: var(--active-color); }
+    .active-card .combat-action-btn .cost { color: var(--active-color, var(--text-main)); border-color: var(--active-color, var(--text-muted)); }
+
+    .active-card-title { font-family: 'Orbitron', sans-serif; font-size: 0.8rem; color: inherit; font-weight: 700; }
     .active-agent-name { font-size: 1.2rem; font-weight: 700; color: #fff; }
     .active-agent-faction { font-size: 0.75rem; color: var(--text-muted); }
     .active-actions-grid { display: flex; flex-direction: column; gap: 8px; margin-top: 8px; }
@@ -545,7 +550,7 @@
     }
     .combat-action-btn:hover:not(:disabled) { background: #334155; border-color: #475569; }
     .combat-action-btn:disabled { opacity: 0.3; cursor: not-allowed; }
-    .combat-action-btn .cost { margin-left: auto; font-family: 'Orbitron', sans-serif; font-size: 0.75rem; background: rgba(0,0,0,0.3); padding: 1px 5px; border-radius: 3px; color: var(--sm-accent); }
+    .combat-action-btn .cost { margin-left: auto; font-family: 'Orbitron', sans-serif; font-size: 0.75rem; background: rgba(0,0,0,0.3); padding: 1px 5px; border-radius: 3px; color: var(--faction-a-color); }
     
     .help-icon-btn {
       width: 36px; height: 36px; border-radius: 8px; background: rgba(255, 255, 255, 0.05);
@@ -627,14 +632,14 @@
     .qa-btn.selected { background: var(--faction-a-color); border-color: #3b82f6; box-shadow: 0 0 10px rgba(59, 130, 246, 0.3); }
 
     .ploy-choice-card { background: var(--dark-card); border: 1px solid var(--panel-border); border-radius: 10px; padding: 16px; cursor: pointer; }
-    .ploy-choice-card.selected { border-color: var(--sm-accent); background: rgba(234, 179, 8, 0.04); }
+    .ploy-choice-card.selected { border-color: var(--faction-a-color); background: rgba(234, 179, 8, 0.04); }
     .ploy-title { font-family: 'Orbitron', sans-serif; font-size: 1rem; font-weight: bold; color: #fff; display: flex; justify-content: space-between; }
     .ploy-desc { font-size: 0.8rem; color: var(--text-muted); margin-top: 8px; line-height: 1.4; }
 
     .weapon-picker-list { display: flex; flex-direction: column; gap: 8px; }
     .weapon-pick-item { background: var(--dark-card); border: 1px solid var(--panel-border); border-radius: 8px; padding: 12px; cursor: pointer; display: flex; justify-content: space-between; align-items: center; }
     .weapon-pick-item:hover { border-color: #475569; }
-    .weapon-pick-item.selected { border-color: var(--sm-accent); background: rgba(234, 179, 8, 0.05); }
+    .weapon-pick-item.selected { border-color: var(--faction-a-color); background: rgba(234, 179, 8, 0.05); }
     .weapon-pick-name { font-weight: bold; color: #fff; }
     .weapon-pick-stats { font-family: 'Orbitron', sans-serif; font-size: 0.75rem; color: var(--text-muted); }
 
@@ -728,17 +733,17 @@
 
     /* 暴击(6点) - 金色火焰发光 */
     .kt-dice-cube.crit-dice {
-      border: 3px solid var(--sm-accent) !important;
+      border: 3px solid var(--faction-a-color) !important;
       box-shadow: 
-        0 0 25px var(--sm-accent), 
+        0 0 25px var(--faction-a-color), 
         inset 0 -5px 0 #b45309, 
         inset 0 3px 0 #fef08a !important;
       animation: goldPulse 1.2s infinite alternate;
     }
 
     @keyframes goldPulse {
-      from { transform: scale(1); box-shadow: 0 0 15px var(--sm-accent); }
-      to { transform: scale(1.05); box-shadow: 0 0 30px var(--sm-accent), 0 0 40px rgba(234,179,8,0.4); }
+      from { transform: scale(1); box-shadow: 0 0 15px var(--faction-a-color); }
+      to { transform: scale(1.05); box-shadow: 0 0 30px var(--faction-a-color), 0 0 40px rgba(234,179,8,0.4); }
     }
 
     /* 失败骰子 (未过关) */
@@ -804,7 +809,7 @@
     .melee-dice-btn.sm-dice { background: var(--faction-a-color); border-color: #3b82f6; }
     .melee-dice-btn.pm-dice { background: var(--faction-b-color); border-color: #22c55e; }
     .melee-dice-btn.leg-dice { background: #374151; border-color: #facc15; color: #facc15; }
-    .melee-dice-btn.crit { border-color: var(--sm-accent); box-shadow: 0 0 10px var(--sm-accent); }
+    .melee-dice-btn.crit { border-color: var(--faction-a-color); box-shadow: 0 0 10px var(--faction-a-color); }
     .melee-dice-btn.used { opacity: 0.15; cursor: not-allowed; }
     .melee-interactive-log { background: #030712; border: 1px solid rgba(255,255,255,0.05); border-radius: 8px; padding: 10px; height: 120px; overflow-y: auto; font-family: 'Consolas', monospace; font-size: 0.75rem; color: var(--text-muted); }
 
@@ -813,7 +818,7 @@
     /* --- 新增/增强的高级视觉样式 --- */
     .btn-large {
       background: linear-gradient(135deg, var(--gold), #b45309);
-      border: 1px solid var(--sm-accent);
+      border: 1px solid var(--faction-a-color);
       color: #fff;
       padding: 12px 30px;
       border-radius: 8px;
@@ -827,7 +832,7 @@
       text-align: center;
     }
     .btn-large:hover:not(:disabled) {
-      background: linear-gradient(135deg, var(--sm-accent), var(--gold));
+      background: linear-gradient(135deg, var(--faction-a-color), var(--gold));
       box-shadow: 0 0 15px rgba(234, 179, 8, 0.4);
       transform: translateY(-1px);
     }
@@ -855,7 +860,7 @@
       position: relative;
     }
     .op-avatar-slot:hover {
-      border-color: var(--sm-accent);
+      border-color: var(--faction-a-color);
       border-style: solid;
       background: rgba(255, 255, 255, 0.1);
       box-shadow: 0 0 8px rgba(234, 179, 8, 0.3);
@@ -1002,7 +1007,7 @@
     .scoring-item input[type="checkbox"] {
       width: 15px;
       height: 15px;
-      accent-color: var(--sm-accent);
+      accent-color: var(--faction-a-color);
       cursor: pointer;
     }
 
@@ -1015,8 +1020,8 @@
       font-family: 'Orbitron', sans-serif;
       font-size: 3.2rem;
       font-weight: 900;
-      color: var(--sm-accent);
-      text-shadow: 0 0 20px var(--sm-accent), 0 0 40px rgba(0, 0, 0, 0.9);
+      color: var(--faction-a-color);
+      text-shadow: 0 0 20px var(--faction-a-color), 0 0 40px rgba(0, 0, 0, 0.9);
       z-index: 300;
       pointer-events: none;
       white-space: nowrap;
@@ -1160,8 +1165,8 @@
     <div style="display:flex; gap: 40px; width: 80%; max-width: 800px; margin-bottom: 40px;">
       
       <!-- Faction A Selection -->
-      <div style="flex:1; background:var(--dark-card); padding:20px; border-radius:12px; border:2px solid var(--sm-accent); text-align:center;">
-        <h2 style="color:var(--sm-accent); margin-bottom: 20px;">Faction A (Left Side)</h2>
+      <div style="flex:1; background:var(--dark-card); padding:20px; border-radius:12px; border:2px solid var(--faction-a-color); text-align:center;">
+        <h2 style="color:var(--faction-a-color); margin-bottom: 20px;">Faction A (Left Side)</h2>
         <select id="select-faction-a" style="width:100%; padding:10px; background:#1e293b; color:white; border:1px solid var(--panel-border); border-radius:6px; font-size:1.1rem; outline:none;">
           <!-- Options injected by JS -->
         </select>
@@ -1170,8 +1175,8 @@
       <div style="display:flex; align-items:center; font-size: 2rem; color: var(--text-muted); font-weight:bold;">VS</div>
 
       <!-- Faction B Selection -->
-      <div style="flex:1; background:var(--dark-card); padding:20px; border-radius:12px; border:2px solid var(--pm-accent); text-align:center;">
-        <h2 style="color:var(--pm-accent); margin-bottom: 20px;">Faction B (Right Side)</h2>
+      <div style="flex:1; background:var(--dark-card); padding:20px; border-radius:12px; border:2px solid var(--faction-b-color); text-align:center;">
+        <h2 style="color:var(--faction-b-color); margin-bottom: 20px;">Faction B (Right Side)</h2>
         <select id="select-faction-b" style="width:100%; padding:10px; background:#1e293b; color:white; border:1px solid var(--panel-border); border-radius:6px; font-size:1.1rem; outline:none;">
           <!-- Options injected by JS -->
         </select>
@@ -1266,7 +1271,7 @@
 
       <!-- 物理桌游沙盘部署指南提示 -->
       <div style="background: rgba(217, 119, 6, 0.1); border: 1px dashed var(--gold); border-radius: 12px; padding: 16px; margin: 0 auto 20px auto; font-size: 0.85rem; line-height: 1.6; max-width: 900px; text-align: left; box-shadow: inset 0 0 10px rgba(217, 119, 6, 0.05); width: 100%;">
-        <span style="font-family: 'Orbitron', sans-serif; font-weight: bold; color: var(--sm-accent); font-size: 0.95rem; display: block; margin-bottom: 6px;">💡 实体桌游布局与部署指南 (Tabletop Setup & Deployment Guide)</span>
+        <span style="font-family: 'Orbitron', sans-serif; font-weight: bold; color: var(--faction-a-color); font-size: 0.95rem; display: block; margin-bottom: 6px;">💡 实体桌游布局与部署指南 (Tabletop Setup & Deployment Guide)</span>
         <ul style="margin-left: 20px; color: var(--text-muted);">
           <li><b>第一步：地形摆放</b> — 按照官方新手手册的战场推荐，摆放好遮蔽物（Cover）与阻挡视线地形（Obstacle）。</li>
           <li><b>第二步：部署区 (Deployment Zone) 划分</b> — 双方部署领地深度一般为距离己方桌子底边 <b>3 英寸</b>（即 <b>1🔺</b> 距离，尺子红色三角形图标）。</li>
@@ -1430,9 +1435,9 @@
 
   <!-- 动作说明帮助弹窗 -->
   <div class="modal-overlay" id="help-modal">
-    <div class="modal-content" style="max-width:480px; border-color:var(--sm-accent);">
+    <div class="modal-content" style="max-width:480px; border-color:var(--faction-a-color);">
       <div class="modal-header">
-        <div class="modal-title" id="help-title" style="color:var(--sm-accent);">规则解释</div>
+        <div class="modal-title" id="help-title" style="color:var(--faction-a-color);">规则解释</div>
       </div>
       <div class="modal-body" id="help-body" style="font-size:0.9rem; line-height:1.5;"></div>
       <div class="modal-footer">
@@ -2162,12 +2167,12 @@
             <p style="font-size: 1.2rem; color: #cbd5e1; margin-bottom: 30px;">${descText}</p>
             
             <div style="display: flex; justify-content: center; gap: 20px;">
-              <div style="background: rgba(0,0,0,0.5); padding: 15px; border-radius: 8px; border: 1px solid var(--sm-accent); flex: 1;">
-                <h3 style="color:var(--sm-accent); margin-bottom: 10px;">${facA.name}</h3>
+              <div style="background: rgba(0,0,0,0.5); padding: 15px; border-radius: 8px; border: 1px solid var(--faction-a-color); flex: 1;">
+                <h3 style="color:var(--faction-a-color); margin-bottom: 10px;">${facA.name}</h3>
                 <div style="font-size: 2rem; font-weight: bold; color: white;">${gameState.factionAVp} VP</div>
               </div>
-              <div style="background: rgba(0,0,0,0.5); padding: 15px; border-radius: 8px; border: 1px solid var(--pm-accent); flex: 1;">
-                <h3 style="color:var(--pm-accent); margin-bottom: 10px;">${facB.name}</h3>
+              <div style="background: rgba(0,0,0,0.5); padding: 15px; border-radius: 8px; border: 1px solid var(--faction-b-color); flex: 1;">
+                <h3 style="color:var(--faction-b-color); margin-bottom: 10px;">${facB.name}</h3>
                 <div style="font-size: 2rem; font-weight: bold; color: white;">${gameState.factionBVp} VP</div>
               </div>
             </div>
@@ -2216,7 +2221,7 @@
         if (isSm && gameState.factionAPloys.includes('shoot_twice') && !op.isDead) {
           tagHtml = '<span class="card-ploy-tag">双重射击</span>';
         } else if (!isSm && gameState.factionBPloys.includes('contagious_resilience') && !op.isDead) {
-          tagHtml = '<span class="card-ploy-tag" style="border-color:var(--pm-accent); color:var(--pm-accent); background:rgba(132,204,22,0.15);">减伤重投</span>';
+          tagHtml = '<span class="card-ploy-tag" style="border-color:var(--faction-b-color); color:var(--faction-b-color); background:rgba(132,204,22,0.15);">减伤重投</span>';
         }
 
         const avatarHtml = getAvatarHtml(op.id, op.faction);
@@ -2360,7 +2365,7 @@
             const overlayBox = document.getElementById('phase-overlay-content');
             overlayBox.innerHTML += `
               <div style="border-top:1px solid var(--panel-border); margin-top:16px; padding-top:16px; width:100%;">
-                <p style="color:var(--sm-accent); font-weight:bold; margin-bottom:10px;">👑 【${winnerCN}】选择首发玩家：</p>
+                <p style="color:var(--faction-a-color); font-weight:bold; margin-bottom:10px;">👑 【${winnerCN}】选择首发玩家：</p>
                 <div style="display:flex; gap:10px;">
                   <button class="qa-btn" onclick="selectTurnOrder(gameState.factionA)">${FACTIONS_DB[gameState.factionA].name} 先攻</button>
                   <button class="qa-btn" onclick="selectTurnOrder(gameState.factionB)">${FACTIONS_DB[gameState.factionB].name} 先攻</button>
@@ -2564,7 +2569,7 @@
         if (ployDisplay) {
             const ploysText = [];
             if (hasShootTwice) ploysText.push('<span style="color:gold;">🔥 连射策略生效中</span>');
-            if (hasContagiousResilience) ploysText.push('<span style="color:var(--pm-accent);">🛡️ 减伤策略生效中</span>');
+            if (hasContagiousResilience) ploysText.push('<span style="color:var(--faction-b-color);">🛡️ 减伤策略生效中</span>');
             ployDisplay.innerHTML = ploysText.length > 0 ? ploysText.join(' | ') : '';
         }
 
@@ -2954,8 +2959,8 @@
         if (wizardState.attackRolls.length > 0) {
           rerollHint = `
             <div class="roll-summary-block" style="margin-top:10px;">
-              🎯 <b>命中统计:</b> 暴击(6点): <span style="color:var(--sm-accent); font-weight:bold;">${wizardState.attackCrit}</span>, 普通命中(${wizardState.weapon.ts}+): <span style="color:#60a5fa;">${wizardState.attackNorm}</span>
-              ${curCp >= 1 && wizardState.attRerollIndex === -1 ? '<br><span style="color:var(--sm-accent);">💡 战术重投：你可以消耗 1 CP 点击上方任何一个未命中的灰色骰子重投。</span>' : ''}
+              🎯 <b>命中统计:</b> 暴击(6点): <span style="color:var(--faction-a-color); font-weight:bold;">${wizardState.attackCrit}</span>, 普通命中(${wizardState.weapon.ts}+): <span style="color:#60a5fa;">${wizardState.attackNorm}</span>
+              ${curCp >= 1 && wizardState.attRerollIndex === -1 ? '<br><span style="color:var(--faction-a-color);">💡 战术重投：你可以消耗 1 CP 点击上方任何一个未命中的灰色骰子重投。</span>' : ''}
             </div>
           `;
         }
@@ -3007,7 +3012,7 @@
         let coverDesc = '';
         let dfCount = wizardState.defender.df;
         if (wizardState.inCover) {
-          coverDesc = `<p style="color:var(--pm-accent); margin-bottom: 4px;">🛡️ 目标在掩体中：自动获得 1 个普通成功，且防御投骰池减 1 (DF = ${dfCount} -> ${dfCount - 1})</p>`;
+          coverDesc = `<p style="color:var(--faction-b-color); margin-bottom: 4px;">🛡️ 目标在掩体中：自动获得 1 个普通成功，且防御投骰池减 1 (DF = ${dfCount} -> ${dfCount - 1})</p>`;
           dfCount = Math.max(0, dfCount - 1);
         }
 
@@ -3016,8 +3021,8 @@
         if (wizardState.defenseRolls.length > 0 && dfCount > 0) {
           rerollHint = `
             <div class="roll-summary-block" style="margin-top:10px;">
-              🛡️ <b>防守统计:</b> 暴击防守: <span style="color:var(--pm-accent); font-weight:bold;">${wizardState.defCrit}</span>, 普通防守(${wizardState.defender.sv}+): <span style="color:#86efac;">${wizardState.defNorm}</span>
-              ${curCp >= 1 && wizardState.defRerollIndex === -1 ? '<br><span style="color:var(--sm-accent);">💡 战术重投：你可以消耗 1 CP 点击上面任何一个未命中的灰色骰子重投。</span>' : ''}
+              🛡️ <b>防守统计:</b> 暴击防守: <span style="color:var(--faction-b-color); font-weight:bold;">${wizardState.defCrit}</span>, 普通防守(${wizardState.defender.sv}+): <span style="color:#86efac;">${wizardState.defNorm}</span>
+              ${curCp >= 1 && wizardState.defRerollIndex === -1 ? '<br><span style="color:var(--faction-a-color);">💡 战术重投：你可以消耗 1 CP 点击上面任何一个未命中的灰色骰子重投。</span>' : ''}
             </div>
           `;
         }
@@ -3138,7 +3143,7 @@
             <p style="font-size:0.95rem; font-weight:600; color:#fff;">最终对消计算汇报：</p>
             <p style="margin-top:4px;">- 暴击命中残留: <b>${remainingCrits}</b> 个 (每个伤害: ${wizardState.weapon.criticalDamage})</p>
             <p>- 普通命中残留: <b>${remainingNorms}</b> 个 (每个伤害: ${wizardState.weapon.normalDamage})</p>
-            <p style="color:var(--sm-accent); font-weight:bold; margin-top:8px; font-size:1rem;">分配伤害总计: ${rawDmg} 点</p>
+            <p style="color:var(--faction-a-color); font-weight:bold; margin-top:8px; font-size:1rem;">分配伤害总计: ${rawDmg} 点</p>
           </div>
 
           ${drInputHtml}
@@ -3902,14 +3907,14 @@
           body.innerHTML = `
             <div style="display:flex; gap:16px;">
               <div style="flex:1;">
-                 <div style="color:var(--sm-accent); font-weight:bold; margin-bottom:8px;">🗡️ 攻击方 [${wizardState.attacker.name}]</div>
+                 <div style="color:var(--faction-a-color); font-weight:bold; margin-bottom:8px;">🗡️ 攻击方 [${wizardState.attacker.name}]</div>
                  ${getKeypadHtml('meleeAttack', wizardState.attackRolls.length, wizardState.weapon.attacks)}
                  <div class="dice-pool-view" id="melee-att-pool" style="margin-top:10px; min-height:50px;">
                    <span style="color:var(--text-muted); font-size:0.85rem;">等待录入...</span>
                  </div>
               </div>
               <div style="flex:1;">
-                 <div style="color:var(--pm-accent); font-weight:bold; margin-bottom:8px;">🛡️ 防守方 [${wizardState.defender.name}]</div>
+                 <div style="color:var(--faction-b-color); font-weight:bold; margin-bottom:8px;">🛡️ 防守方 [${wizardState.defender.name}]</div>
                  ${getKeypadHtml('meleeDefense', wizardState.defenseRolls.length, defMeleeWeapon.attacks)}
                  <div class="dice-pool-view" id="melee-def-pool" style="margin-top:10px; min-height:50px;">
                    <span style="color:var(--text-muted); font-size:0.85rem;">等待录入...</span>
@@ -4007,7 +4012,7 @@
             ${getMeleeDuelHeaderHtml()}
             
             <div class="qa-card" style="text-align: center; margin-top: 16px;">
-              <h4 style="color: var(--sm-accent); margin-bottom: 8px;">战斗结束</h4>
+              <h4 style="color: var(--faction-a-color); margin-bottom: 8px;">战斗结束</h4>
               <p>${endReason}</p>
             </div>
             
@@ -4046,14 +4051,14 @@
           if (d.used) cls += ' used';
           
           const isSelected = wizardState.selectedMeleeDice && wizardState.selectedMeleeDice.side === 'defender' && wizardState.selectedMeleeDice.idx === idx;
-          const style = isSelected ? 'outline: 3px solid var(--pm-accent); transform: scale(1.15); box-shadow: 0 0 15px rgba(34,197,94,0.8); z-index: 2;' : '';
+          const style = isSelected ? 'outline: 3px solid var(--faction-b-color); transform: scale(1.15); box-shadow: 0 0 15px rgba(34,197,94,0.8); z-index: 2;' : '';
           
           defenderDiceHtml += `<button class="${cls}" style="${style}" onclick="chooseMeleeDice('defender', ${idx})">${d.val}</button>`;
         });
         if (wizardState.activeDefenderDice.length === 0) defenderDiceHtml = '<span style="color:var(--text-muted); font-size:0.8rem;">无成功骰</span>';
         
         const turnCN = wizardState.meleeTurn === 'attacker' ? '攻击方' : '防守方';
-        const turnColor = wizardState.meleeTurn === 'attacker' ? '#60a5fa' : 'var(--pm-accent)';
+        const turnColor = wizardState.meleeTurn === 'attacker' ? '#60a5fa' : 'var(--faction-b-color)';
         
         // 渲染分配动作选择卡
         let choiceCardHtml = '';
@@ -4077,7 +4082,7 @@
           choiceCardHtml = `
             <div class="melee-choice-card" style="background: rgba(30, 41, 59, 0.95); border: 2px solid ${turnColor}; border-radius: 12px; padding: 16px; margin-bottom: 16px; text-align: center; box-shadow: 0 0 20px rgba(0,0,0,0.5);">
               <div style="font-weight: bold; font-size: 0.95rem; margin-bottom: 12px; color: #fff;">
-                🎯 已选中点数 <span style="display:inline-block; padding: 2px 8px; border-radius: 4px; background: ${side === 'attacker' ? 'rgba(59,130,246,0.3)' : 'rgba(34,197,94,0.3)'}; color: ${side === 'attacker' ? '#60a5fa' : 'var(--pm-accent)'}; font-weight: 900; font-family:'Orbitron',sans-serif;">${dice.val}${dice.isCrit ? ' (⚡暴击)' : ''}</span>，请选择分配动作：
+                🎯 已选中点数 <span style="display:inline-block; padding: 2px 8px; border-radius: 4px; background: ${side === 'attacker' ? 'rgba(59,130,246,0.3)' : 'rgba(34,197,94,0.3)'}; color: ${side === 'attacker' ? '#60a5fa' : 'var(--faction-b-color)'}; font-weight: 900; font-family:'Orbitron',sans-serif;">${dice.val}${dice.isCrit ? ' (⚡暴击)' : ''}</span>，请选择分配动作：
               </div>
               
               <div style="display: flex; gap: 16px; justify-content: center;">
@@ -4225,7 +4230,7 @@
           <!-- Defender Panel -->
           <div style="display:flex; flex-direction:column; align-items:center; flex:1; gap:6px; min-width: 0;">
             ${getDuelAvatarHtml(def.id, def.faction)}
-            <div style="font-weight:bold; font-size:0.85rem; color:var(--pm-accent); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; max-width:100%;" title="${def.name}">${def.name}</div>
+            <div style="font-weight:bold; font-size:0.85rem; color:var(--faction-b-color); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; max-width:100%;" title="${def.name}">${def.name}</div>
             <div style="font-size:0.7rem; color:var(--text-muted); font-family:'Orbitron',sans-serif; text-transform:uppercase;">防守方</div>
             <!-- HP bar -->
             <div style="width:100%; background:rgba(255,255,255,0.08); height:6px; border-radius:3px; overflow:hidden; margin-top:4px;">
@@ -4264,7 +4269,7 @@
           <!-- Defender Panel -->
           <div style="display:flex; flex-direction:column; align-items:center; flex:1; gap:6px; min-width: 0;">
             ${getDuelAvatarHtml(def.id, def.faction)}
-            <div style="font-weight:bold; font-size:0.85rem; color:var(--pm-accent); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; max-width:100%;" title="${def.name}">${def.name}</div>
+            <div style="font-weight:bold; font-size:0.85rem; color:var(--faction-b-color); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; max-width:100%;" title="${def.name}">${def.name}</div>
             <div style="font-size:0.7rem; color:var(--text-muted); font-family:'Orbitron',sans-serif; text-transform:uppercase;">防守方</div>
             <!-- HP bar -->
             <div style="width:100%; background:rgba(255,255,255,0.08); height:6px; border-radius:3px; overflow:hidden; margin-top:4px;">
@@ -4711,7 +4716,7 @@
             <div style="font-size:0.85rem; display:flex; flex-direction:column; gap:12px;">
               <div style="display:flex; justify-content:space-between; align-items:center;">
                 <span>⚔️ 新增击杀得分：</span>
-                <span style="font-weight:bold; color:var(--sm-accent);">${gameState.tempSmKillVp} VP <span style="font-size:0.75rem; color:var(--text-muted); font-weight:normal;">(总击杀: ${gameState.tempSmKills})</span></span>
+                <span style="font-weight:bold; color:var(--faction-a-color);">${gameState.tempSmKillVp} VP <span style="font-size:0.75rem; color:var(--text-muted); font-weight:normal;">(总击杀: ${gameState.tempSmKills})</span></span>
               </div>
               
               <div class="scoring-checklist-card">
@@ -4755,13 +4760,13 @@
           
           <!-- PM 结算 -->
           <div class="init-team-col team-b" style="align-items:stretch; background: rgba(34,197,94,0.02); border: 1px solid rgba(34,197,94,0.1);">
-            <h4 style="color:var(--pm-accent); font-size:0.95rem; border-bottom:1px solid rgba(255,255,255,0.08); padding-bottom:6px; margin-bottom:10px; text-align:center; font-family:'Orbitron',sans-serif;">
+            <h4 style="color:var(--faction-b-color); font-size:0.95rem; border-bottom:1px solid rgba(255,255,255,0.08); padding-bottom:6px; margin-bottom:10px; text-align:center; font-family:'Orbitron',sans-serif;">
               ${FACTIONS_DB[gameState.factionB].name}
             </h4>
             <div style="font-size:0.85rem; display:flex; flex-direction:column; gap:12px;">
               <div style="display:flex; justify-content:space-between; align-items:center;">
                 <span>⚔️ 新增击杀得分：</span>
-                <span style="font-weight:bold; color:var(--pm-accent);">${gameState.tempPmKillVp} VP <span style="font-size:0.75rem; color:var(--text-muted); font-weight:normal;">(总击杀: ${gameState.tempPmKills})</span></span>
+                <span style="font-weight:bold; color:var(--faction-b-color);">${gameState.tempPmKillVp} VP <span style="font-size:0.75rem; color:var(--text-muted); font-weight:normal;">(总击杀: ${gameState.tempPmKills})</span></span>
               </div>
 
               <div class="scoring-checklist-card">
@@ -4798,7 +4803,7 @@
               </div>
               <div style="border-top:1px dashed rgba(255,255,255,0.1); padding-top:8px; display:flex; justify-content:space-between; align-items:center; font-weight:bold; font-size:0.95rem;">
                 <span>本回合得分小计：</span>
-                <span style="color:var(--pm-accent);">+${totalfactionBVpThisTurn} VP</span>
+                <span style="color:var(--faction-b-color);">+${totalfactionBVpThisTurn} VP</span>
               </div>
             </div>
           </div>
@@ -4955,7 +4960,7 @@
         el.style.color = '#38bdf8'; // 天蓝色
         el.style.textShadow = '0 0 20px rgba(56, 189, 248, 0.85), 0 0 40px #000';
       } else if (type === 'shoot') {
-        el.style.color = 'var(--sm-accent)';
+        el.style.color = 'var(--faction-a-color)';
       } else if (type === 'deflect') {
         el.style.color = '#a3e635'; // 柠檬绿
         el.style.textShadow = '0 0 20px rgba(163, 230, 53, 0.85), 0 0 40px #000';
