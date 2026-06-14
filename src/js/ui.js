@@ -14,6 +14,7 @@ import {
   isFirefightPloyActive, getUsedPloysThisTP, markPloyUsedThisTP,
   getCombatDoctrineChoice, setCombatDoctrineChoice
 } from '../rules/ploys.js';
+import { isFinalTurningPoint } from '../rules/strategy.js';
 
 // Accessibility: check reduced motion preference
 const prefersReducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)');
@@ -408,6 +409,10 @@ export function adjustScore(teamOrFaction, type, amount) {
 }
 
 export function confirmReset() {
+  // 先隐藏所有 overlay
+  hidePhaseOverlay();
+  hideCounteractOverlay();
+
   showConfirmDialog('确定要重置当前对局吗？所有进度和选择将被清空。', () => {
     playSound('click');
     gameState.turningPoint = 1;
@@ -423,11 +428,17 @@ export function confirmReset() {
     gameState.pmCp = 2;
     gameState.smActivePloys = [];
     gameState.pmActivePloys = [];
+    gameState.persistentPloys = { 0: [], 1: [] };
+    gameState.usedPloysThisTP = { 0: {}, 1: {} };
+    gameState.combatDoctrineChoice = { 0: null, 1: null };
     gameState.operatives = [];
     gameState.activeAgent = null;
+    gameState.pendingActivation = null;
     gameState.gameOver = false;
     gameState.smKillsScored = 0;
     gameState.pmKillsScored = 0;
+    gameState.missionType = 'seize_ground';
+    gameState.rulesVersion = 'lite';
 
     document.getElementById('start-screen').style.display = 'flex';
     document.getElementById('global-dash').style.display = 'none';
@@ -2461,7 +2472,7 @@ export function renderTurnEndScoringContent() {
     `).join('');
   };
 
-  const isFinalTP = gameState.turningPoint >= 5;
+  const isFinalTP = isFinalTurningPoint(gameState.turningPoint, gameState.rulesVersion);
   const confirmBtnText = isFinalTP ? '确认结算并完成对局' : '确认结算并推进回合';
   const confirmAction = isFinalTP ? 'declareScoreVictory()' : 'confirmTurnEndScoring()';
 
