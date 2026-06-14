@@ -45,7 +45,30 @@ export const gameState = {
   missionType: 'seize_ground',
 
   // 规则版本 (lite/standard)
-  rulesVersion: 'lite'
+  rulesVersion: 'lite',
+
+  // === Standard 规则专属状态 ===
+
+  // Space Marine: 章战术选择 { [operativeId]: { primary, secondary, extra? } }
+  chapterTacticSelections: {},
+
+  // Legionary: 混沌印记选择 { [operativeId]: 'KHORNE'|'NURGLE'|'SLAANESH'|'TZEENTCH'|'UNDIVIDED' }
+  marksOfChaosSelections: {},
+
+  // 已购买的 ploys { [teamSlot]: [ployId, ...] }
+  purchasedPloys: { 0: [], 1: [] },
+
+  // 控制标记系统 (Standard 规则) { markerId: { tainted: bool, controller: faction|null } }
+  objectiveMarkers: {},
+
+  // Shrivetalon: Grisly Mark 放置位置 { operativeId: { placed: bool } }
+  grislyMarkerPlacements: {},
+
+  // Eliminator Sniper: Optics 激活状态 { operativeId: bool }
+  opticsActive: {},
+
+  // Butcher: Devastating Onslaught 冲锋目标追踪
+  butcherChargeTargets: {},
 };
 
 // ==========================================

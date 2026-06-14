@@ -88,6 +88,42 @@ export class Operative {
     this.hasCounteractedThisTP = false;
     // Order 切换标记 (每个激活可切换 1 次)
     this.orderSwitchedThisActivation = false;
+
+    // === Standard 规则专属字段 ===
+
+    // 特工类型标识 (如 'sm_captain', 'pm_champion', 'leg_aspiring_champion')
+    // 用于在战斗结算中触发特殊能力
+    this.operativeType = '';
+
+    // Legionary: 混沌印记 ('KHORNE'/'NURGLE'/'SLAANESH'/'TZEENTCH'/'UNDIVIDED')
+    this.marksOfChaos = null;
+
+    // Space Marine: 章战术列表 (primary + secondary + 额外)
+    this.chapterTactics = [];
+
+    // Captain: Iron Halo 使用标记 (每战一次)
+    this.ironHaloUsed = false;
+
+    // Anointed: Unleash Daemon 激活标记 (每战一次)
+    this.unleashDaemonActive = false;
+
+    // Captain: Heroic Leader 每 TP 使用标记
+    this.heroicLeaderUsedThisTP = false;
+
+    // 回血追踪 (Champion Grandfather's Blessing 等，每 TP ≤3)
+    this.woundsRegainedThisTP = 0;
+
+    // Plaguecaster: Putrescent Vitality 每 TP 限用 1 次
+    this.putrescentVitalityUsedThisTP = false;
+
+    // Warrior (LEG): Infernal Pact 使用标记 (每战一次)
+    this.infernalPactUsed = false;
+
+    // Shrivetalon: Grisly Mark 使用标记 (每战一次)
+    this.grislyMarkUsed = false;
+
+    // 一次性能力已使用标记 (通用)
+    this.oncePerBattleAbilitiesUsed = new Set();
   }
 
   /** Injured: HP 低于一半时 Move -2", 武器 Hit -1, APL -1 */
@@ -101,9 +137,59 @@ export class Operative {
     return this.maxApl - (this.isInjured ? injuredAplPenalty : 0);
   }
 
-  /** 当前有效 Move（Injured 时 -2"） */
+  /** 当前有效 Move（Injured 时 -2"，Slaanesh Mark +1"） */
   get currentMove() {
-    return Math.max(0, this.maxMove - (this.isInjured ? 2 : 0));
+    let move = this.maxMove - (this.isInjured ? 2 : 0);
+    // Standard 规则: Slaanesh Mark of Chaos +1" Move
+    if (gameState.rulesVersion === 'standard' && this.marksOfChaos === 'SLAANESH') {
+      move += 1;
+    }
+    return Math.max(0, move);
+  }
+
+  /** 控制标记判定时的有效 APL (Icon Bearer +1) */
+  getEffectiveAplForMarkerControl() {
+    let apl = this.currentApl;
+    // Standard 规则: Icon Bearer (PM/LEG) 控制标记时 APL +1
+    if (gameState.rulesVersion === 'standard') {
+      if (this.operativeType === 'pm_icon_bearer' || this.operativeType === 'leg_icon_bearer') {
+        apl += 1;
+      }
+    }
+    return apl;
+  }
+
+  /**
+   * 回复伤口 (Standard 规则)
+   * @param {number} amount - 回血量
+   * @returns {number} 实际回血量
+   */
+  healWounds(amount) {
+    if (this.isDead || amount <= 0) return 0;
+    const missing = this.maxWounds - this.wounds;
+    const actual = Math.min(amount, missing);
+    if (actual > 0) {
+      this.wounds += actual;
+      ui.addLog(`[治疗] ${this.name} 恢复 ${actual} 点伤口 (${this.wounds}/${this.maxWounds})`);
+    }
+    return actual;
+  }
+
+  /**
+   * 检测是否有一次性能力可用
+   * @param {string} abilityName - 能力名称
+   * @returns {boolean}
+   */
+  isOncePerBattleAvailable(abilityName) {
+    return !this.oncePerBattleAbilitiesUsed.has(abilityName);
+  }
+
+  /**
+   * 标记一次性能力已使用
+   * @param {string} abilityName - 能力名称
+   */
+  markOncePerBattleUsed(abilityName) {
+    this.oncePerBattleAbilitiesUsed.add(abilityName);
   }
 
   /** 切换 Conceal Order */
@@ -122,6 +208,10 @@ export class Operative {
     this.hasConceal = true;
     this.counteracting = false;
     this.orderSwitchedThisActivation = false;
+    // Standard 规则: TP 重置
+    this.heroicLeaderUsedThisTP = false;
+    this.woundsRegainedThisTP = 0;
+    this.putrescentVitalityUsedThisTP = false;
   }
 
   /**
@@ -132,6 +222,22 @@ export class Operative {
    */
   applyWounds(amountOrAttacks, manualDrRolls = null) {
     if (this.isDead) return 0;
+
+    // === Standard 规则: Iron Halo (SM Captain) ===
+    // 每战一次，忽略 1 个 Normal Dmg
+    if (gameState.rulesVersion === 'standard' &&
+        this.operativeType === 'sm_captain' &&
+        !this.ironHaloUsed &&
+        !Array.isArray(amountOrAttacks)) { // 只对单次伤害触发
+      // 弹出确认提示
+      const useIronHalo = confirm(`💫 Iron Halo (每战一次)\n\n${this.name} 即将受到 ${amountOrAttacks} 点伤害。\n是否使用 Iron Halo 忽略本次伤害？`);
+      if (useIronHalo) {
+        this.ironHaloUsed = true;
+        ui.addLog(`[钢铁光环] ${this.name} 使用 Iron Halo！忽略 ${amountOrAttacks} 点伤害！(每战一次已使用)`);
+        if (ui.showToast) ui.showToast('💫 Iron Halo: 伤害已忽略！', 'success');
+        return 0;
+      }
+    }
 
     const hasDr = hasFactionTrait(this.faction, 'disgustingResilience');
     let totalIncoming = 0;
