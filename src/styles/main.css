@@ -525,6 +525,7 @@
     display: flex;
     flex-direction: column;
     gap: 12px;
+    height: 100%;
   }
 
   .board-header {
@@ -567,7 +568,9 @@
     flex-direction: column;
     gap: 10px;
     overflow-y: auto;
-    max-height: 520px;
+    flex-grow: 1;
+    height: 0;
+    min-height: 200px;
   }
 
   .op-card {
@@ -646,7 +649,7 @@
   .op-card-stats strong { color: #fff; font-family: 'Pirata One', serif; }
 
   /* 中间操作 */
-  .activation-center { display: flex; flex-direction: column; gap: 20px; }
+  .activation-center { display: flex; flex-direction: column; gap: 12px; height: 100%; }
   .active-card {
     background:
       repeating-linear-gradient(45deg, transparent, transparent 3px, rgba(255,255,255,0.008) 3px, rgba(255,255,255,0.008) 6px),
@@ -655,7 +658,7 @@
     outline: 1px solid var(--panel-border-outer);
     outline-offset: 3px;
     border-radius: 6px;
-    padding: 16px;
+    padding: 10px;
     text-align: center;
     position: relative;
     box-shadow: 0 6px 24px rgba(0,0,0,0.5), inset 0 0 30px rgba(201,168,76,0.02);
@@ -709,13 +712,15 @@
   .btn-end-activation:hover { background: #b84c4c; box-shadow: 0 0 10px rgba(184, 76, 76, 0.4); }
 
   .battle-log-card {
-    background:
-      repeating-linear-gradient(45deg, transparent, transparent 3px, rgba(255,255,255,0.006) 3px, rgba(255,255,255,0.006) 6px),
-      linear-gradient(180deg, var(--panel-bg), var(--panel-bg-deep));
-    border: 2px solid var(--panel-border);
+    display: flex;
+    flex-direction: column;
+    flex-grow: 1;
+    height: 0;
+    min-height: 150px;
+    background: rgba(19, 21, 26, 0.4);
+    border: 1px solid var(--panel-border);
     border-radius: 4px;
-    padding: 12px;
-    box-shadow: 0 4px 16px rgba(0,0,0,0.4);
+    padding: 8px;
   }
   .battle-log-title { font-family: 'Pirata One', serif; font-size: 0.85rem; font-weight: 700; color: #fff; border-bottom: 1px solid var(--panel-border); padding-bottom: 6px; }
   .battle-log-lines { flex-grow: 1; overflow-y: auto; font-family: 'Consolas', monospace; font-size: 0.8rem; line-height: 1.4; color: #5b8c6a; }
