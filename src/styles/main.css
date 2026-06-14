@@ -475,7 +475,7 @@
     flex-grow: 1;
   }
 
-  @media (max-width: 1200px) {
+  @media (max-width: 900px) {
     .battleground { grid-template-columns: 1fr; }
   }
 
@@ -507,7 +507,7 @@
     border: 1px solid var(--panel-border);
     border-radius: 12px;
     padding: 24px;
-    max-width: 500px;
+    max-width: 900px;
     width: 100%;
     box-shadow: 0 15px 40px rgba(0,0,0,0.8);
     display: flex;

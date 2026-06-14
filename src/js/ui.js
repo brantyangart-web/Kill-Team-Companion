@@ -9,6 +9,11 @@ import {
   getTeamCssClass, getFactionThemeVar
 } from '../rules/faction.js';
 import { getAssetPath } from './paths.js';
+import {
+  PLOY_DATABASE, getAvailablePloys, getPloy, isPloyActive, activatePersistentPloy, activateFirefightPloy,
+  isFirefightPloyActive, getUsedPloysThisTP, markPloyUsedThisTP,
+  getCombatDoctrineChoice, setCombatDoctrineChoice
+} from '../rules/ploys.js';
 
 // Accessibility: check reduced motion preference
 const prefersReducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)');
@@ -309,16 +314,16 @@ export function updateScoresUI() {
   else if (phaseName === 'Firefight') phaseName = '战斗阶段';
   document.getElementById('dash-phase').textContent = phaseName;
 
-  // Update ploy tags (dynamic based on faction)
-  const ployNames = {
-    'bolter_discipline': '爆弹惩戒',
-    'contagious_resilience': '传染韧性',
-    'dark_zealotry': '黑暗狂热',
-  };
+  // Update ploy tags (dynamic based on faction) — 显示当前激活的 firefight ploys
+  const ployNames = {};
+  // 从 PLOY_DATABASE 动态生成名称映射
+  Object.values(PLOY_DATABASE).forEach(p => { ployNames[p.id] = p.name_cn; });
   const smTags = document.getElementById('sm-ploy-tags');
   smTags.innerHTML = '';
   const team0Suffix = getFactionCssSuffix(gameState.teamFactions[0]);
-  gameState.smActivePloys.forEach(ploy => {
+  // 显示 firefight ploys + persistent ploys
+  const allPloys0 = [...gameState.smActivePloys, ...(gameState.persistentPloys?.[0] || [])];
+  allPloys0.forEach(ploy => {
     const span = document.createElement('span');
     span.className = `ploy-tag ${team0Suffix}`;
     span.textContent = ployNames[ploy] || ploy;
@@ -328,7 +333,8 @@ export function updateScoresUI() {
   const pmTags = document.getElementById('pm-ploy-tags');
   pmTags.innerHTML = '';
   const team1Suffix = getFactionCssSuffix(gameState.teamFactions[1]);
-  gameState.pmActivePloys.forEach(ploy => {
+  const allPloys1 = [...gameState.pmActivePloys, ...(gameState.persistentPloys?.[1] || [])];
+  allPloys1.forEach(ploy => {
     const span = document.createElement('span');
     span.className = `ploy-tag ${team1Suffix}`;
     span.textContent = ployNames[ploy] || ploy;
@@ -1308,16 +1314,13 @@ export function renderOperatives() {
     const weaponNames = op.weapons.map(w => w.name.split(' ')[0]).join(' / ');
 
     let tagHtml = '';
-    if (hasFactionTrait(op.faction, 'disgustingResilience') && getActivePloys(op.faction).includes('contagious_resilience') && !op.isDead) {
-      tagHtml = `<span class="card-ploy-tag" style="border-color:var(${getFactionThemeVar(op.faction)}); color:var(${getFactionThemeVar(op.faction)}); background:rgba(122,184,138,0.15);">减伤重投</span>`;
+    if (hasFactionTrait(op.faction, 'disgustingResilience') && isFirefightPloyActive('sickening_resilience', op.faction) && !op.isDead) {
+      tagHtml = `<span class="card-ploy-tag" style="border-color:var(${getFactionThemeVar(op.faction)}); color:var(${getFactionThemeVar(op.faction)}); background:rgba(122,184,138,0.15);">恶心坚韧</span>`;
     }
 
-    // 状态标记：Conceal / Injured / Poison Token
+    // 状态标记：Injured / Poison Token (Conceal/Engage 由按钮直接显示，不再用标签)
     let statusTagsHtml = '';
     if (!op.isDead) {
-      if (op.hasConceal) {
-        statusTagsHtml += '<span class="card-ploy-tag" style="border-color:#818cf8; color:#818cf8; background:rgba(129,140,248,0.15); font-size:0.6rem;">隐蔽</span>';
-      }
       if (op.isInjured) {
         statusTagsHtml += '<span class="card-ploy-tag" style="border-color:var(--red); color:var(--red); background:rgba(184,76,76,0.15); font-size:0.6rem;">重伤</span>';
       }
@@ -1333,21 +1336,24 @@ export function renderOperatives() {
     const canToggleConceal = (isSelectable || isActiveAgent) && !orderLocked;
     const concealDisabled = (isSelectable || isActiveAgent) && orderLocked;
     const concealBtnHtml = canToggleConceal
-      ? `<button class="conceal-toggle-btn" onclick="event.stopPropagation(); toggleConceal('${op.id}')" title="选择命令 (开始行动后锁定)" style="font-size:0.65rem; padding:2px 6px; margin-left:4px; background:${op.hasConceal ? 'rgba(129,140,248,0.3)' : 'transparent'}; border:1px solid #818cf8; color:#818cf8; border-radius:4px; cursor:pointer;">${op.hasConceal ? '🛡️隐蔽' : '🛡️交战'}</button>`
+      ? `<button class="conceal-toggle-btn" onclick="event.stopPropagation(); toggleConceal('${op.id}')" title="选择命令 (开始行动后锁定)" style="white-space:nowrap; font-size:0.65rem; padding:2px 6px; margin-left:4px; background:${op.hasConceal ? 'rgba(129,140,248,0.3)' : 'transparent'}; border:1px solid #818cf8; color:#818cf8; border-radius:4px; cursor:pointer;">${op.hasConceal ? '🛡️隐蔽' : '⚔️交战'}</button>`
       : concealDisabled
-        ? `<button class="conceal-toggle-btn" disabled title="已开始行动，命令锁定" style="font-size:0.65rem; padding:2px 6px; margin-left:4px; background:${op.hasConceal ? 'rgba(129,140,248,0.15)' : 'transparent'}; border:1px solid #475569; color:#64748b; border-radius:4px; cursor:not-allowed; opacity:0.6;">${op.hasConceal ? '🛡️隐蔽(锁)' : '🛡️交战(锁)'}</button>`
+        ? `<button class="conceal-toggle-btn" disabled title="已开始行动，命令锁定" style="white-space:nowrap; font-size:0.65rem; padding:2px 6px; margin-left:4px; background:${op.hasConceal ? 'rgba(129,140,248,0.15)' : 'transparent'}; border:1px solid #475569; color:#64748b; border-radius:4px; cursor:not-allowed; opacity:0.6;">${op.hasConceal ? '🛡️隐蔽(锁)' : '⚔️交战(锁)'}</button>`
         : '';
 
     const avatarHtml = getAvatarHtml(op.id, op.faction);
 
     card.innerHTML = `
       <div style="position:absolute;top:3px;right:6px;color:var(--imperial-gold);font-size:10px;opacity:0.4;pointer-events:none;z-index:1;">✦</div>
-      <div class="op-card-top">
+      <div style="display:flex; flex-direction:column; gap:4px; margin-bottom:8px;">
         <div class="op-avatar-row">
           ${avatarHtml}
-          <span class="op-card-title">${op.name} ${tagHtml} ${statusTagsHtml} ${concealBtnHtml}</span>
+          <span class="op-card-title">${op.name} ${tagHtml} ${concealBtnHtml}</span>
         </div>
-        <span class="op-card-tag">${op.currentApl} APL${op.isInjured && gameState.rulesVersion === 'standard' ? ' <span style="color:var(--red); font-size:0.6rem;">(-1)</span>' : ''}</span>
+        <div style="display:flex; align-items:center; gap:4px; padding-left:${avatarHtml ? '36px' : '0'};">
+          ${statusTagsHtml}
+          <span class="op-card-tag">${op.currentApl} APL${op.isInjured && gameState.rulesVersion === 'standard' ? ' <span style="color:var(--red); font-size:0.6rem;">(-1)</span>' : ''}</span>
+        </div>
       </div>
       <div class="op-card-hp">
         <span>HP (Wounds):</span>
@@ -1586,13 +1592,12 @@ export function updateActivePanel() {
     const hasShot = shootCount > 0;
     const hasFought = fightCount > 0;
 
-    // Astartes 双重行动规则: 可选择 2 Shoot 或 2 Fight (但不能混合)
+    // Astartes 双重行动规则: 被动阵营规则 (SM/LEG 可选 2 Shoot 或 2 Fight，不能混合)
+    // 注: 这不是 ploy，是免费的被动能力
     const isAstartes = hasFactionTrait(op.faction, 'astartesDoubleAction');
     const isCounteracting = op.counteracting === true;
 
-    // 爆弹惩戒 (Bolter Discipline) 策略: 激活后允许 2 次射击
-    const hasBolterDiscipline = getActivePloys(op.faction).includes('bolter_discipline');
-    const canDoubleAction = isAstartes || hasBolterDiscipline;
+    const canDoubleAction = isAstartes;
 
     // 任意移动行动标记 (Move/Charge/Advance/Dash/FallBack 均阻止其他移动行动)
     const hasAnyMove = hasMoved || hasCharged || hasAdvanced || hasDashed || hasFallenBack;
@@ -1630,22 +1635,37 @@ export function updateActivePanel() {
     // Fight: 原有约束 + Advance/Dash/FallBack 后都不能近战
     document.getElementById('action-fight').disabled = op.apl < 1 || fightLimitReached || fightLocked || noCombatAfterMove || hasDashed;
 
-    const hasContagiousResilience = hasFactionTrait(op.faction, 'disgustingResilience') && getActivePloys(op.faction).includes('contagious_resilience');
-    const doubleActionLabel = hasBolterDiscipline && !isAstartes ? '爆弹惩戒' : 'Astartes';
+    const doubleActionLabel = 'Astartes';
 
     const ployDisplay = document.getElementById('active-ploys-display');
     if (ployDisplay) {
         const ploysText = [];
-        if (isCounteracting) ploysText.push('<span style="color:#f97316;">⚡ 反击 (Counteract): 仅限 1 次行动, 移动≤2", 不可冲锋</span>');
+        if (isCounteracting) ploysText.push('<span style="color:#f97316;">⚡ 反击 (Counteract): 仅限 Reposition, 移动≤2", 不可冲锋</span>');
         if (hasAdvanced) ploysText.push('<span style="color:#f59e0b;">🏃💨 已前进 (Advance): 不能再射击/近战</span>');
         if (hasDashed) ploysText.push(`<span style="color:#f59e0b;">💨💨 已冲刺 (Dash): 不能再近战${hasHeavyWeapon ? '，仅 Heavy 武器可射击' : '，不能射击'}</span>`);
         if (hasFallenBack) ploysText.push('<span style="color:#f59e0b;">🔙 已撤退 (Fall Back): 不能再射击/近战</span>');
         if (hasShot && !isCounteracting && canDoubleAction) ploysText.push(`<span style="color:#6a9ad4;">💥 ${doubleActionLabel}: 已射击×${shootCount}，锁定近战</span>`);
         if (hasFought && !isCounteracting && canDoubleAction) ploysText.push(`<span style="color:#f87171;">⚔️ ${doubleActionLabel}: 已近战×${fightCount}，锁定射击</span>`);
-        if (hasContagiousResilience) ploysText.push('<span style="color:var(--pm-accent);">🛡️ 传染韧性生效中</span>');
-        if (hasBolterDiscipline && !isAstartes) ploysText.push('<span style="color:#fbbf24;">🔥 爆弹惩戒: 可射击 2 次</span>');
-        const hasDarkZealotry = hasFactionTrait(op.faction, 'darkZealotry') && getActivePloys(op.faction).includes('dark_zealotry');
-        if (hasDarkZealotry) ploysText.push('<span style="color:#c94444;">⚔️ 黑暗狂热: 近战可重投 1 个失败骰</span>');
+
+        // 显示持久 ploys 状态
+        const persistentKeys = gameState.persistentPloys?.[getTeamSlot(op.faction)] || [];
+        if (persistentKeys.includes('and_they_shall_know_no_fear'))
+          ploysText.push('<span style="color:#60a5fa;">✠ 无所畏惧: 忽略受伤减益</span>');
+        if (persistentKeys.includes('contagion'))
+          ploysText.push('<span style="color:var(--pm-accent);">☣ 传染蔓延: 敌方 Move -2", Hit +1</span>');
+        if (persistentKeys.includes('lumbering_death'))
+          ploysText.push('<span style="color:var(--pm-accent);">🐌 缓慢死神: 移动≤3" 获得 Ceaseless</span>');
+        if (persistentKeys.includes('blood_for_the_blood_god'))
+          ploysText.push('<span style="color:#c94444;">🩸 血祭血神: 近战 +1 伤害</span>');
+        if (persistentKeys.includes('implacable'))
+          ploysText.push('<span style="color:#c94444;">🛡 坚定不移: Piercing→Crits, NURGLE 忽略受伤</span>');
+        if (persistentKeys.includes('quicksilver_speed'))
+          ploysText.push('<span style="color:#c94444;">💨 疾速银影: 移动后 Fight 敌方 Hit +1</span>');
+        if (persistentKeys.includes('fickle_fates'))
+          ploysText.push('<span style="color:#c94444;">🎲 命运无常: 射击 ready 敌人获 Balanced</span>');
+        if (persistentKeys.includes('combat_doctrine'))
+          ploysText.push(`<span style="color:#60a5fa;">📋 战斗教条: ${getCombatDoctrineChoice(op.faction) || '未选择'}</span>`);
+
         ployDisplay.innerHTML = ploysText.length > 0 ? ploysText.join(' | ') : '';
     }
 
@@ -2072,43 +2092,17 @@ export function startStrategyPhase() {
   overlayBox.innerHTML = `
     <h3>Turning Point ${gameState.turningPoint} - 策略阶段</h3>
     <p style="color:var(--text-muted); font-size:0.85rem; margin-bottom:12px;">
-      在此阶段，双方可以使用命令点 (CP) 激活计策 (Strategic Ploys)。
+      在此阶段，双方可以使用命令点 (CP) 激活策略计策 (Strategy Ploys)。
+      <br>💡 Strategy Ploys 是 STRATEGIC GAMBIT，每个 TP 只能使用一次。
     </p>
 
     <div class="gothic-divider"><span style="color:var(--imperial-gold);font-size:8px;">⬥</span><span style="color:var(--imperial-gold);font-size:14px;">✠</span><span style="color:var(--imperial-gold);font-size:8px;">⬥</span></div>
 
-    <div style="display:grid; grid-template-columns:1fr 1fr; gap:16px; width:100%; text-align:left; margin-bottom:16px;">
+    <div style="display:grid; grid-template-columns:1fr 1fr; gap:16px; width:100%; text-align:left; margin-bottom:16px; max-height:50vh; overflow-y:auto;">
       ${(() => {
         const t0 = gameState.teamFactions[0];
         const t1 = gameState.teamFactions[1];
-        const buildPloyCard = (faction, teamKey) => {
-          const fn = getFactionDisplayName(faction);
-          const themeVar = getFactionThemeVar(faction);
-          const ploys = getActivePloys(faction);
-          let ployName, ployIcon, ployTag, ployDesc, ployId;
-          if (hasFactionTrait(faction, 'astartesDoubleAction')) {
-            ployId = 'bolter_discipline'; ployName = '爆弹惩戒'; ployIcon = '🔥'; ployTag = 'Astartes';
-            ployDesc = `${fn}特工本回合激活内，可以使用<b>两次</b>射击行动。`;
-          } else if (hasFactionTrait(faction, 'disgustingResilience')) {
-            ployId = 'contagious_resilience'; ployName = '传染韧性'; ployIcon = '🛡️'; ployTag = 'Death Guard';
-            ployDesc = `${fn}在结算【恶心作呕 (DR)】伤害减免时，可<b>重投第一个失败的减伤骰</b>。`;
-          } else {
-            ployId = 'dark_zealotry'; ployName = '黑暗狂热'; ployIcon = '⚔️'; ployTag = 'Heretic Astartes';
-            ployDesc = `${fn}特工在本回合近战搏斗中，可<b>重投 1 个失败骰</b>。`;
-          }
-          const isSelected = ploys.includes(ployId);
-          return `<div class="ploy-choice-card ${isSelected ? 'selected' : ''}" role="button" tabindex="0" onclick="buyPloy('${teamKey}')" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();buyPloy('${teamKey}')}">
-            <div class="ploy-title">
-              <span>${ployIcon} ${ployName} (1 CP)</span>
-              <span style="font-size:0.75rem; color:var(${themeVar});">${ployTag}</span>
-            </div>
-            <div class="ploy-desc">${ployDesc}</div>
-            <div style="margin-top:6px; font-weight:bold; font-size:0.75rem; color:var(${themeVar});">
-              ${isSelected ? '● 生效中' : '点击启用'}
-            </div>
-          </div>`;
-        };
-        return buildPloyCard(t0, t0) + buildPloyCard(t1, t1);
+        return buildTeamColumn(t0) + buildTeamColumn(t1);
       })()}
     </div>
 
@@ -2117,48 +2111,171 @@ export function startStrategyPhase() {
     </button>
   `;
 
-  updateGuidance('【策略阶段】双方轮流消费 1 CP 采购策略 Ploys。按 Proceed 按钮进入实际交火战斗。');
+  updateGuidance('【策略阶段】消费 CP 购买 Strategy Ploys (每个 TP 限用 1 次)。按 Proceed 进入战斗阶段。');
 }
 
-export function buyPloy(teamOrFaction) {
-  // Accept 'sm'/'pm' (legacy UI team identifiers) or faction names
-  let slot;
-  if (teamOrFaction === 'sm') slot = 0;
-  else if (teamOrFaction === 'pm') slot = 1;
-  else slot = getTeamSlot(teamOrFaction);
-  const faction = gameState.teamFactions[slot];
+function buildTeamColumn(faction) {
+  const fn = getFactionDisplayName(faction);
+  const themeVar = getFactionThemeVar(faction);
+  const cp = getCpForFaction(faction);
+
+  // CP 图标: 每个 CP 一个金色发光圆点
+  const cpIcons = cp > 0
+    ? Array.from({ length: cp }, () =>
+        `<span style="color:var(--imperial-gold); text-shadow:0 0 4px var(--imperial-gold);">⬤</span>`
+      ).join('')
+    : `<span style="color:var(--text-muted); opacity:0.3;">⬤</span>`;
+
+  const teamHeader = `
+    <div style="display:flex; align-items:center; justify-content:space-between; padding:8px 12px;
+      background:linear-gradient(135deg, color-mix(in srgb, var(${themeVar}) 15%, transparent), transparent);
+      border:1px solid var(${themeVar}); border-radius:8px; margin-bottom:8px;">
+      <div style="font-weight:bold; color:var(${themeVar}); font-size:0.95rem; letter-spacing:0.5px;">
+        ${fn}
+      </div>
+      <div style="display:flex; align-items:center; gap:5px;">
+        <span style="font-size:0.65rem; color:var(--text-muted); text-transform:uppercase; letter-spacing:1px;">CP</span>
+        <div style="display:flex; gap:3px; font-size:0.85rem;">${cpIcons}</div>
+        <span style="font-weight:bold; color:var(--imperial-gold); font-size:0.9rem; min-width:16px; text-align:center;">${cp}</span>
+      </div>
+    </div>`;
+
+  return `<div>${teamHeader}${buildFactionPloyPanel(faction)}</div>`;
+}
+
+function buildFactionPloyPanel(faction) {
+  const themeVar = getFactionThemeVar(faction);
+  const cp = getCpForFaction(faction);
+  const strategyPloys = getAvailablePloys(faction, 'strategy');
+  const usedPloys = getUsedPloysThisTP(faction);
+
+  let cards = '';
+  for (const ploy of strategyPloys) {
+    const isActive = isPloyActive(ploy.id, faction);
+    const isUsed = usedPloys[ploy.id];
+    const alreadyOwned = isActive || isUsed;
+    const canBuy = (!alreadyOwned && cp >= ploy.cp) || alreadyOwned;
+    const statusText = isActive ? '● 持续生效中' : (isUsed ? '⊘ 本 TP 已使用' : `${ploy.cp} CP`);
+    const statusColor = isActive ? 'var(--green)' : (isUsed ? 'var(--text-muted)' : `var(${themeVar})`);
+    const clickHandler = canBuy ? `buyStrategyPloy('${faction}','${ploy.id}')` : '';
+    const cursorStyle = canBuy ? 'cursor:pointer;' : 'cursor:not-allowed; opacity:0.6;';
+    const doctrineExtra = ploy.id === 'combat_doctrine' && isActive
+      ? `<div style="font-size:0.7rem; color:var(--imperial-gold); margin-top:4px;">当前教条: ${getCombatDoctrineChoice(faction) || '未选择'}</div>`
+      : '';
+
+    cards += `<div class="ploy-choice-card ${alreadyOwned ? 'selected' : ''}" role="button" tabindex="0"
+      style="${cursorStyle}" onclick="${clickHandler}"
+      onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();${clickHandler}}">
+      <div class="ploy-title">
+        <span>${ploy.name_cn}</span>
+        <span style="font-size:0.7rem; color:${statusColor};">${statusText}</span>
+      </div>
+      <div style="font-size:0.65rem; color:var(--text-muted); margin-bottom:2px;">${ploy.name_en}</div>
+      <div class="ploy-desc" style="font-size:0.72rem;">${ploy.desc}</div>
+      ${doctrineExtra}
+    </div>`;
+  }
+
+  return `<div style="border:1px solid color-mix(in srgb, var(${themeVar}) 30%, transparent); border-radius:8px; padding:10px;">
+    ${cards || '<div style="color:var(--text-muted); font-size:0.75rem;">无可用 Strategy Ploys</div>'}
+  </div>`;
+}
+
+export function buyStrategyPloy(faction, ployId) {
+  const ploy = getPloy(ployId);
+  if (!ploy) return;
   const factionName = getFactionDisplayName(faction);
-  const activePloys = getActivePloys(faction);
+  const cp = getCpForFaction(faction);
+  const slot = getTeamSlot(faction);
 
-  // Ploy selection based on faction traits (simplified for Phase 3)
-  // TODO: Phase 4 should read available ploys from FACTIONS_DB[faction].ploys
-  let ployId, ployName, ployDesc;
-  if (hasFactionTrait(faction, 'astartesDoubleAction')) {
-    ployId = 'bolter_discipline';
-    ployName = '爆弹惩戒';
-    ployDesc = '本回合可双击开火！';
-  } else if (hasFactionTrait(faction, 'disgustingResilience')) {
-    ployId = 'contagious_resilience';
-    ployName = '传染韧性';
-    ployDesc = 'DR首发失败可重投！';
-  } else {
-    // Default fallback for other factions (e.g. Legionary)
-    ployId = 'dark_zealotry';
-    ployName = '黑暗狂热';
-    ployDesc = '近战可重投 1 个失败骰！';
-  }
+  // === 切换逻辑: 已激活 → 取消并退回 CP ===
+  const isActive = isPloyActive(ployId, faction);
+  const isUsed = getUsedPloysThisTP(faction)[ployId];
 
-  if (activePloys.includes(ployId)) {
+  if (isActive || isUsed) {
+    // 取消已激活的 ploy
     playSound('click');
-    setActivePloys(faction, []);
-    setCpForFaction(faction, getCpForFaction(faction) + 1);
-  } else {
-    if (getCpForFaction(faction) < 1) { playSound('alert'); showToast(`${factionName} CP 不足！`, 'warning'); return; }
-    playSound('crit');
-    setActivePloys(faction, [ployId]);
-    setCpForFaction(faction, getCpForFaction(faction) - 1);
-    addLog(`  - ${factionName}激活策略：【${ployName}】！${ployDesc}`);
+    setCpForFaction(faction, cp + ploy.cp); // 退回 CP
+
+    if (isActive && ploy.duration === 'persistent') {
+      // 从 persistentPloys 中移除
+      const persistent = gameState.persistentPloys?.[slot] || [];
+      gameState.persistentPloys[slot] = persistent.filter(p => p !== ployId);
+    }
+
+    // 从 usedPloysThisTP 中移除
+    if (gameState.usedPloysThisTP?.[slot]) {
+      delete gameState.usedPloysThisTP[slot][ployId];
+    }
+
+    // Combat Doctrine 取消时同步清除子选择
+    if (ployId === 'combat_doctrine') {
+      setCombatDoctrineChoice(faction, null);
+    }
+
+    addLog(`  ↩ ${factionName}取消策略：【${ploy.name_cn}】，退回 ${ploy.cp} CP`);
+    startStrategyPhase();
+    return;
   }
+
+  // === 正常购买逻辑 ===
+  if (cp < ploy.cp) {
+    playSound('alert');
+    showToast(`${factionName} CP 不足！需要 ${ploy.cp} CP`, 'warning');
+    return;
+  }
+
+  playSound('crit');
+  setCpForFaction(faction, cp - ploy.cp);
+
+  if (ploy.duration === 'persistent') {
+    activatePersistentPloy(ployId, faction);
+  } else {
+    markPloyUsedThisTP(faction, ployId);
+  }
+
+  addLog(`  ✠ ${factionName}激活策略：【${ploy.name_cn} (${ploy.name_en})】(${ploy.cp} CP)`);
+
+  // Combat Doctrine 需要额外选择子选项
+  if (ployId === 'combat_doctrine') {
+    showCombatDoctrineChoice(faction);
+    return;
+  }
+
+  startStrategyPhase();
+}
+
+function showCombatDoctrineChoice(faction) {
+  const overlayBox = document.getElementById('phase-overlay-content');
+  const themeVar = getFactionThemeVar(faction);
+
+  overlayBox.innerHTML = `
+    <h3 style="color:var(${themeVar});">选择战斗教条 (Combat Doctrine)</h3>
+    <p style="color:var(--text-muted); font-size:0.85rem; margin-bottom:16px;">
+      选择一个教条。对应场景下所有友军武器获得 Balanced 规则。
+    </p>
+    <div style="display:flex; flex-direction:column; gap:10px; width:100%; margin-bottom:16px;">
+      <div class="ploy-choice-card" role="button" onclick="selectDoctrine('${faction}','devastator')" style="cursor:pointer;">
+        <div class="ploy-title"><span>🎯 Devastator Doctrine</span></div>
+        <div class="ploy-desc">射击 <b>6" 外</b>目标时武器获得 Balanced</div>
+      </div>
+      <div class="ploy-choice-card" role="button" onclick="selectDoctrine('${faction}','tactical')" style="cursor:pointer;">
+        <div class="ploy-title"><span>📋 Tactical Doctrine</span></div>
+        <div class="ploy-desc">射击 <b>6" 内</b>目标时武器获得 Balanced</div>
+      </div>
+      <div class="ploy-choice-card" role="button" onclick="selectDoctrine('${faction}','assault')" style="cursor:pointer;">
+        <div class="ploy-title"><span>⚔️ Assault Doctrine</span></div>
+        <div class="ploy-desc"><b>近战或反击</b>时武器获得 Balanced</div>
+      </div>
+    </div>
+  `;
+}
+
+export function selectDoctrine(faction, choice) {
+  setCombatDoctrineChoice(faction, choice);
+  const choiceNames = { devastator: 'Devastator (远程)', tactical: 'Tactical (近程)', assault: 'Assault (近战)' };
+  addLog(`  → ${getFactionDisplayName(faction)}选择教条: ${choiceNames[choice]}`);
+  playSound('click');
   startStrategyPhase();
 }
 

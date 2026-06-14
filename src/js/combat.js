@@ -10,6 +10,12 @@ import {
   hasChapterTactic, hasMarkOfChaos, getMarksOfChaos,
   calculateAttackModifications, calculateDefenseModifications
 } from '../rules/abilities.js';
+import {
+  isPloyActive, isFirefightPloyActive, getCombatDoctrineChoice, isIgnoreInjuredPenalties,
+  isContagionActive, isLumberingDeathActive, isBloodForBloodGodActive, isImplacableActive,
+  isQuicksilverSpeedActive, isFickleFatesActive, isIndomitusActive, activateFirefightPloy,
+  isPloyActive as isPloyActiveCheck
+} from '../rules/ploys.js';
 import { getAssetPath } from './paths.js';
 import { showDamageAnimation } from './damageAnimation.js';
 
@@ -265,7 +271,8 @@ export function openShootWizard() {
     attackRolls: [],
     defenseRolls: [],
     stunApplied: false,
-    shockTriggered: false
+    shockTriggered: false,
+    drRolls: [],
   });
 
   if (!wizardState.weapon) {
@@ -300,9 +307,22 @@ export function openShootWizard() {
     ui.addLog(`[无情] ${wizardState.weapon.name}：Relentless 规则生效！可重投任意攻击骰（需手动操作）。`);
   }
 
-  const hasLimited = wizardState.weapon.hasRule && wizardState.weapon.hasRule('Limited');
-  if (hasLimited) {
-    ui.addLog(`[有限] ${wizardState.weapon.name}：Limited 规则生效！每场战斗有使用次数限制（当前未追踪）。`);
+  // Limited x 规则: 追踪使用次数
+  const limitedMatch = wizardState.weapon.rules.find(r => r.startsWith('Limited'));
+  if (limitedMatch) {
+    const limitVal = parseInt(limitedMatch.match(/\d+/)?.[0] || '1');
+    const opId = wizardState.attacker.id;
+    const wName = wizardState.weapon.name;
+    if (!gameState.limitedWeaponUsage[opId]) gameState.limitedWeaponUsage[opId] = {};
+    const usedCount = gameState.limitedWeaponUsage[opId][wName] || 0;
+    if (usedCount >= limitVal) {
+      ui.addLog(`[有限] ${wName}：已达使用上限 (${usedCount}/${limitVal})！此武器已耗尽。`);
+      if (showToast) showToast(`⚠️ ${wName} 已耗尽 (${usedCount}/${limitVal})！`, 'warning');
+    } else {
+      // 记录本次使用
+      gameState.limitedWeaponUsage[opId][wName] = usedCount + 1;
+      ui.addLog(`[有限] ${wName}：使用 ${usedCount + 1}/${limitVal} 次。`);
+    }
   }
 
   const hasSeek = wizardState.weapon.hasRule && wizardState.weapon.hasRule('Seek');
@@ -991,9 +1011,15 @@ export function recalculateAttackStats() {
   const attacker = wizardState.attacker;
   const weapon = wizardState.weapon;
   const defender = wizardState.defender;
-  const injuryPenalty = (attacker && attacker.isInjured) ? 1 : 0;
-  const effectiveTs = weapon.ts + injuryPenalty;
   const isMelee = !weapon.isRanged;
+
+  // === Ploy: And They Shall Know No Fear — 忽略受伤 Hit +1 惩罚 ===
+  const ignoreInjured = isIgnoreInjuredPenalties(attacker?.faction);
+  const injuryPenalty = (attacker && attacker.isInjured && !ignoreInjured) ? 1 : 0;
+  if (ignoreInjured && attacker?.isInjured) {
+    ui.addLog(`[✠ 无所畏惧] 忽略受伤 Hit +1 惩罚`);
+  }
+  const effectiveTs = weapon.ts + injuryPenalty;
 
   // Lethal 规则：N+ 视为暴击（不仅是 6）
   const lethalMatch = weapon.rules.find(r => r.startsWith('Lethal'));
@@ -1078,6 +1104,92 @@ export function recalculateAttackStats() {
   wizardState.saturateFromAbility = hasSiegeSpecialist && !isMelee;
   if (wizardState.saturateFromAbility) {
     ui.addLog(`[攻城专家] ${attacker.name}：远程武器获得 Saturate！`);
+  }
+
+  // === Ploy: Combat Doctrine — Balanced 规则 ===
+  // Devastator: 射击 6" 外; Tactical: 射击 6" 内; Assault: 近战/反击
+  const doctrineChoice = getCombatDoctrineChoice(attacker?.faction);
+  const hasCombatDoctrine = isPloyActive('combat_doctrine', attacker?.faction);
+  let hasBalancedFromDoctrine = false;
+  if (hasCombatDoctrine && doctrineChoice) {
+    if (doctrineChoice === 'assault' && isMelee) {
+      hasBalancedFromDoctrine = true;
+    }
+    // Devastator/Tactical 需要距离判断 (玩家通过 QA 步骤告知)
+    // 这里先标记，在射击步骤中处理
+    if (doctrineChoice === 'devastator' && !isMelee) {
+      wizardState.doctrineRangeCheck = 'far'; // 6" 外
+    }
+    if (doctrineChoice === 'tactical' && !isMelee) {
+      wizardState.doctrineRangeCheck = 'close'; // 6" 内
+    }
+  }
+
+  // === Ploy: Fickle Fates — 射击 ready 敌人获得 Balanced ===
+  const hasFickleFates = isFickleFatesActive(attacker?.faction);
+  let hasBalancedFromFickle = false;
+  if (hasFickleFates && !isMelee && defender && !defender.hasActed) {
+    // Defender is "ready" (hasn't acted yet)
+    hasBalancedFromFickle = true;
+    ui.addLog(`[🎲 命运无常] 射击 ready 敌方，武器获得 Balanced！`);
+  }
+
+  // Balanced 效果: 重投 1 个失败骰 → 保留为普通成功
+  const hasBalancedBase = weapon.hasRule && weapon.hasRule('Balanced');
+  const hasBalanced = hasBalancedBase || hasBalancedFromDoctrine || hasBalancedFromFickle;
+  // Relentless: Fickle Fates 升级 (武器已有 Balanced 时)
+  const hasRelentless = hasFickleFates && !isMelee && defender && !defender.hasActed && hasBalancedBase;
+
+  if (hasBalanced && !hasRelentless) {
+    const fails = wizardState.attackRolls.filter(val => val < effectiveTs && val < lethalThreshold).length;
+    if (fails > 0) {
+      norms += 1;
+      const source = hasBalancedFromDoctrine ? `战斗教条 (${doctrineChoice})` : hasBalancedFromFickle ? '命运无常' : '基础';
+      ui.addLog(`[平衡] ${weapon.name}：重投 1 个失败骰 → 普通成功 (${source})`);
+    }
+  }
+  if (hasRelentless) {
+    // Relentless: 可重投任意数量攻击骰 (简化为全部重投)
+    ui.addLog(`[无情] ${weapon.name}：命运无常 + 已有 Balanced → 升级为 Relentless！`);
+    // Relentless 的完整实现需要玩家交互选择，这里简化为日志提示
+  }
+
+  // === Ploy: Lumbering Death — 移动 ≤3" 时 Ceaseless ===
+  const hasLumberingDeath = isLumberingDeathActive(attacker?.faction);
+  if (hasLumberingDeath) {
+    // 需要判断本 activation 移动距离 (物理沙盘无法自动判断，提示玩家)
+    wizardState.lumberingDeathCheck = true;
+  }
+
+  // === Ploy: Blood for the Blood God — 第一次 strike +1 伤害 (非 KHORNE); KHORNE 近战 Dmg +1 ===
+  const hasBloodForBloodGod = isBloodForBloodGodActive(attacker?.faction);
+  wizardState.bloodBonusActive = false;
+  if (hasBloodForBloodGod) {
+    const hasKhorneMark = hasMarkOfChaos(attacker, 'KHORNE');
+    if (isMelee && hasKhorneMark) {
+      // KHORNE: 近战武器 Normal/Critical Dmg +1 (上限 7)
+      wizardState.bloodDmgBonus = true;
+      ui.addLog(`[🩸 血祭血神] KHORNE 近战 Dmg +1！`);
+    } else if (isMelee) {
+      // 非 KHORNE: 第一次 strike +1 伤害 (上限 7)
+      wizardState.bloodStrikeBonus = true;
+      ui.addLog(`[🩸 血祭血神] 非 KHORNE Fight 第一次 strike +1 伤害！`);
+    }
+  }
+
+  // === Ploy: Quicksilver Speed — 移动后 Fight 敌方 Hit +1 ===
+  const hasQuicksilverSpeed = isQuicksilverSpeedActive(defender?.faction);
+  if (hasQuicksilverSpeed && isMelee) {
+    // 如果 defender 在本 TP 移动过，attacker 的武器 Hit +1
+    // 物理沙盘无法自动判断，提示玩家
+    wizardState.quicksilverCheck = { target: 'defender', type: 'melee' };
+  }
+  if (hasQuicksilverSpeed && !isMelee) {
+    const hasSlaanesh = hasMarkOfChaos(defender, 'SLAANESH');
+    if (hasSlaanesh) {
+      // SLAANESH: 被 6" 外射击时 attacker Hit +1
+      wizardState.quicksilverCheck = { target: 'defender', type: 'ranged_slaanesh' };
+    }
   }
 
   wizardState.attackCrit = crits;
@@ -1307,6 +1419,39 @@ export function recalculateDefenseStats() {
     ui.addLog(`[厌恶韧性] ${defender.name}：5+ 防御骰算暴击！`);
   }
 
+  // === Ploy: Implacable — Piercing 1 降级为 Piercing Crits 1 (射击防御) ===
+  const hasImplacable = isImplacableActive(defender?.faction);
+  if (hasImplacable && !weapon.isRanged === false) { // 只在被射击时生效
+    const hasPiercing = weapon.hasRule && weapon.hasRule('Piercing');
+    if (hasPiercing) {
+      ui.addLog(`[🛡 坚定不移] Piercing 1 降级为 Piercing Crits 1！`);
+      wizardState.piercingDowngraded = true;
+    }
+  }
+
+  // === Ploy: Implacable (NURGLE) — 忽略受伤减益 ===
+  if (hasImplacable && hasMarkOfChaos(defender, 'NURGLE')) {
+    wizardState.nurglesIgnoreInjured = true;
+    ui.addLog(`[🛡 坚定不移] NURGLE 忽略受伤减益！`);
+  }
+
+  // === Ploy: Indomitus — 2+ fails 可丢弃 1 个并保留另 1 个为 normal ===
+  const hasIndomitus = isIndomitusActive(defender?.faction);
+  wizardState.indomitusAvailable = false;
+  if (hasIndomitus) {
+    const fails = wizardState.defenseRolls.filter(val => val < sv && val !== 6 && !(critAtFive && val === 5)).length;
+    if (fails >= 2) {
+      wizardState.indomitusAvailable = true;
+      ui.addLog(`[✠ 不屈意志] ${defender.name}：投出 ${fails} 个失败，可使用 Indomitus 效果！`);
+    }
+  }
+
+  // === Ploy: Transhuman Physiology — 升级 1 个 normal 为 critical (Firefight Ploy) ===
+  wizardState.transhumanAvailable = isFirefightPloyActive('transhuman_physiology', defender?.faction);
+  if (wizardState.transhumanAvailable && norms > 0) {
+    ui.addLog(`[✠ 超人耐力] 可升级 1 个普通成功为暴击成功！`);
+  }
+
   wizardState.defCrit = crits;
   wizardState.defNorm = norms;
 }
@@ -1430,6 +1575,144 @@ export function confirmShootResult(dmgPerAttack) {
       ui.triggerAvatarHitEffect(defender.id, 'shoot');
     }, 100);
   }
+
+  // === Blast/Torrent 多目标射击 ===
+  const hasBlastRule = wizardState.weapon.hasRule && wizardState.weapon.hasRule('Blast');
+  const hasTorrentRule = wizardState.weapon.hasRule && wizardState.weapon.hasRule('Torrent');
+  if (hasBlastRule || hasTorrentRule) {
+    handleBlastTorrentSecondaries(attacker, defender, wizardState.weapon, hasBlastRule, hasTorrentRule);
+  }
+}
+
+/**
+ * Blast/Torrent 多目标射击处理
+ * Blast: 主目标后，对 3" 内每个次要目标射击 (使用相同武器数据)
+ * Torrent: 主目标后，选择任意数量额外目标射击
+ */
+function handleBlastTorrentSecondaries(attacker, primaryDefender, weapon, hasBlast, hasTorrent) {
+  const allEnemies = gameState.operatives.filter(
+    op => op.teamSlot !== attacker.teamSlot && !op.isDead && op.id !== primaryDefender.id
+  );
+
+  if (allEnemies.length === 0) return;
+
+  // 获取 Blast/Torrent 参数
+  const blastMatch = weapon.rules.find(r => r.startsWith('Blast'));
+  const blastRadius = blastMatch ? parseInt(blastMatch.match(/\d+/)?.[0] || '3') : 3;
+
+  const ruleName = hasBlast ? `Blast ${blastRadius}"` : 'Torrent';
+  const ruleDesc = hasBlast
+    ? `对主目标 ${blastRadius}" 内的每个次要目标射击`
+    : '对任意数量额外可见目标射击';
+
+  // 构建次要目标选择 UI
+  let targetOptions = allEnemies.map(op =>
+    `<label style="display:flex; align-items:center; gap:6px; padding:4px 0; cursor:pointer;">
+      <input type="checkbox" value="${op.id}" />
+      <span>${op.name} (${op.wounds}/${op.maxWounds} HP)</span>
+    </label>`
+  ).join('');
+
+  const body = document.getElementById('combat-modal-body') || document.getElementById('modal-body');
+  const modal = document.getElementById('combat-modal');
+  if (!body || !modal) return;
+
+  body.innerHTML = `
+    <h3 style="color:var(--imperial-gold); text-align:center;">${ruleName} 多目标射击</h3>
+    <p style="color:var(--text-muted); font-size:0.8rem; text-align:center; margin-bottom:12px;">
+      ${ruleDesc}。物理沙盘距离需玩家自行判断。
+    </p>
+    <div style="max-height:200px; overflow-y:auto; margin-bottom:12px; padding:8px; background:rgba(0,0,0,0.3); border-radius:6px;">
+      ${targetOptions}
+    </div>
+    <div style="display:flex; gap:10px; justify-content:center;">
+      <button class="btn-large" onclick="resolveSecondaries(true)" style="padding:8px 24px; font-size:0.85rem; background:linear-gradient(135deg, var(--green), #2a5a3a);">
+        ✓ 确认射击
+      </button>
+      <button class="btn-large" onclick="resolveSecondaries(false)" style="padding:8px 24px; font-size:0.85rem; background:linear-gradient(135deg, var(--text-muted), #555);">
+        ✗ 跳过
+      </button>
+    </div>
+  `;
+  modal.style.display = 'flex';
+}
+
+/**
+ * 解决 Blast/Torrent 次要目标射击
+ */
+export function resolveSecondaries(confirmed) {
+  // 必须先读取 checkbox，再关闭 modal
+  const modal = document.getElementById('combat-modal');
+  const checkboxes = modal?.querySelectorAll('input[type="checkbox"]:checked');
+  const selectedIds = checkboxes ? Array.from(checkboxes).map(cb => cb.value) : [];
+
+  closeModal();
+
+  if (!confirmed) {
+    ui.addLog(`[多目标] 跳过次要目标射击。`);
+    return;
+  }
+
+  if (selectedIds.length === 0) {
+    ui.addLog(`[多目标] 未选择任何次要目标。`);
+    return;
+  }
+
+  const attacker = wizardState.attacker;
+  const weapon = wizardState.weapon;
+
+  selectedIds.forEach(targetId => {
+    const target = gameState.operatives.find(op => op.id === targetId);
+    if (!target || target.isDead) return;
+
+    ui.addLog(`\n--- ${weapon.hasRule?.('Blast') ? 'Blast' : 'Torrent'} 次要目标: ${target.name} ---`);
+
+    // 简化处理: 使用与主目标相同的攻击统计 (自动命中)
+    const hits = wizardState.attackCrit + wizardState.attackNorm;
+    if (hits <= 0) {
+      ui.addLog(`  无有效命中，跳过。`);
+      return;
+    }
+
+    // 投防御骰
+    const defDiceCount = target.df;
+    const defRolls = [];
+    for (let i = 0; i < defDiceCount; i++) {
+      defRolls.push(Math.floor(Math.random() * 6) + 1);
+    }
+    const defCrits = defRolls.filter(r => r === 6).length;
+    const defNorms = defRolls.filter(r => r >= target.sv && r !== 6).length;
+
+    ui.addLog(`  防御骰: [${defRolls.join(', ')}] → ${defCrits} 暴击, ${defNorms} 普通`);
+
+    // 计算伤害 (简化: 每个未挡攻击造成 normalDmg)
+    const blocked = defCrits * 2 + defNorms; // 1 crit blocks 2, 1 norm blocks 1
+    const unblocked = Math.max(0, hits - blocked);
+    const damage = unblocked * weapon.normalDamage;
+
+    if (damage > 0) {
+      ui.addLog(`  ${hits} 命中 - ${blocked} 格挡 = ${unblocked} 穿透 → ${damage} 伤害`);
+      const oldWounds = target.wounds;
+      const actualDmg = target.applyWounds(Array(unblocked).fill(weapon.normalDamage));
+      ui.addLog(`  ${target.name}: ${oldWounds} → ${target.wounds} HP`);
+
+      // 伤害动画
+      if (ui.getOperativeAvatarUrl && actualDmg > 0) {
+        const avatarUrl = ui.getOperativeAvatarUrl(target.id, target.faction);
+        const themeVar = getFactionThemeVar(target.faction);
+        showDamageAnimation(avatarUrl, target.maxWounds, oldWounds, actualDmg, themeVar);
+      }
+
+      if (target.isDead) {
+        ui.addLog(`  💀 ${target.name} 被击杀！`);
+      }
+    } else {
+      ui.addLog(`  全部被格挡！`);
+    }
+  });
+
+  ui.renderOperatives?.();
+  ui.updateActivePanel?.();
 }
 
 // ==========================================
@@ -1454,13 +1737,15 @@ export function openFightWizard() {
     attacker: op,
     defender: null,
     weapon: op.weapons.filter(w => !w.isRanged)[0] || null,
+    meleeDefWeapon: null, // 防守方近战武器 (步骤 2 选择)
     inMeleeRange: true,
     hasFallenBack: false,
     mode: gameState.globalRollMode,
     activeAttackerDice: [],
     activeDefenderDice: [],
     meleeTurn: 'attacker',
-    meleeLogs: ''
+    meleeLogs: '',
+    drRolls: [],
   });
 
   if (!wizardState.weapon) {
@@ -1483,6 +1768,12 @@ export function selectFightDefender(opId) {
 export function selectFightWeapon(idx) {
   playSound('click');
   wizardState.weapon = wizardState.attacker.weapons.filter(w => !w.isRanged)[idx];
+  renderFightStep();
+}
+
+export function selectDefFightWeapon(idx) {
+  playSound('click');
+  wizardState.meleeDefWeapon = wizardState.defender.weapons.filter(w => !w.isRanged)[idx];
   renderFightStep();
 }
 
@@ -1531,9 +1822,11 @@ export function renderFightStep() {
   else if (wizardState.step === 2) {
     title.textContent = '近战结算 - 步骤 2: 选择近战武器';
     const meleeWeapons = wizardState.attacker.weapons.filter(w => !w.isRanged);
+    const defMeleeWeapons = wizardState.defender.weapons.filter(w => !w.isRanged);
 
     // Injured 惩罚：武器 Hit -1
     const isInjuredAttacker = wizardState.attacker.isInjured;
+    const isInjuredDefender = wizardState.defender.isInjured;
 
     let listHtml = '<div class="weapon-picker-list">';
     meleeWeapons.forEach((w, idx) => {
@@ -1548,9 +1841,35 @@ export function renderFightStep() {
     });
     listHtml += '</div>';
 
+    // 防守方武器选择 (规则 L153: 双方各选一把近战武器)
+    let defListHtml = '';
+    if (defMeleeWeapons.length > 1) {
+      defListHtml = `
+        <p style="margin:12px 0 8px; color:var(--imperial-gold); font-size:0.85rem;">🛡️ 防守方 (${wizardState.defender.name}) 选择近战武器：</p>
+        <div class="weapon-picker-list">
+      `;
+      defMeleeWeapons.forEach((w, idx) => {
+        const hitStat = isInjuredDefender ? `${w.ts}+ <span style="color:var(--red); font-size:0.7rem;">→ ${w.ts + 1}+</span>` : `${w.ts}+`;
+        const rulesStr = w.rules && w.rules.length > 0 ? ` | ${w.rules.map(translateRule).join(', ')}` : '';
+        const isSelected = wizardState.meleeDefWeapon?.name === w.name;
+        defListHtml += `
+          <div class="weapon-pick-item ${isSelected ? 'selected' : ''}" role="button" tabindex="0" onclick="selectDefFightWeapon(${idx})" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();selectDefFightWeapon(${idx})}">
+            <span class="weapon-pick-name">${w.name}</span>
+            <span class="weapon-pick-stats">A: ${w.attacks} | WS: ${hitStat} | D: ${w.normalDamage}/${w.criticalDamage}${rulesStr}</span>
+          </div>
+        `;
+      });
+      defListHtml += '</div>';
+    } else if (defMeleeWeapons.length === 1) {
+      // 只有一把近战武器，自动选中
+      if (!wizardState.meleeDefWeapon) wizardState.meleeDefWeapon = defMeleeWeapons[0];
+      defListHtml = `<p style="color:var(--text-muted); font-size:0.8rem; margin-top:8px;">防守方武器: ${defMeleeWeapons[0].name}</p>`;
+    }
+
     body.innerHTML = `
-      <p style="margin-bottom:10px;">选择你要使用的近战武器：</p>
+      <p style="margin-bottom:10px;">选择攻击方近战武器：</p>
       ${listHtml}
+      ${defListHtml}
     `;
     nextBtn.textContent = '判定交战距离与退却';
     nextBtn.disabled = false;
@@ -1601,7 +1920,7 @@ export function renderFightStep() {
           </div>
         </div>
   
-        <div id="melee-roll-btn-container" style="display:${wizardState.mode === 'manual' ? 'none' : 'block'};">
+        <div id="melee-roll-btn-container" style="display:${wizardState.mode === 'manual' ? 'none' : 'flex'}; justify-content:center; margin:12px 0;">
           <button class="btn-large" id="btn-roll-melee" onclick="rollMeleeDice()">点击 掷骰</button>
         </div>
 
@@ -1686,7 +2005,8 @@ export function renderFightStep() {
     if (wizardState.activeDefenderDice.length === 0) defenderDiceHtml = '<span style="color:var(--text-muted); font-size:0.8rem;">无成功骰</span>';
 
     const turnCN = wizardState.meleeTurn === 'attacker' ? '攻击方' : '防守方';
-    const turnColor = wizardState.meleeTurn === 'attacker' ? '#6a9ad4' : 'var(--pm-accent)';
+    const turnFaction = wizardState.meleeTurn === 'attacker' ? wizardState.attacker.faction : wizardState.defender.faction;
+    const turnColor = `var(${getFactionThemeVar(turnFaction)})`;
 
     // 渲染分配动作选择卡
     let choiceCardHtml = '';
@@ -1981,12 +2301,10 @@ export function rollMeleeDice() {
     wizardState.meleeEffectiveDefTs = effectiveDefTs;
     wizardState.meleeDefWeapon = defMeleeWeapon;
 
-    // 黑暗狂热 (Dark Zealotry) 策略检查: 允许重投 1 个失败骰
+    // Dark Zealotry 已移除 (虚构 ploy，不在官方规则中)
     wizardState.darkZealotryUsed = { attacker: false, defender: false };
-    const attHasDarkZealotry = hasFactionTrait(wizardState.attacker.faction, 'darkZealotry') &&
-      getActivePloys(wizardState.attacker.faction).includes('dark_zealotry');
-    const defHasDarkZealotry = hasFactionTrait(wizardState.defender.faction, 'darkZealotry') &&
-      getActivePloys(wizardState.defender.faction).includes('dark_zealotry');
+    const attHasDarkZealotry = false;
+    const defHasDarkZealotry = false;
 
     const attFailedCount = wizardState.allAttackerRolls.filter(r => !r.isSuccess).length;
     const defFailedCount = wizardState.allDefenderRolls.filter(r => !r.isSuccess).length;
@@ -2147,6 +2465,8 @@ export function getDuelAvatarHtml(opId, faction) {
 export function getMeleeDuelHeaderHtml() {
   const att = wizardState.attacker;
   const def = wizardState.defender;
+  const attTheme = getFactionThemeVar(att.faction);
+  const defTheme = getFactionThemeVar(def.faction);
 
   const attHpPct = Math.max(0, (att.wounds / att.maxWounds) * 100);
   const defHpPct = Math.max(0, (def.wounds / def.maxWounds) * 100);
@@ -2156,8 +2476,8 @@ export function getMeleeDuelHeaderHtml() {
       <!-- Attacker Panel -->
       <div style="display:flex; flex-direction:column; align-items:center; flex:1; gap:6px; min-width: 0;">
         ${getDuelAvatarHtml(att.id, att.faction)}
-        <div style="font-weight:bold; font-size:0.85rem; color:#6a9ad4; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; max-width:100%;" title="${att.name}">${att.name}</div>
-        <div style="font-size:0.7rem; color:var(--text-muted); font-family:'Pirata One',serif; text-transform:uppercase;">攻击方</div>
+        <div style="font-weight:bold; font-size:0.85rem; color:var(${attTheme}); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; max-width:100%;" title="${att.name}">${att.name}</div>
+        <div style="font-size:0.7rem; color:var(${attTheme}); font-family:'Pirata One',serif; text-transform:uppercase;">攻击方</div>
         <!-- HP bar -->
         <div style="width:100%; background:rgba(255,255,255,0.08); height:6px; border-radius:3px; overflow:hidden; margin-top:4px;">
           <div style="background:var(--red); width:${attHpPct}%; height:100%; transition:width 0.3s ease;"></div>
@@ -2177,8 +2497,8 @@ export function getMeleeDuelHeaderHtml() {
       <!-- Defender Panel -->
       <div style="display:flex; flex-direction:column; align-items:center; flex:1; gap:6px; min-width: 0;">
         ${getDuelAvatarHtml(def.id, def.faction)}
-        <div style="font-weight:bold; font-size:0.85rem; color:var(--pm-accent); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; max-width:100%;" title="${def.name}">${def.name}</div>
-        <div style="font-size:0.7rem; color:var(--text-muted); font-family:'Pirata One',serif; text-transform:uppercase;">防守方</div>
+        <div style="font-weight:bold; font-size:0.85rem; color:var(${defTheme}); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; max-width:100%;" title="${def.name}">${def.name}</div>
+        <div style="font-size:0.7rem; color:var(${defTheme}); font-family:'Pirata One',serif; text-transform:uppercase;">防守方</div>
         <!-- HP bar -->
         <div style="width:100%; background:rgba(255,255,255,0.08); height:6px; border-radius:3px; overflow:hidden; margin-top:4px;">
           <div style="background:var(--red); width:${defHpPct}%; height:100%; transition:width 0.3s ease;"></div>
@@ -2192,6 +2512,8 @@ export function getMeleeDuelHeaderHtml() {
 export function getShootDuelHeaderHtml() {
   const att = wizardState.attacker;
   const def = wizardState.defender;
+  const attTheme = getFactionThemeVar(att.faction);
+  const defTheme = getFactionThemeVar(def.faction);
 
   const attHpPct = Math.max(0, (att.wounds / att.maxWounds) * 100);
   const defHpPct = Math.max(0, (def.wounds / def.maxWounds) * 100);
@@ -2201,8 +2523,8 @@ export function getShootDuelHeaderHtml() {
       <!-- Attacker Panel -->
       <div style="display:flex; flex-direction:column; align-items:center; flex:1; gap:6px; min-width: 0;">
         ${getDuelAvatarHtml(att.id, att.faction)}
-        <div style="font-weight:bold; font-size:0.85rem; color:#6a9ad4; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; max-width:100%;" title="${att.name}">${att.name}</div>
-        <div style="font-size:0.7rem; color:var(--text-muted); font-family:'Pirata One',serif; text-transform:uppercase;">射击方</div>
+        <div style="font-weight:bold; font-size:0.85rem; color:var(${attTheme}); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; max-width:100%;" title="${att.name}">${att.name}</div>
+        <div style="font-size:0.7rem; color:var(${attTheme}); font-family:'Pirata One',serif; text-transform:uppercase;">射击方</div>
         <!-- HP bar -->
         <div style="width:100%; background:rgba(255,255,255,0.08); height:6px; border-radius:3px; overflow:hidden; margin-top:4px;">
           <div style="background:var(--red); width:${attHpPct}%; height:100%; transition:width 0.3s ease;"></div>
@@ -2222,8 +2544,8 @@ export function getShootDuelHeaderHtml() {
       <!-- Defender Panel -->
       <div style="display:flex; flex-direction:column; align-items:center; flex:1; gap:6px; min-width: 0;">
         ${getDuelAvatarHtml(def.id, def.faction)}
-        <div style="font-weight:bold; font-size:0.85rem; color:var(--pm-accent); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; max-width:100%;" title="${def.name}">${def.name}</div>
-        <div style="font-size:0.7rem; color:var(--text-muted); font-family:'Pirata One',serif; text-transform:uppercase;">防守方</div>
+        <div style="font-weight:bold; font-size:0.85rem; color:var(${defTheme}); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; max-width:100%;" title="${def.name}">${def.name}</div>
+        <div style="font-size:0.7rem; color:var(${defTheme}); font-family:'Pirata One',serif; text-transform:uppercase;">防守方</div>
         <!-- HP bar -->
         <div style="width:100%; background:rgba(255,255,255,0.08); height:6px; border-radius:3px; overflow:hidden; margin-top:4px;">
           <div style="background:var(--red); width:${defHpPct}%; height:100%; transition:width 0.3s ease;"></div>
@@ -2552,13 +2874,16 @@ export function rollDrDice(count) {
   const nextBtn = document.getElementById('modal-btn-next');
   const pool = document.getElementById('dr-dice-pool');
   const rollBtn = document.getElementById('btn-roll-dr');
-  
+
+  if (!pool) return;
+
   if (wizardState.drRolls && wizardState.drRolls.length > 0) return;
 
   if (typeof playSound === 'function') playSound('dice_roll');
   if (rollBtn) rollBtn.style.display = 'none';
   
-  const hasPloyActive = typeof getActivePloys === 'function' ? getActivePloys(wizardState.defender.faction).includes('contagious_resilience') : false;
+  // contagious_resilience 已移除 (虚构 ploy)。Sickening Resilience 有不同效果 (auto-reduce，不重投)。
+  const hasPloyActive = false;
   
   // Animate dice rolling
   if (pool) {
@@ -2566,7 +2891,7 @@ export function rollDrDice(count) {
     const defDiceClass = typeof getDiceClass === 'function' ? getDiceClass(wizardState.defender.faction) : 'nurgle-dice';
     for (let i=0; i<count; i++) {
       const dice = document.createElement('div');
-      dice.className = 'kt-dice-cube ' + defDiceClass;
+      dice.className = 'kt-dice-cube ' + defDiceClass + ' rolling';
       dice.textContent = '?';
       dice.id = `dr-anim-dice-${i}`;
       pool.appendChild(dice);
@@ -2597,6 +2922,7 @@ export function rollDrDice(count) {
       
       const diceEl = document.getElementById(`dr-anim-dice-${i}`);
       if (diceEl) {
+        diceEl.classList.remove('rolling');
         diceEl.textContent = roll;
         if (roll >= 4) {
           diceEl.classList.add('crit-dice'); // Green/Crit color to show success

@@ -64,5 +64,29 @@ export {
   isFinalTurningPoint,
 } from './strategy.js';
 
+// Ploy 系统 (官方 25 ploys)
+export {
+  PLOY_DATABASE,
+  getAvailablePloys,
+  getPloy,
+  isPloyActive,
+  activatePersistentPloy,
+  activateFirefightPloy,
+  isFirefightPloyActive,
+  getUsedPloysThisTP,
+  markPloyUsedThisTP,
+  resetPloysThisTP,
+  getCombatDoctrineChoice,
+  setCombatDoctrineChoice,
+  isIgnoreInjuredPenalties,
+  isContagionActive,
+  isLumberingDeathActive,
+  isBloodForBloodGodActive,
+  isImplacableActive,
+  isQuicksilverSpeedActive,
+  isFickleFatesActive,
+  isIndomitusActive,
+} from './ploys.js';
+
 // 既有的骰子工具（保留）
 export * from './dice.js';

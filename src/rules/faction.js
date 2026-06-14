@@ -29,20 +29,19 @@ import { gameState } from '../js/state.js';
 export const FACTION_TRAITS = {
   'Space Marine': {
     // Astartes 双重行动: 可选 2 次 Shoot 或 2 次 Fight（不能混合）
+    // 注: 这是被动阵营规则，不需要 CP，不是 ploy
     astartesDoubleAction: true,
-    // 没有其他被动（ploys 在 FACTIONS_DB 里定义）
   },
   'Plague Marine': {
     // Disgusting Resilience: 受到 3+ 伤害时 DR 4+ 减免
     // — 具体实现在 models.js Operative.applyWounds 中
     disgustingResilience: true,
+    // PM Counteract 例外: 可以无视命令类型反击 (PM 规则 L199)
+    counteractRegardlessOfOrder: true,
   },
-  // 混沌星际战士
   'Legionary': {
     // Astartes 双重行动: 可选 2 次 Shoot 或 2 次 Fight（同 SM）
     astartesDoubleAction: true,
-    // 黑暗狂热: 每次 Fight 可重投 1 个失败近战骰
-    darkZealotry: true,
   },
 };
 
@@ -84,13 +83,8 @@ export const FACTIONS_DB = {
     themeColor: 'var(--sm-accent)',
     diceClass: 'sm-dice',
     headerImg: './assets/images/headers/faction_header_sm.png',
-    // templates 延迟注入（避免循环依赖）
     templates: null,
-    ploys: [
-      { id: 'bolter_discipline', name: '风暴开火 (Bolter Discipline)', type: 'Strategic', cp: 1, desc: '特工在使用爆弹类武器时可进行第二次射击行动。' },
-      { id: 'shock_assault', name: '震慑突击 (Shock Assault)', type: 'Strategic', cp: 1, desc: '冲锋后近战搏斗时获得额外重投。' },
-      { id: 'transhuman', name: '极限减伤 (Transhuman Physiology)', type: 'Firefight', cp: 1, desc: '遭到致命一击时可将 1 个暴击伤害降为普通伤害。' },
-    ],
+    // Ploy 数据已迁移至 rules/ploys.js 的 PLOY_DATABASE
   },
   'Plague Marine': {
     id: 'Plague Marine',
@@ -100,11 +94,6 @@ export const FACTIONS_DB = {
     diceClass: 'pm-dice',
     headerImg: './assets/images/headers/faction_header_pm.png',
     templates: null,
-    ploys: [
-      { id: 'inexorable_advance', name: '无尽行军 (Inexorable Advance)', type: 'Strategic', cp: 1, desc: '忽略移动减损惩罚，强行推进。' },
-      { id: 'malicious_volleys', name: '剧毒喷洒 (Malicious Volleys)', type: 'Strategic', cp: 1, desc: '爆弹武器即使移动过也能双击。' },
-      { id: 'contagious_resilience', name: '恶心减伤 (Disgustingly Resilient)', type: 'Firefight', cp: 1, desc: '防守时可以将一枚失败骰改为普通成功。' },
-    ],
   },
   'Legionary': {
     id: 'Legionary',
@@ -114,11 +103,6 @@ export const FACTIONS_DB = {
     diceClass: 'leg-dice',
     headerImg: './assets/images/headers/faction_header_leg.png',
     templates: null,
-    ploys: [
-      { id: 'dark_zealotry', name: '黑暗狂热 (Dark Zealotry)', type: 'Strategic', cp: 1, desc: '近战搏斗时可重投 1 个失败骰。' },
-      { id: 'chaos_glory', name: '混沌荣耀 (Chaos Glory)', type: 'Strategic', cp: 1, desc: ' leader 在 Fight 中获得 +1 攻击。' },
-      { id: 'warp_touched', name: '亚空间庇护 (Warp-Touched)', type: 'Firefight', cp: 1, desc: '受到致命伤害时可掷骰 6+ 抵消。' },
-    ],
   },
 };
 

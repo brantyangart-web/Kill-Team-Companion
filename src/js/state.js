@@ -1,5 +1,7 @@
 import { playSound } from './audio.js';
 import { getEnemyFaction, getFactionDisplayName, getTeamSlot } from '../rules/faction.js';
+import { isFinalTurningPoint } from '../rules/strategy.js';
+import { resetPloysThisTP } from '../rules/ploys.js';
 
 // UI callbacks - set during app initialization to avoid circular deps
 const ui = {};
@@ -59,6 +61,18 @@ export const gameState = {
   // 已购买的 ploys { [teamSlot]: [ployId, ...] }
   purchasedPloys: { 0: [], 1: [] },
 
+  // 持久 ploys (持续到战斗结束/下回合) { [teamSlot]: [ployId, ...] }
+  persistentPloys: { 0: [], 1: [] },
+
+  // 每 TP ploy 使用状态 { [teamSlot]: { [ployId]: true } }
+  usedPloysThisTP: { 0: {}, 1: {} },
+
+  // Combat Doctrine 当前选择 { [teamSlot]: 'devastator'|'tactical'|'assault'|null }
+  combatDoctrineChoice: { 0: null, 1: null },
+
+  // Limited x 武器使用次数追踪 { [operativeId]: { [weaponName]: count } }
+  limitedWeaponUsage: {},
+
   // 控制标记系统 (Standard 规则) { markerId: { tainted: bool, controller: faction|null } }
   objectiveMarkers: {},
 
@@ -102,7 +116,9 @@ const defaultWizardState = {
 
   activeAttackerDice: [],
   activeDefenderDice: [],
-  meleeTurn: 'attacker'
+  meleeTurn: 'attacker',
+
+  drRolls: [],
 };
 
 export let wizardState = { ...defaultWizardState };
@@ -139,10 +155,10 @@ export function hasUsableOperatives(slotOrFaction) {
 export function endTurningPoint() {
   playSound('click');
 
-  // TP5 上限检测：达到第 5 回合后进入最终结算
-  if (gameState.turningPoint >= 5) {
+  // TP 上限检测：lite 规则 TP4 结束，standard 规则 TP5 结束
+  if (isFinalTurningPoint(gameState.turningPoint, gameState.rulesVersion)) {
     ui.addLog(`\n========================================`);
-    ui.addLog(`>>> 已达第 5 回合上限！进入最终胜负结算！`);
+    ui.addLog(`>>> 已达第 ${gameState.turningPoint} 回合上限！进入最终胜负结算！`);
     ui.addLog(`========================================`);
     ui.showTurnEndScoringOverlay(true); // final=true → 不显示"继续下一 TP"
     return;
@@ -153,9 +169,14 @@ export function endTurningPoint() {
 
   // CP gains moved to startStrategyPhase (rules: gains happen at Strategy phase)
 
-  // Reset active ploys
+  // Reset active firefight ploys (每 TP 重置)
   gameState.smActivePloys = [];
   gameState.pmActivePloys = [];
+
+  // Reset 每 TP ploy 使用状态
+  resetPloysThisTP();
+
+  // 注: persistentPloys 不重置 (持续整个战斗)
 
   // Reset operatives
   gameState.operatives.forEach(op => {
@@ -166,6 +187,10 @@ export function endTurningPoint() {
       op.hasCounteractedThisTP = false; // 每 TP 重置反击限制
     }
   });
+
+  // 更新 UI 以反映重置后的状态
+  ui.renderOperatives();
+  ui.updateActivePanel();
 
   const nextBtn = document.getElementById('btn-next-phase');
   if (nextBtn) nextBtn.style.display = 'none';
@@ -179,10 +204,16 @@ export function endTurningPoint() {
 
 // ---- 判断是否有可用于 Counteract 的特工 (已耗尽 + Engage 标记 + 本 TP 未反击过) ----
 // Accepts slot (0/1) or faction name; prefers slot for mirror-match safety
+// PM 阵营例外: Plague Marine 可以无视命令类型反击 (PM 规则 L199)
 export function hasCounteractOperatives(slotOrFaction) {
   const slot = typeof slotOrFaction === 'number' ? slotOrFaction : getTeamSlot(slotOrFaction);
+  const faction = gameState.teamFactions[slot];
+  const canIgnoreOrder = hasFactionTrait(faction, 'counteractRegardlessOfOrder');
+
   return gameState.operatives.some(op =>
-    op.teamSlot === slot && !op.isDead && op.hasActed && !op.hasConceal && !op.hasCounteractedThisTP
+    op.teamSlot === slot && !op.isDead && op.hasActed &&
+    (canIgnoreOrder || !op.hasConceal) && // PM 无视 Conceal 限制
+    !op.hasCounteractedThisTP
   );
 }
 

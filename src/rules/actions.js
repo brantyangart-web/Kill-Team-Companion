@@ -56,6 +56,11 @@ export function canPerformAction(op, action, opts = {}) {
     return { allowed: false, reason: 'OPERATIVE_DEAD' };
   }
 
+  // 0.5 反击限制: 反击时只能执行 Reposition/Move (移动 ≤2")，不能射击/近战/冲锋等
+  if (op.counteracting && !['Move', 'Reposition'].includes(action)) {
+    return { allowed: false, reason: 'COUNTERACT_ONLY_REPOSITION' };
+  }
+
   // 1. lite 模式隐藏 Advance
   if (action === 'Advance' && isLiteMode) {
     return { allowed: false, reason: 'LITE_MODE_NO_ADVANCE' };

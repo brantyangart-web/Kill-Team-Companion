@@ -44,7 +44,8 @@ export class Weapon {
   }
 
   hasRule(ruleName) {
-    return this.rules.includes(ruleName);
+    // Support partial matching for rules with parameters like 'Heavy (Dash only)'
+    return this.rules.some(r => r === ruleName || r.startsWith(ruleName + ' '));
   }
 
   get displayRange() {
@@ -256,8 +257,9 @@ export class Operative {
     let actualDamage = 0;
 
     if (hasDr) {
-      const hasPloyActive = getActivePloys(this.faction).includes('contagious_resilience');
-      ui.addLog(`[特性] 触发${getFactionDisplayName(this.faction)}专属【恶心作呕 (DR 4+)】 ${hasPloyActive ? '(已开启传染韧性，允许首个失败重投)' : ''}：`);
+      // contagious_resilience 已移除。Sickening Resilience (firefight ploy) 有不同效果。
+      const hasPloyActive = false;
+      ui.addLog(`[特性] 触发${getFactionDisplayName(this.faction)}专属【恶心作呕 (DR 4+)】：`);
 
       let drRollIndex = 0;
       let hasRerolled = false;

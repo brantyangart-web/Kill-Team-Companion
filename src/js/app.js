@@ -20,7 +20,7 @@ import {
   activateOperative, updateActivePanel, performMove, performCharge, performAdvance, performDash, performFallBack, toggleConceal,
   endActivation, startInitiativePhase, showPhaseOverlay, hidePhaseOverlay, hideCounteractOverlay,
   showCounteractOverlay, selectCounteractOperative, skipCounteractAction,
-  rollInitiativeOverlay, selectTurnOrder, confirmTurnOrder, startStrategyPhase, buyPloy,
+  rollInitiativeOverlay, selectTurnOrder, confirmTurnOrder, startStrategyPhase, buyStrategyPloy, selectDoctrine,
   proceedToFirefight, showRuleHelp, closeHelpModal,
   triggerOperativeDeathOverlay, confirmOperativeDeath, checkVictory, declareVictory,
   showTurnEndScoringOverlay, renderTurnEndScoringContent, toggleScoringChecklist,
@@ -44,6 +44,7 @@ import {
   rollMeleeDice, rerollMeleeDice, renderMeleeRollsView,
   getDuelAvatarHtml, getMeleeDuelHeaderHtml, getShootDuelHeaderHtml,
   chooseMeleeDice, resolveMeleeChoice, cancelMeleeChoice, confirmFightResult,
+  resolveSecondaries, selectDefFightWeapon,
   initCombatUiCallbacks, initCombatAccessibility
 } from './combat.js';
 
@@ -147,6 +148,8 @@ window.rollAttackDice = rollAttackDice;
 window.rollDefenseDice = rollDefenseDice;
 window.selectFightDefender = selectFightDefender;
 window.selectFightWeapon = selectFightWeapon;
+window.selectDefFightWeapon = selectDefFightWeapon;
+window.resolveSecondaries = resolveSecondaries;
 window.rollMeleeDice = rollMeleeDice;
 window.rerollMeleeDice = rerollMeleeDice;
 window.chooseMeleeDice = chooseMeleeDice;
@@ -157,7 +160,8 @@ window.cancelMeleeChoice = cancelMeleeChoice;
 window.rollInitiativeOverlay = rollInitiativeOverlay;
 window.selectTurnOrder = selectTurnOrder;
 window.confirmTurnOrder = confirmTurnOrder;
-window.buyPloy = buyPloy;
+window.buyStrategyPloy = buyStrategyPloy;
+window.selectDoctrine = selectDoctrine;
 window.proceedToFirefight = proceedToFirefight;
 
 // Counteract
