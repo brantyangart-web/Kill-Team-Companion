@@ -1,0 +1,92 @@
+﻿/* Container for damage animation overlay, absolutely positioned on top of everything */
+#damage-animation-container {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100vw;
+  height: 100vh;
+  pointer-events: none;
+  z-index: 9999;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.damage-anim-wrapper {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  transform: scale(0.1);
+  opacity: 0;
+  animation: zoomIn 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards;
+}
+
+.damage-anim-avatar {
+  width: 300px;
+  height: 300px;
+  object-fit: cover;
+  border-radius: 50%;
+  border: 4px solid var(--red, #e11d48);
+  box-shadow: 0 0 30px rgba(225, 29, 72, 0.6), inset 0 0 20px rgba(225, 29, 72, 0.5);
+  background-color: #111;
+}
+
+.damage-anim-bar-container {
+  margin-top: -20px;
+  width: 320px;
+  height: 30px;
+  background-color: #1a1c23;
+  border: 2px solid #333;
+  border-radius: 15px;
+  overflow: hidden;
+  position: relative;
+  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.8);
+  z-index: 2;
+}
+
+.damage-anim-bar-fill {
+  height: 100%;
+  transition: width 0.8s cubic-bezier(0.25, 1, 0.5, 1);
+  box-shadow: 0 0 10px rgba(255, 255, 255, 0.3) inset;
+}
+
+.damage-anim-text {
+  margin-top: 10px;
+  font-family: 'Pirata One', serif;
+  font-size: 3.5rem;
+  font-weight: 900;
+  text-shadow: 0 0 20px rgba(225, 29, 72, 0.8), 0 0 40px #000;
+}
+
+.glitch-shake {
+  animation: zoomIn 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards, glitchShake 0.4s cubic-bezier(.36,.07,.19,.97) both;
+}
+
+.fade-out {
+  animation: fadeOut 0.4s ease forwards !important;
+}
+
+@keyframes zoomIn {
+  from { transform: scale(0.1); opacity: 0; }
+  to { transform: scale(1); opacity: 1; }
+}
+
+@keyframes fadeOut {
+  from { transform: scale(1); opacity: 1; }
+  to { transform: scale(1.5); opacity: 0; filter: blur(10px); }
+}
+
+@keyframes glitchShake {
+  0%, 100% { transform: translate(0, 0) rotate(0deg); }
+  10% { transform: translate(-8px, -5px) rotate(-2deg); }
+  20% { transform: translate(6px, 5px) rotate(2deg); }
+  30% { transform: translate(-6px, 8px) rotate(0deg); }
+  40% { transform: translate(5px, -6px) rotate(2deg); }
+  50% { transform: translate(-8px, 5px) rotate(-2deg); }
+  60% { transform: translate(6px, -5px) rotate(0deg); }
+  70% { transform: translate(-5px, 6px) rotate(2deg); }
+  80% { transform: translate(5px, 5px) rotate(-2deg); }
+  90% { transform: translate(-6px, -5px) rotate(0deg); }
+}

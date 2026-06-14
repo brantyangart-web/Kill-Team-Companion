@@ -440,14 +440,13 @@ export function updateGuidance(text) {
 //           Roster & Rendering
 // ==========================================
 
-export function getAvatarHtml(opId, faction) {
+export function getOperativeAvatarUrl(opId, faction) {
   const avatarUrl = gameState.customAvatars[opId];
   const cssSuffix = getFactionCssSuffix(faction);
   let fallbackUrl = getAssetPath(`assets/images/defaults/default_${cssSuffix}_avatar.png`);
 
   const activeOp = gameState.operatives.find(o => o.id === opId);
   const allTemplates = SM_TEMPLATES.concat(PM_TEMPLATES).concat(LEG_TEMPLATES);
-  const opName = activeOp ? activeOp.name : (allTemplates.find(t => t.id === opId)?.name || opId);
 
   if (activeOp && activeOp.defaultAvatar) {
     fallbackUrl = getAssetPath(activeOp.defaultAvatar);
@@ -458,7 +457,16 @@ export function getAvatarHtml(opId, faction) {
     }
   }
 
-  const imgUrl = avatarUrl || fallbackUrl;
+  return avatarUrl || fallbackUrl;
+}
+
+export function getAvatarHtml(opId, faction) {
+  const imgUrl = getOperativeAvatarUrl(opId, faction);
+
+  const activeOp = gameState.operatives.find(o => o.id === opId);
+  const allTemplates = SM_TEMPLATES.concat(PM_TEMPLATES).concat(LEG_TEMPLATES);
+  const opName = activeOp ? activeOp.name : (allTemplates.find(t => t.id === opId)?.name || opId);
+
   return `<div class="op-avatar-slot main-avatar-${opId}">
             <img src="${imgUrl}" class="op-avatar-img" alt="${opName} 头像" loading="lazy" />
           </div>`;

@@ -3,7 +3,7 @@ import { playSound } from './audio.js';
 import { Operative, Weapon, translateRule } from './models.js';
 import {
   getEnemyFaction, getDiceClass, getCpForFaction, setCpForFaction,
-  getFactionDisplayName, getFactionCssSuffix, hasFactionTrait, getActivePloys, setActivePloys,
+  getFactionDisplayName, getFactionCssSuffix, hasFactionTrait, getFactionThemeVar, getActivePloys, setActivePloys,
   getTeamSlot
 } from '../rules/faction.js';
 import {
@@ -11,6 +11,8 @@ import {
   calculateAttackModifications, calculateDefenseModifications
 } from '../rules/abilities.js';
 import { getAssetPath } from './paths.js';
+import { showDamageAnimation } from './damageAnimation.js';
+
 
 // UI callbacks
 const ui = {};
@@ -2272,7 +2274,15 @@ export function resolveMeleeChoice(action) {
     const msg = `> ${side === 'attacker' ? '攻击方' : '防守方'} 执行打击 (Strike)，分配了 ${dmg} 伤害！<br>`;
     wizardState.meleeLogs += msg;
 
+    const oldWounds = targetOpponent.wounds;
     targetOpponent.applyWounds(dmg);
+
+    // Show big damage animation
+    if (ui.getOperativeAvatarUrl && dmg > 0) {
+      const avatarUrl = ui.getOperativeAvatarUrl(targetOpponent.id, targetOpponent.faction);
+      const themeVar = getFactionThemeVar(targetOpponent.faction);
+      showDamageAnimation(avatarUrl, targetOpponent.maxWounds, oldWounds, dmg, themeVar);
+    }
 
     // === Standard 规则: 近战击杀回调 ===
     if (targetOpponent.isDead && gameState.rulesVersion === 'standard') {

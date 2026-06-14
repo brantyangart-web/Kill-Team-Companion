@@ -26,7 +26,7 @@ import {
   showTurnEndScoringOverlay, renderTurnEndScoringContent, toggleScoringChecklist,
   adjustScoreTemp, confirmTurnEndScoring, declareScoreVictory,
   triggerAvatarUpload, handleAvatarFileSelect,
-  triggerCombatVisual, triggerAvatarHitEffect,
+  triggerCombatVisual, triggerAvatarHitEffect, getOperativeAvatarUrl,
   rollDicePool, evaluateAttackRolls, evaluateDefenseRolls,
   showToast, trapFocus, releaseFocusTrap,
   initCombatCallbacks
@@ -87,6 +87,7 @@ initCombatUiCallbacks({
   updateScoresUI,
   triggerAvatarHitEffect,
   triggerCombatVisual,
+  getOperativeAvatarUrl,
 });
 
 // Combat module needs toast/focus-trap for validation prompts
