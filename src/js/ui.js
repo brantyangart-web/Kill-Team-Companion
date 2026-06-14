@@ -2514,11 +2514,12 @@ export function handleAvatarFileSelect(event) {
 export function triggerCombatVisual(text, type = 'normal') {
   // 1. 触发震屏 (skip if user prefers reduced motion)
   if (!prefersReducedMotion.matches) {
-    document.body.classList.remove('intense-shake');
-    void document.body.offsetWidth; // 触发回流以重新播放 CSS 动画
-    document.body.classList.add('intense-shake');
+    const target = document.querySelector('.phase-overlay > div') || document.querySelector('.app-container') || document.body;
+    target.classList.remove('intense-shake');
+    void target.offsetWidth; // 触发回流以重新播放 CSS 动画
+    target.classList.add('intense-shake');
     setTimeout(() => {
-      document.body.classList.remove('intense-shake');
+      target.classList.remove('intense-shake');
     }, 400);
   }
 
