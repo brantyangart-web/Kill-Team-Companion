@@ -1351,7 +1351,17 @@ export function confirmShootResult(dmgPerAttack) {
   ui.addLog(`[攻击方] ${attacker.name} 使用 ${wizardState.weapon.name} 射击`);
   ui.addLog(`[防守方] ${defender.name}`);
 
+  const oldWounds = defender.wounds;
   const actualDamage = defender.applyWounds(dmgPerAttack, manualDrRolls);
+
+  if (ui.getOperativeAvatarUrl && actualDamage > 0) {
+    const avatarUrl = ui.getOperativeAvatarUrl(defender.id, defender.faction);
+    const themeVar = getFactionThemeVar(defender.faction);
+    showDamageAnimation(avatarUrl, defender.maxWounds, oldWounds, actualDamage, themeVar);
+  } else if (actualDamage <= 0) {
+    playSound('sword_clash'); // Reuse parry sound for blocked shot
+    ui.triggerCombatVisual("SAVED", "parry");
+  }
 
   // === Standard 规则: 击杀回调 ===
   if (defender.isDead && gameState.rulesVersion === 'standard') {
