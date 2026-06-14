@@ -2327,7 +2327,7 @@ export function resolveMeleeChoice(action) {
     }
 
     playSound('heavy_strike');
-    ui.triggerCombatVisual("⚔️ STRIKE! -" + dmg, "strike");
+    ui.triggerCombatVisual("-" + dmg + " Wounds", "strike");
   } else {
     // ---- Brutal 规则 ----
     // "Your opponent can only block with critical successes"
@@ -2364,7 +2364,7 @@ export function resolveMeleeChoice(action) {
     const msg = `> ${side === 'attacker' ? '攻击方' : '防守方'} 执行格挡 (Parry)，消去对方一个骰子 [${opponentDiceList[targetIdx].val}]！<br>`;
     wizardState.meleeLogs += msg;
     playSound('metal_clash');
-    ui.triggerCombatVisual("🛡️ PARRY!", "parry");
+    ui.triggerCombatVisual("PARRY", "parry");
   }
 
   const opponentSide = side === 'attacker' ? 'defender' : 'attacker';
