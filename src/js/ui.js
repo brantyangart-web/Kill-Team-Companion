@@ -8,6 +8,7 @@ import {
   hasFactionTrait, getActivePloys, setActivePloys, getFaction, getTeamSlot,
   getTeamCssClass, getFactionThemeVar
 } from '../rules/faction.js';
+import { getAssetPath } from './paths.js';
 
 // Accessibility: check reduced motion preference
 const prefersReducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)');
@@ -373,7 +374,7 @@ export function updateBattlePanelNames() {
     // Board header image (faction-specific banner)
     const boardImgEl = document.getElementById(`board-header-img-${slot}`);
     if (boardImgEl && factionData && factionData.headerImg) {
-      boardImgEl.src = factionData.headerImg;
+      boardImgEl.src = getAssetPath(factionData.headerImg);
       boardImgEl.alt = `${shortName}战队旗帜`;
     }
 
@@ -442,18 +443,18 @@ export function updateGuidance(text) {
 export function getAvatarHtml(opId, faction) {
   const avatarUrl = gameState.customAvatars[opId];
   const cssSuffix = getFactionCssSuffix(faction);
-  let fallbackUrl = `assets/images/defaults/default_${cssSuffix}_avatar.png`;
+  let fallbackUrl = getAssetPath(`assets/images/defaults/default_${cssSuffix}_avatar.png`);
 
   const activeOp = gameState.operatives.find(o => o.id === opId);
   const allTemplates = SM_TEMPLATES.concat(PM_TEMPLATES).concat(LEG_TEMPLATES);
   const opName = activeOp ? activeOp.name : (allTemplates.find(t => t.id === opId)?.name || opId);
 
   if (activeOp && activeOp.defaultAvatar) {
-    fallbackUrl = activeOp.defaultAvatar;
+    fallbackUrl = getAssetPath(activeOp.defaultAvatar);
   } else {
     const template = allTemplates.find(t => t.id === opId);
     if (template && template.defaultAvatar) {
-      fallbackUrl = template.defaultAvatar;
+      fallbackUrl = getAssetPath(template.defaultAvatar);
     }
   }
 
@@ -934,7 +935,10 @@ export function validateRostersAndDeploy() {
     for (let i = 0; i < count; i++) {
       const uniqueId = count > 1 ? `${tmpl.id}_${i + 1}` : tmpl.id;
       const displayName = count > 1 ? `${tmpl.name} #${i + 1}` : tmpl.name;
-      gameState.operatives.push(new Operative(uniqueId, displayName, team0Faction, tmpl.wounds, tmpl.apl, tmpl.df, tmpl.sv, tmpl.weapons, tmpl.defaultAvatar, tmpl.move || 6, 0));
+      const op = new Operative(uniqueId, displayName, team0Faction, tmpl.wounds, tmpl.apl, tmpl.df, tmpl.sv, tmpl.weapons, tmpl.defaultAvatar, tmpl.move || 6, 0);
+      // Standard 规则: 从模板复制 operativeType
+      if (tmpl.operativeType) op.operativeType = tmpl.operativeType;
+      gameState.operatives.push(op);
     }
   });
 
@@ -943,7 +947,10 @@ export function validateRostersAndDeploy() {
     for (let i = 0; i < count; i++) {
       const uniqueId = count > 1 ? `${tmpl.id}_${i + 1}` : tmpl.id;
       const displayName = count > 1 ? `${tmpl.name} #${i + 1}` : tmpl.name;
-      gameState.operatives.push(new Operative(uniqueId, displayName, team1Faction, tmpl.wounds, tmpl.apl, tmpl.df, tmpl.sv, tmpl.weapons, tmpl.defaultAvatar, tmpl.move || 5, 1));
+      const op = new Operative(uniqueId, displayName, team1Faction, tmpl.wounds, tmpl.apl, tmpl.df, tmpl.sv, tmpl.weapons, tmpl.defaultAvatar, tmpl.move || 5, 1);
+      // Standard 规则: 从模板复制 operativeType
+      if (tmpl.operativeType) op.operativeType = tmpl.operativeType;
+      gameState.operatives.push(op);
     }
   });
 
@@ -967,7 +974,289 @@ export function validateRostersAndDeploy() {
   updateBattlePanelNames();
   updateScoresUI();
   renderOperatives();
-  startInitiativePhase();
+
+  // Standard 规则: 部署后选择 Chapter Tactics / Marks of Chaos
+  if (gameState.rulesVersion === 'standard') {
+    showStandardRulesSelections(() => {
+      startInitiativePhase();
+    });
+  } else {
+    startInitiativePhase();
+  }
+}
+
+// ==========================================
+//   Standard 规则: 部署后选择界面
+// ==========================================
+
+/**
+ * 显示 Standard 规则特有的部署后选择界面
+ * Chapter Tactics (SM) 和 Marks of Chaos (LEG)
+ * @param {Function} onComplete - 选择完成后的回调
+ */
+function showStandardRulesSelections(onComplete) {
+  const selections = [];
+
+  // 检查各阵营是否需要选择
+  const team0Faction = gameState.teamFactions[0];
+  const team1Faction = gameState.teamFactions[1];
+
+  // Chapter Tactics for SM
+  if (team0Faction === 'Space Marine') {
+    selections.push({ teamSlot: 0, type: 'chapterTactics' });
+  }
+  if (team1Faction === 'Space Marine') {
+    selections.push({ teamSlot: 1, type: 'chapterTactics' });
+  }
+
+  // Marks of Chaos for Legionary
+  if (team0Faction === 'Legionary') {
+    selections.push({ teamSlot: 0, type: 'marksOfChaos' });
+  }
+  if (team1Faction === 'Legionary') {
+    selections.push({ teamSlot: 1, type: 'marksOfChaos' });
+  }
+
+  if (selections.length === 0) {
+    // 没有需要选择的，直接完成
+    onComplete();
+    return;
+  }
+
+  // 依次显示选择界面
+  let currentIndex = 0;
+
+  function showNext() {
+    if (currentIndex >= selections.length) {
+      onComplete();
+      return;
+    }
+    const sel = selections[currentIndex];
+    currentIndex++;
+
+    if (sel.type === 'chapterTactics') {
+      showChapterTacticsSelection(sel.teamSlot, showNext);
+    } else if (sel.type === 'marksOfChaos') {
+      showMarksOfChaosSelection(sel.teamSlot, showNext);
+    }
+  }
+
+  showNext();
+}
+
+/**
+ * Chapter Tactics 选择界面 (Space Marine)
+ * 8 种战术选 2 种 (primary + secondary)
+ * Sergeant 可以额外选 1 种
+ */
+function showChapterTacticsSelection(teamSlot, onComplete) {
+  const CHAPTER_TACTICS = [
+    { id: 'aggressive', name: 'Aggressive (凶猛)', desc: '近战武器获得 Rending' },
+    { id: 'dueler', name: 'Dueler (决斗者)', desc: '普通成功可格挡暴击' },
+    { id: 'resolute', name: 'Resolute (坚毅)', desc: '忽略 APL 变化、免疫 Shock' },
+    { id: 'stealthy', name: 'Stealthy (隐蔽)', desc: '额外保留 1 个 cover save' },
+    { id: 'mobile', name: 'Mobile (机动)', desc: 'Fall Back -1AP，可在控制范围冲锋' },
+    { id: 'hardy', name: 'Hardy (坚韧)', desc: '防御 5+ 为暴击；反击时首个 ≥3 Normal Dmg -1' },
+    { id: 'sharpshooter', name: 'Sharpshooter (神射手)', desc: '未移动时爆弹武器 Accurate 1 + Severe' },
+    { id: 'siege_specialist', name: 'Siege Specialist (攻城专家)', desc: '远程 Saturate；近战敌方不能 assist' },
+  ];
+
+  const ops = gameState.operatives.filter(o => o.teamSlot === teamSlot && o.faction === 'Space Marine');
+  const factionName = getFactionDisplayName('Space Marine');
+
+  addLog(`\n>>> ${factionName} 部署完毕！请选择 Chapter Tactics (章战术)`);
+
+  // 为每个特工选择章战术
+  let opIndex = 0;
+
+  function selectForNextOp() {
+    if (opIndex >= ops.length) {
+      addLog(`>>> ${factionName} Chapter Tactics 选择完成！`);
+      onComplete();
+      return;
+    }
+
+    const op = ops[opIndex];
+    opIndex++;
+
+    // 创建选择弹窗
+    const overlay = document.createElement('div');
+    overlay.className = 'phase-overlay';
+    overlay.style.zIndex = '2000';
+
+    let html = `
+      <div style="background: #1e293b; border: 2px solid #60a5fa; border-radius: 12px; padding: 24px; max-width: 600px; width: 90%; max-height: 80vh; overflow-y: auto;">
+        <h2 style="color: #60a5fa; margin-bottom: 16px;">📋 ${op.name} — 选择 Chapter Tactics</h2>
+        <p style="color: #94a3b8; margin-bottom: 16px;">选择 2 种章战术 (primary + secondary)：</p>
+        <div id="ct-options" style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 16px;">
+    `;
+
+    CHAPTER_TACTICS.forEach(t => {
+      html += `
+        <label style="display: flex; align-items: flex-start; gap: 8px; padding: 8px; background: #334155; border-radius: 6px; cursor: pointer;">
+          <input type="checkbox" class="ct-checkbox" value="${t.id}" style="margin-top: 3px;">
+          <div>
+            <div style="color: #e2e8f0; font-weight: bold; font-size: 13px;">${t.name}</div>
+            <div style="color: #94a3b8; font-size: 11px;">${t.desc}</div>
+          </div>
+        </label>
+      `;
+    });
+
+    html += `
+        </div>
+        <div style="display: flex; justify-content: flex-end; gap: 8px;">
+          <button id="ct-confirm-btn" class="action-btn" style="background: #3b82f6;">确认选择</button>
+        </div>
+      </div>
+    `;
+
+    overlay.innerHTML = html;
+    document.body.appendChild(overlay);
+
+    // 限制最多选 2 个
+    const checkboxes = overlay.querySelectorAll('.ct-checkbox');
+    checkboxes.forEach(cb => {
+      cb.addEventListener('change', () => {
+        const checked = overlay.querySelectorAll('.ct-checkbox:checked');
+        if (checked.length > 2) {
+          cb.checked = false;
+          showToast('最多选择 2 种章战术！', 'warning');
+        }
+      });
+    });
+
+    // 确认按钮
+    overlay.querySelector('#ct-confirm-btn').addEventListener('click', () => {
+      const checked = overlay.querySelectorAll('.ct-checkbox:checked');
+      const selected = Array.from(checked).map(cb => cb.value);
+
+      if (selected.length !== 2) {
+        showToast('请选择恰好 2 种章战术！', 'warning');
+        return;
+      }
+
+      // 存储选择
+      gameState.chapterTacticSelections[op.id] = {
+        primary: selected[0],
+        secondary: selected[1]
+      };
+
+      // 同步到特工对象
+      op.chapterTactics = selected;
+
+      addLog(`  - ${op.name}: ${selected.join(', ')}`);
+      playSound('click');
+      document.body.removeChild(overlay);
+      selectForNextOp();
+    });
+  }
+
+  selectForNextOp();
+}
+
+/**
+ * Marks of Chaos 选择界面 (Legionary)
+ * 5 种混沌印记选 1 种
+ */
+function showMarksOfChaosSelection(teamSlot, onComplete) {
+  const MARKS_OF_CHAOS = [
+    { id: 'KHORNE', name: 'Khorne (恐虐)', desc: '近战武器获得 Severe', color: '#dc2626' },
+    { id: 'NURGLE', name: 'Nurgle (纳垢)', desc: 'Normal Dmg ≥3 时 D6 5+ 减 1', color: '#16a34a' },
+    { id: 'SLAANESH', name: 'Slaanesh (色孽)', desc: 'Move +1"', color: '#d946ef' },
+    { id: 'TZEENTCH', name: 'Tzeentch (奸奇)', desc: '远程武器获得 Severe', color: '#3b82f6' },
+    { id: 'UNDIVIDED', name: 'Undivided (无分)', desc: '6" 内交战时远程武器获得 Ceaseless', color: '#a855f7' },
+  ];
+
+  const ops = gameState.operatives.filter(o => o.teamSlot === teamSlot && o.faction === 'Legionary');
+  const factionName = getFactionDisplayName('Legionary');
+
+  addLog(`\n>>> ${factionName} 部署完毕！请选择 Marks of Chaos (混沌印记)`);
+
+  let opIndex = 0;
+
+  function selectForNextOp() {
+    if (opIndex >= ops.length) {
+      addLog(`>>> ${factionName} Marks of Chaos 选择完成！`);
+      onComplete();
+      return;
+    }
+
+    const op = ops[opIndex];
+    opIndex++;
+
+    // 创建选择弹窗
+    const overlay = document.createElement('div');
+    overlay.className = 'phase-overlay';
+    overlay.style.zIndex = '2000';
+
+    let html = `
+      <div style="background: #1e293b; border: 2px solid #8b1a1a; border-radius: 12px; padding: 24px; max-width: 500px; width: 90%;">
+        <h2 style="color: #ef4444; margin-bottom: 16px;">👹 ${op.name} — 选择混沌印记</h2>
+        <p style="color: #94a3b8; margin-bottom: 16px;">选择 1 种混沌印记：</p>
+        <div id="moc-options" style="display: flex; flex-direction: column; gap: 8px; margin-bottom: 16px;">
+    `;
+
+    MARKS_OF_CHAOS.forEach(m => {
+      html += `
+        <label style="display: flex; align-items: center; gap: 12px; padding: 12px; background: #334155; border-radius: 8px; cursor: pointer; border: 2px solid transparent;" class="moc-option">
+          <input type="radio" name="moc-radio" value="${m.id}" style="width: 18px; height: 18px;">
+          <div>
+            <div style="color: ${m.color}; font-weight: bold; font-size: 15px;">${m.name}</div>
+            <div style="color: #94a3b8; font-size: 12px;">${m.desc}</div>
+          </div>
+        </label>
+      `;
+    });
+
+    html += `
+        </div>
+        <div style="display: flex; justify-content: flex-end; gap: 8px;">
+          <button id="moc-confirm-btn" class="action-btn" style="background: #8b1a1a;">确认选择</button>
+        </div>
+      </div>
+    `;
+
+    overlay.innerHTML = html;
+    document.body.appendChild(overlay);
+
+    // 选中高亮
+    const options = overlay.querySelectorAll('.moc-option');
+    options.forEach(opt => {
+      const radio = opt.querySelector('input[type="radio"]');
+      radio.addEventListener('change', () => {
+        options.forEach(o => o.style.borderColor = 'transparent');
+        if (radio.checked) {
+          opt.style.borderColor = '#ef4444';
+        }
+      });
+    });
+
+    // 确认按钮
+    overlay.querySelector('#moc-confirm-btn').addEventListener('click', () => {
+      const selected = overlay.querySelector('input[name="moc-radio"]:checked');
+      if (!selected) {
+        showToast('请选择 1 种混沌印记！', 'warning');
+        return;
+      }
+
+      const mark = selected.value;
+
+      // 存储选择
+      gameState.marksOfChaosSelections[op.id] = mark;
+
+      // 同步到特工对象
+      op.marksOfChaos = mark;
+
+      const markName = MARKS_OF_CHAOS.find(m => m.id === mark)?.name || mark;
+      addLog(`  - ${op.name}: ${markName}`);
+      playSound('click');
+      document.body.removeChild(overlay);
+      selectForNextOp();
+    });
+  }
+
+  selectForNextOp();
 }
 
 export function renderOperatives() {

@@ -6,6 +6,11 @@ import {
   getFactionDisplayName, getFactionCssSuffix, hasFactionTrait, getActivePloys, setActivePloys,
   getTeamSlot
 } from '../rules/faction.js';
+import {
+  hasChapterTactic, hasMarkOfChaos, getMarksOfChaos,
+  calculateAttackModifications, calculateDefenseModifications
+} from '../rules/abilities.js';
+import { getAssetPath } from './paths.js';
 
 // UI callbacks
 const ui = {};
@@ -40,6 +45,84 @@ function scheduleTimeout(fn, delay) {
   const id = setTimeout(fn, delay);
   diceAnimationTimeouts.push(id);
   return id;
+}
+
+// ==========================================
+//   Standard 规则: 击杀回调系统
+// ==========================================
+
+/**
+ * 触发击杀后的特殊能力
+ * @param {Object} killer - 击杀者 Operative
+ * @param {Object} victim - 被击杀者 Operative
+ * @param {string} killType - 击杀类型 'shoot' | 'fight'
+ * @param {number} [damageDealt] - 造成的伤害量 (用于 Grandfather's Blessing)
+ */
+function triggerKillAbilities(killer, victim, killType, damageDealt = 0) {
+  if (gameState.rulesVersion !== 'standard') return;
+
+  ui.addLog(`\n>>> 击杀回调检测...`);
+
+  // === 1. In the Eyes of the Gods (LEG Aspiring Champion) ===
+  // 击杀敌人后 APL +1 直到该激活结束
+  if (killer.operativeType === 'leg_aspiring_champion') {
+    const prevApl = killer.apl;
+    killer.apl = Math.min(killer.apl + 1, 5); // 上限 5
+    killer._eyesOfGodsActive = true; // 标记，激活结束后重置
+    ui.addLog(`[诸神之眼] ${killer.name} 击杀敌人！APL +1 (${prevApl} → ${killer.apl})，直到本次激活结束。`);
+    if (showToast) showToast(`⚡ 诸神之眼：APL +1 (${killer.apl})`, 'success');
+  }
+
+  // === 2. Soul Gorge (LEG Chosen) ===
+  // 近战击杀后恢复 D3+1 伤口
+  if (killer.operativeType === 'leg_chosen' && killType === 'fight') {
+    const roll = Math.floor(Math.random() * 3) + 1; // D3
+    const healAmount = roll + 1; // D3+1
+    const healed = killer.healWounds(healAmount);
+    ui.addLog(`[灵魂吞噬] ${killer.name} 近战击杀！恢复 ${healed} 点伤口 (D3+1 = ${healAmount})。`);
+    if (showToast) showToast(`💚 灵魂吞噬：恢复 ${healed} 伤口`, 'success');
+  }
+
+  // === 3. Horrifying Dismemberment (LEG Shrivetalon) ===
+  // 击杀后 3" 内另一敌人 APL -1 直到其下次激活结束
+  if (killer.operativeType === 'leg_shrivetalon') {
+    // 简化实现：由于没有物理距离检测，让玩家选择目标
+    // 在实际游戏中，玩家需要测量距离
+    ui.addLog(`[恐怖肢解] ${killer.name} 击杀！3" 内另一敌人 APL -1 (直到其下次激活结束)。`);
+    // 这里可以弹出一个选择框让玩家选择目标
+    // 简化：自动应用到第一个存活的敌人
+    const enemies = gameState.operatives.filter(o => o.teamSlot !== killer.teamSlot && !o.isDead);
+    if (enemies.length > 0) {
+      const target = enemies[0]; // 简化：选第一个
+      target.apl = Math.max(1, target.apl - 1);
+      target._horrifyingDismembermentActive = true;
+      ui.addLog(`  → ${target.name} APL -1 (${target.apl})，直到其下次激活结束。`);
+    }
+  }
+
+  // === 4. Grandfather's Blessing (PM Champion) ===
+  // 7" 内中毒敌人受伤时回血 (≤3/TP)
+  // 这个能力是在敌人受伤时触发，不是击杀时
+  // 但我们可以在击杀时检测是否有 PM Champion 在附近
+  if (victim.poisonTokens > 0) {
+    const pmChampions = gameState.operatives.filter(o =>
+      o.teamSlot === killer.teamSlot &&
+      o.operativeType === 'pm_champion' &&
+      !o.isDead &&
+      o.woundsRegainedThisTP < 3
+    );
+    // 简化：假设距离在 7" 内
+    for (const champion of pmChampions) {
+      const healAmount = Math.min(damageDealt, 3 - champion.woundsRegainedThisTP);
+      if (healAmount > 0) {
+        const healed = champion.healWounds(healAmount);
+        champion.woundsRegainedThisTP += healed;
+        ui.addLog(`[祖父祝福] ${champion.name} 响应！恢复 ${healed} 点伤口 (本 TP 已回 ${champion.woundsRegainedThisTP}/3)。`);
+      }
+    }
+  }
+
+  ui.addLog(`>>> 击杀回调完成。`);
 }
 
 // ==========================================
@@ -152,7 +235,7 @@ export function openShootWizard() {
 
   const modalContent = document.querySelector('#combat-modal .modal-content');
   if (modalContent) {
-    modalContent.style.backgroundImage = 'linear-gradient(rgba(11, 17, 32, 0.85), rgba(11, 17, 32, 0.95)), url("assets/images/backgrounds/bg_shoot_action.png")';
+    modalContent.style.backgroundImage = `linear-gradient(rgba(11, 17, 32, 0.85), rgba(11, 17, 32, 0.95)), url("${getAssetPath('assets/images/backgrounds/bg_shoot_action.png')}")`;
     modalContent.style.backgroundSize = 'cover';
     modalContent.style.backgroundPosition = 'center';
   }
@@ -586,6 +669,15 @@ export function renderShootStep() {
       ui.addLog(`[剧毒] 目标携带毒素标记，${wizardState.weapon.name} 伤害 +1 (${normDmg}/${critDmg})`);
     }
 
+    // Severe 规则 (基础或来自章战术/混沌印记)：如果保留了暴击，普通伤害升级为暴击伤害
+    const hasSevereBase = wizardState.weapon.hasRule && wizardState.weapon.hasRule('Severe');
+    const hasSevereFromAbility = wizardState.severeFromAbility;
+    if ((hasSevereBase || hasSevereFromAbility) && remainingCrits > 0) {
+      const source = hasSevereFromAbility ? '章战术/印记' : '';
+      normDmg = critDmg;
+      ui.addLog(`[重伤] ${wizardState.weapon.name}：保留暴击，普通伤害升级为暴击伤害 (${normDmg})${source ? ` (${source})` : ''}！`);
+    }
+
     // Devastating 规则：暴击立即额外造成 N 点伤害
     // "immediateCritDmg" — 每个暴击命中额外 +N 伤害
     const devastatingMatch = wizardState.weapon.rules.find(r => r.startsWith('Devastating'));
@@ -893,54 +985,96 @@ export function rerollSingleAttackDice(idx) {
 // 实现位置：resolveMeleeChoice('parry')
 
 export function recalculateAttackStats() {
-  let crits = 0;
-  let norms = 0;
-  // Injured 命中惩罚: TS/WS +1 (6 永远是暴击, 不受惩罚影响)
   const attacker = wizardState.attacker;
+  const weapon = wizardState.weapon;
+  const defender = wizardState.defender;
   const injuryPenalty = (attacker && attacker.isInjured) ? 1 : 0;
-  const effectiveTs = wizardState.weapon.ts + injuryPenalty;
+  const effectiveTs = weapon.ts + injuryPenalty;
+  const isMelee = !weapon.isRanged;
 
   // Lethal 规则：N+ 视为暴击（不仅是 6）
-  const lethalMatch = wizardState.weapon.rules.find(r => r.startsWith('Lethal'));
+  const lethalMatch = weapon.rules.find(r => r.startsWith('Lethal'));
   const lethalThreshold = lethalMatch ? parseInt(lethalMatch.match(/\d+/)?.[0] || '6') : 6;
 
+  // 基础统计
+  let crits = 0;
+  let norms = 0;
   wizardState.attackRolls.forEach(val => {
-    // Lethal N+: N+ 视为暴击（默认 6+）
     if (val >= lethalThreshold) crits++;
     else if (val >= effectiveTs) norms++;
   });
 
+  // === Standard 规则: 章战术 + 混沌印记 + Toxic ===
+
   // Rending 规则：如果保留了暴击，升级 1 个普通命中为暴击
-  const hasRending = wizardState.weapon.hasRule && wizardState.weapon.hasRule('Rending');
+  const hasRendingBase = weapon.hasRule && weapon.hasRule('Rending');
+  const hasAggressive = gameState.rulesVersion === 'standard' && hasChapterTactic(attacker, 'aggressive');
+  // Aggressive: 近战武器获得 Rending
+  const hasRending = hasRendingBase || (hasAggressive && isMelee);
   if (hasRending && crits > 0 && norms > 0) {
     norms -= 1;
     crits += 1;
-    ui.addLog(`[撕裂] ${wizardState.weapon.name}：保留暴击生效，升级 1 个普通命中为暴击！`);
+    ui.addLog(`[撕裂] ${weapon.name}：保留暴击生效，升级 1 个普通命中为暴击！${hasAggressive && !hasRendingBase ? ' (凶猛章战术)' : ''}`);
   }
 
   // Punishing 规则：如果保留了暴击，保留 1 个失败骰作为普通成功
-  const hasPunishing = wizardState.weapon.hasRule && wizardState.weapon.hasRule('Punishing');
+  const hasPunishing = weapon.hasRule && weapon.hasRule('Punishing');
   if (hasPunishing && crits > 0) {
-    // 计算失败骰数量
     const fails = wizardState.attackRolls.filter(val => val < effectiveTs && val !== 6 && val < lethalThreshold).length;
     if (fails > 0) {
       norms += 1;
-      ui.addLog(`[惩罚] ${wizardState.weapon.name}：保留暴击生效，保留 1 个失败骰作为普通成功！`);
+      ui.addLog(`[惩罚] ${weapon.name}：保留暴击生效，保留 1 个失败骰作为普通成功！`);
     }
   }
 
   // Accurate 规则：自动保留 N 个普通成功（不投）
-  // "Accurate N: auto-retain up to N attack dice as normal successes"
-  // 简化实现：投骰后，将 N 个失败骰升级为普通成功（模拟自动保留）。
-  const accurateMatch = wizardState.weapon.rules.find(r => r.startsWith('Accurate'));
-  if (accurateMatch) {
-    const accurateVal = parseInt(accurateMatch.match(/\d+/)?.[0] || '1');
+  const accurateMatch = weapon.rules.find(r => r.startsWith('Accurate'));
+  const hasSharpshooter = gameState.rulesVersion === 'standard' && hasChapterTactic(attacker, 'sharpshooter');
+  // Sharpshooter: 未移动时爆弹武器 Accurate 1 + Severe
+  const isBoltWeapon = /bolt/i.test(weapon.name);
+  const hasnNotMoved = attacker && attacker.actionsPerformed.length === 0;
+  const hasAccurateSharpshooter = hasSharpshooter && isBoltWeapon && hasnNotMoved;
+
+  if (accurateMatch || hasAccurateSharpshooter) {
+    const accurateVal = accurateMatch ? parseInt(accurateMatch.match(/\d+/)?.[0] || '1') : 1;
     const fails = wizardState.attackRolls.filter(val => val < effectiveTs && val < lethalThreshold).length;
     const upgradeCount = Math.min(accurateVal, fails);
     if (upgradeCount > 0) {
       norms += upgradeCount;
-      ui.addLog(`[精准] ${wizardState.weapon.name}：自动保留 ${upgradeCount} 个普通成功！`);
+      ui.addLog(`[精准] ${weapon.name}：自动保留 ${upgradeCount} 个普通成功！${hasAccurateSharpshooter && !accurateMatch ? ' (神射手章战术)' : ''}`);
     }
+  }
+
+  // === Standard 规则: Toxic 武器规则 (PM) ===
+  const hasToxic = weapon.hasRule && weapon.hasRule('Toxic');
+  if (hasToxic && defender && defender.poisonTokens > 0) {
+    ui.addLog(`[毒素] ${weapon.name}：目标携带毒素标记，Normal/Critical Dmg +1！`);
+    // Toxic 效果存储在 wizardState 中供伤害计算使用
+    wizardState.toxicBonusActive = true;
+  } else {
+    wizardState.toxicBonusActive = false;
+  }
+
+  // === Standard 规则: Severe from Chapter Tactics / Marks ===
+  const hasSevereBase = weapon.hasRule && weapon.hasRule('Severe');
+  const hasKhorne = gameState.rulesVersion === 'standard' && hasMarkOfChaos(attacker, 'KHORNE');
+  const hasTzeentch = gameState.rulesVersion === 'standard' && hasMarkOfChaos(attacker, 'TZEENTCH');
+  // Khorne: 近战 Severe; Tzeentch: 远程 Severe; Sharpshooter + 未移动: 爆弹 Severe
+  wizardState.severeFromAbility = !hasSevereBase && (
+    (hasKhorne && isMelee) ||
+    (hasTzeentch && !isMelee) ||
+    (hasSharpshooter && isBoltWeapon && hasnNotMoved)
+  );
+  if (wizardState.severeFromAbility) {
+    const source = hasKhorne ? '恐虐印记' : hasTzeentch ? '奸奇印记' : '神射手章战术';
+    ui.addLog(`[重伤] ${attacker.name}：${source}生效，武器获得 Severe！`);
+  }
+
+  // === Standard 规则: Siege Specialist — 远程 Saturate ===
+  const hasSiegeSpecialist = gameState.rulesVersion === 'standard' && hasChapterTactic(attacker, 'siege_specialist');
+  wizardState.saturateFromAbility = hasSiegeSpecialist && !isMelee;
+  if (wizardState.saturateFromAbility) {
+    ui.addLog(`[攻城专家] ${attacker.name}：远程武器获得 Saturate！`);
   }
 
   wizardState.attackCrit = crits;
@@ -1127,15 +1261,49 @@ export function rerollSingleDefenseDice(idx, dfCount) {
 }
 
 export function recalculateDefenseStats() {
+  const defender = wizardState.defender;
+  const weapon = wizardState.weapon;
+  const sv = defender.sv;
+
+  // Saturate 规则：防御方不能保留掩体骰
+  const hasSaturateBase = weapon.hasRule && weapon.hasRule('Saturate');
+  // Siege Specialist (攻击方): 远程 Saturate (从攻击骰阶段保存)
+  const saturateActive = hasSaturateBase || wizardState.saturateFromAbility;
+
+  // Camo Cloak (SM Eliminator Sniper): 忽略 Saturate
+  const hasCamoCloak = gameState.rulesVersion === 'standard' && defender.operativeType === 'sm_eliminator_sniper';
+  const saturateIgnored = hasCamoCloak && saturateActive;
+  if (saturateIgnored) {
+    ui.addLog(`[伪装斗篷] ${defender.name}：忽略 Saturate 规则！`);
+  }
+
+  const saturateEffective = saturateActive && !saturateIgnored;
+  let norms = (wizardState.inCover && !saturateEffective) ? 1 : 0;
+
+  // Hardy (Chapter Tactic): 防御 5+ 为暴击
+  const hasHardy = gameState.rulesVersion === 'standard' && hasChapterTactic(defender, 'hardy');
+  // Repulsive Fortitude (PM Warrior): 防御 5+ 算暴击
+  const hasRepulsiveFortitude = gameState.rulesVersion === 'standard' && defender.operativeType === 'pm_warrior';
+  const critAtFive = hasHardy || hasRepulsiveFortitude;
+
   let crits = 0;
-  // Saturate 规则：防御方不能保留掩体骰（掩体自动普通成功被移除）
-  const hasSaturateForDef = wizardState.weapon.hasRule && wizardState.weapon.hasRule('Saturate');
-  let norms = (wizardState.inCover && !hasSaturateForDef) ? 1 : 0;
-  const sv = wizardState.defender.sv;
   wizardState.defenseRolls.forEach(val => {
-    if (val === 6) crits++;
-    else if (val >= sv) norms++;
+    if (val === 6) {
+      crits++;
+    } else if (critAtFive && val === 5) {
+      crits++;
+    } else if (val >= sv) {
+      norms++;
+    }
   });
+
+  if (hasHardy && crits > 0) {
+    ui.addLog(`[坚韧] ${defender.name}：章战术生效，5+ 防御骰算暴击！`);
+  }
+  if (hasRepulsiveFortitude && crits > 0) {
+    ui.addLog(`[厌恶韧性] ${defender.name}：5+ 防御骰算暴击！`);
+  }
+
   wizardState.defCrit = crits;
   wizardState.defNorm = norms;
 }
@@ -1182,6 +1350,11 @@ export function confirmShootResult(dmgPerAttack) {
   ui.addLog(`[防守方] ${defender.name}`);
 
   const actualDamage = defender.applyWounds(dmgPerAttack, manualDrRolls);
+
+  // === Standard 规则: 击杀回调 ===
+  if (defender.isDead && gameState.rulesVersion === 'standard') {
+    triggerKillAbilities(attacker, defender, 'shoot', actualDamage);
+  }
 
   // Poison 规则：造成 ≥1 伤害且武器有 Poison，defender 获得 poison token
   const hasPoison = wizardState.weapon.hasRule && wizardState.weapon.hasRule('Poison');
@@ -1241,7 +1414,7 @@ export function openFightWizard() {
 
   const modalContent = document.querySelector('#combat-modal .modal-content');
   if (modalContent) {
-    modalContent.style.backgroundImage = 'linear-gradient(rgba(11, 17, 32, 0.85), rgba(11, 17, 32, 0.95)), url("assets/images/backgrounds/bg_melee_action.png")';
+    modalContent.style.backgroundImage = `linear-gradient(rgba(11, 17, 32, 0.85), rgba(11, 17, 32, 0.95)), url("${getAssetPath('assets/images/backgrounds/bg_melee_action.png')}")`;
     modalContent.style.backgroundSize = 'cover';
     modalContent.style.backgroundPosition = 'center';
   }
@@ -1914,15 +2087,15 @@ export function renderMeleeRollsView() {
 export function getDuelAvatarHtml(opId, faction) {
   const avatarUrl = gameState.customAvatars[opId];
   const cssSuffix = getFactionCssSuffix(faction);
-  let fallbackUrl = `./assets/images/defaults/default_${cssSuffix}_avatar.png`;
+  let fallbackUrl = getAssetPath(`assets/images/defaults/default_${cssSuffix}_avatar.png`);
 
   const activeOp = gameState.operatives.find(o => o.id === opId);
   if (activeOp && activeOp.defaultAvatar) {
-    fallbackUrl = activeOp.defaultAvatar;
+    fallbackUrl = getAssetPath(activeOp.defaultAvatar);
   } else {
     // Determine the template source based on faction for avatar path
     const idSuffix = opId.replace(/^(sm_|pm_|leg_)/, '');
-    const templateAvatar = `./assets/images/operatives/${cssSuffix}/${cssSuffix}_${idSuffix}.png`;
+    const templateAvatar = getAssetPath(`assets/images/operatives/${cssSuffix}/${cssSuffix}_${idSuffix}.png`);
     // Try to use the template avatar as fallback if available
     // But keep using the default if no match
     fallbackUrl = templateAvatar;
@@ -2067,6 +2240,10 @@ export function resolveMeleeChoice(action) {
   if (action === 'strike') {
     dice.used = true;
 
+    // 获取攻击方特工 (用于章战术/印记检测)
+    const strikeAttacker = side === 'attacker' ? wizardState.attacker : wizardState.defender;
+    const isMeleeWeapon = !activeWeapon.isRanged;
+
     // Toxic 规则：近战也适用
     let strikeNormDmg = activeWeapon.normalDamage;
     let strikeCritDmg = activeWeapon.criticalDamage;
@@ -2074,6 +2251,21 @@ export function resolveMeleeChoice(action) {
     if (hasToxicMelee && targetOpponent.poisonTokens > 0) {
       strikeNormDmg += 1;
       strikeCritDmg += 1;
+      ui.addLog(`[剧毒] 目标携带毒素标记，${activeWeapon.name} 近战伤害 +1 (${strikeNormDmg}/${strikeCritDmg})`);
+    }
+
+    // Severe 规则 (基础或来自章战术/混沌印记)
+    const hasSevereBaseMelee = activeWeapon.hasRule && activeWeapon.hasRule('Severe');
+    const hasKhorne = gameState.rulesVersion === 'standard' && hasMarkOfChaos(strikeAttacker, 'KHORNE');
+    const hasAggressive = gameState.rulesVersion === 'standard' && hasChapterTactic(strikeAttacker, 'aggressive');
+    // Khorne: 近战 Severe; Aggressive: 近战 Rending (已在掷骰处理)
+    const severeFromAbility = (hasKhorne && isMeleeWeapon);
+
+    // Severe: 如果保留暴击且打击使用暴击骰，普通伤害升级为暴击伤害
+    if ((hasSevereBaseMelee || severeFromAbility) && dice.isCrit) {
+      strikeNormDmg = strikeCritDmg;
+      const source = severeFromAbility && !hasSevereBaseMelee ? ' (恐虐印记)' : '';
+      ui.addLog(`[重伤] ${activeWeapon.name}：暴击打击，普通伤害升级为暴击伤害 (${strikeNormDmg})${source}！`);
     }
 
     const dmg = dice.isCrit ? strikeCritDmg : strikeNormDmg;
@@ -2081,6 +2273,12 @@ export function resolveMeleeChoice(action) {
     wizardState.meleeLogs += msg;
 
     targetOpponent.applyWounds(dmg);
+
+    // === Standard 规则: 近战击杀回调 ===
+    if (targetOpponent.isDead && gameState.rulesVersion === 'standard') {
+      const meleeAttacker = side === 'attacker' ? wizardState.attacker : wizardState.defender;
+      triggerKillAbilities(meleeAttacker, targetOpponent, 'fight', dmg);
+    }
 
     // Poison 规则：近战造成 ≥1 伤害且武器有 Poison，给予毒素标记
     const hasPoisonMelee = activeWeapon.hasRule && activeWeapon.hasRule('Poison');
