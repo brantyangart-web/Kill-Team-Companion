@@ -16,11 +16,6 @@ dist/
 _bmad/
 _bmad-output/
 
-# Large rule assets (PDFs + extracted images — use docs/rules/*.md instead)
-docs/rules/images/
-docs/rules/*.pdf
-docs/project-scan-report.json
-
 # OS
 .DS_Store
 Thumbs.db

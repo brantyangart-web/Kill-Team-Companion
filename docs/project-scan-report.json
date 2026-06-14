@@ -1,0 +1,44 @@
+{
+  "workflow_version": "1.2.0",
+  "timestamps": {
+    "started": "2026-06-13T00:00:00Z",
+    "last_updated": "2026-06-13T00:00:00Z",
+    "completed": null
+  },
+  "mode": "initial_scan",
+  "scan_level": "deep",
+  "project_root": "d:/work/Kill-Team-Companion",
+  "project_knowledge": "docs",
+  "completed_steps": [
+    { "step": "step_0.5", "status": "completed", "timestamp": "2026-06-13T00:00:00Z", "summary": "加载12种项目类型文档需求" },
+    { "step": "step_0.6", "status": "completed", "timestamp": "2026-06-13T00:00:00Z", "summary": "确认初始扫描模式，用户选择深度扫描" },
+    { "step": "step_1", "status": "completed", "timestamp": "2026-06-13T00:00:00Z", "summary": "分类为单体web项目，JavaScript + Vite" },
+    { "step": "step_2", "status": "completed", "timestamp": "2026-06-13T00:00:00Z", "summary": "无现有文档发现" },
+    { "step": "step_3", "status": "completed", "timestamp": "2026-06-13T00:00:00Z", "summary": "技术栈：Vite 6.3.5 + 原生JavaScript ES Modules + Web Audio API" },
+    { "step": "step_4", "status": "completed", "timestamp": "2026-06-13T00:00:00Z", "summary": "深度扫描完成：6个JS模块，42个UI函数，31个战斗函数，1076行CSS" },
+    { "step": "step_5", "status": "completed", "timestamp": "2026-06-13T00:00:00Z", "summary": "源码树分析完成" },
+    { "step": "step_6", "status": "completed", "timestamp": "2026-06-13T00:00:00Z", "summary": "开发指南编写完成" },
+    { "step": "step_8", "status": "completed", "timestamp": "2026-06-13T00:00:00Z", "summary": "架构文档编写完成" },
+    { "step": "step_9", "status": "completed", "timestamp": "2026-06-13T00:00:00Z", "summary": "支持文档全部生成" },
+    { "step": "step_10", "status": "completed", "timestamp": "2026-06-13T00:00:00Z", "summary": "主索引生成完成" }
+  ],
+  "current_step": "step_11",
+  "findings": {
+    "project_classification": "单体web项目，JavaScript前端，无后端",
+    "technology_stack": "Vite 6.3.5 + 原生JavaScript ES Modules + CSS + Web Audio API",
+    "architecture_pattern": "模块化单体应用（回调模式解耦循环依赖）"
+  },
+  "project_types": [
+    { "part_id": "main", "project_type_id": "web", "display_name": "Kill Team Companion" }
+  ],
+  "outputs_generated": [
+    "project-scan-report.json",
+    "source-tree-analysis.md",
+    "architecture.md",
+    "component-inventory.md",
+    "development-guide.md",
+    "project-overview.md",
+    "index.md"
+  ],
+  "resume_instructions": "文档生成完成"
+}
