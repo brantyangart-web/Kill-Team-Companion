@@ -1,8 +1,0 @@
-{
-  "permissions": {
-    "allow": [
-      "Bash(MSYS_NO_PATHCONV=1 docker compose --env-file ci/docker/mirrors.env -f ci/docker/compose.base.yml -f ci/docker/compose.basic-general.yml -f ci/docker/compose.operator-server-api.yml down -v --rmi all --remove-orphans)",
-      "Bash(MSYS_NO_PATHCONV=1 docker compose --env-file mirrors.env -f compose.base.yml -f compose.basic-general.yml -f compose.operator-server-api.yml down -v)"
-    ]
-  }
-}
