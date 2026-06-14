@@ -37,7 +37,7 @@ import { skipCounteract } from './state.js';
 import {
   openModal, closeModal, nextModalStep,
   openShootWizard, renderShootStep, selectShootDefender, selectShootWeapon,
-  setQA, setRollMode, rollAttackDice, renderAttackDiceView, rerollSingleAttackDice,
+  setQA, rollAttackDice, renderAttackDiceView, rerollSingleAttackDice,
   recalculateAttackStats, rollDefenseDice, renderDefenseDiceView, rerollSingleDefenseDice,
   recalculateDefenseStats, parseManualAttack, parseManualDefense, confirmShootResult,
   openFightWizard, selectFightDefender, selectFightWeapon, renderFightStep,
@@ -143,7 +143,6 @@ window.nextModalStep = nextModalStep;
 window.selectShootDefender = selectShootDefender;
 window.selectShootWeapon = selectShootWeapon;
 window.setQA = setQA;
-window.setRollMode = setRollMode;
 window.rollAttackDice = rollAttackDice;
 window.rollDefenseDice = rollDefenseDice;
 window.selectFightDefender = selectFightDefender;
@@ -189,3 +188,34 @@ document.addEventListener('DOMContentLoaded', () => {
   renderRosterPickers();
   updateRulesVersion(); // 初始化规则版本（默认 lite，隐藏 Advance）
 });
+
+// ==========================================
+//          Global Roll Mode Toggle
+// ==========================================
+window.toggleRollMode = function() {
+  playSound('click');
+  gameState.globalRollMode = gameState.globalRollMode === 'random' ? 'manual' : 'random';
+  
+  const btn = document.getElementById('btn-toggle-rollmode');
+  if (btn) {
+    if (gameState.globalRollMode === 'random') {
+      btn.textContent = '当前: 自动投骰';
+      btn.classList.remove('selected');
+    } else {
+      btn.textContent = '当前: 物理投骰';
+      btn.classList.add('selected');
+    }
+  }
+  
+  // If combat wizard is open, sync the state and re-render
+  if (wizardState && wizardState.step > 0) {
+    wizardState.mode = gameState.globalRollMode;
+    if (wizardState.actionType === 'shoot') {
+      import('./combat.js').then(module => module.renderShootStep());
+    } else if (wizardState.actionType === 'fight') {
+      import('./combat.js').then(module => module.renderFightStep());
+    }
+  }
+  
+  showToast(`已切换为 ${gameState.globalRollMode === 'random' ? '自动' : '物理'} 投骰模式`, 'info');
+};

@@ -196,6 +196,13 @@ export function nextModalStep() {
       }
     }
   } else if (wizardState.actionType === 'fight') {
+      if (wizardState.step === 4 && wizardState.mode === 'manual') {
+        parseManualMelee();
+        if (wizardState.activeAttackerDice.length === 0 && wizardState.activeDefenderDice.length === 0) {
+          if (showToast) showToast('请录入近战掷骰结果', 'error');
+          return;
+        }
+      }
     if (wizardState.step === 3) {
       if (!wizardState.inMeleeRange) {
         playSound('alert');
@@ -213,10 +220,10 @@ export function nextModalStep() {
   wizardState.step++;
 
   if (wizardState.actionType === 'shoot') {
-    renderShootStep();
-  } else if (wizardState.actionType === 'fight') {
-    renderFightStep();
-  }
+      renderShootStep();
+    } else if (wizardState.actionType === 'fight') {
+      renderFightStep();
+    }
 }
 
 // ==========================================
@@ -252,7 +259,7 @@ export function openShootWizard() {
     inCoverConcealed: false,
     inCover: false,
     enemyInControlRange: false,
-    mode: 'random',
+    mode: gameState.globalRollMode,
     attRerollIndex: -1,
     defRerollIndex: -1,
     attackRolls: [],
@@ -483,12 +490,9 @@ export function renderShootStep() {
 
       <p style="margin-bottom: 12px;">武器 [${wizardState.weapon.name}]，攻击骰数: <b>${wizardState.weapon.attacks}</b>，命中要求: <b>${displayEffTs}+</b>${injLabel}</p>
 
-      <div class="qa-options" style="margin-bottom: 16px;">
-        <button class="qa-btn ${wizardState.mode === 'random' ? 'selected' : ''}" onclick="setRollMode('random')">动画/数字掷骰 (Mode B)</button>
-        <button class="qa-btn ${wizardState.mode === 'manual' ? 'selected' : ''}" onclick="setRollMode('manual')">物理骰子录入 (Mode A)</button>
-      </div>
+      
 
-      <div class="dice-rolling-area" id="attack-rolling-zone">
+      <div class="dice-rolling-area" id="attack-rolling-zone" style="display:${wizardState.mode === 'manual' ? 'none' : 'flex'};">
         <div class="dice-pool-view" id="attack-dice-pool">
           <span style="color:var(--text-muted); font-size:0.85rem;">等待投骰...</span>
         </div>
@@ -497,11 +501,8 @@ export function renderShootStep() {
 
       ${rerollHint}
 
-      <div id="manual-attack-input" style="display:none; background:var(--dark-card); padding:12px; border-radius:8px; border:1px solid var(--panel-border);">
-        <div class="form-group">
-          <label>请输入 ${wizardState.weapon.attacks} 个骰子值（1-6 逗号隔开）：</label>
-          <input type="text" id="manual-att-dice-val" value="6, 4, 3, 2" style="margin-top:6px; padding:6px; font-size:1rem; width:100%;">
-        </div>
+      <div id="manual-attack-input" style="display:${wizardState.mode === 'manual' ? 'block' : 'none'}; background:var(--dark-card); padding:12px; border-radius:8px; border:1px solid var(--panel-border);">
+        ${buildDiceKeypadHtml('manual-att-dice-val', `请录入 ${wizardState.weapon.attacks} 个攻击结果（按实际掷出顺序）`, wizardState.weapon.attacks)}
       </div>
     `;
 
@@ -569,7 +570,7 @@ export function renderShootStep() {
       ${coverDesc}
       <p style="margin-bottom: 12px;">需要投掷的防御骰数: <b>${dfCount}</b></p>
 
-      <div class="dice-rolling-area" id="defense-rolling-zone">
+      <div class="dice-rolling-area" id="defense-rolling-zone" style="display:${wizardState.mode === 'manual' ? 'none' : 'flex'};">
         <div class="dice-pool-view" id="defense-dice-pool">
           <span style="color:var(--text-muted); font-size:0.85rem;">等待投骰...</span>
         </div>
@@ -578,11 +579,8 @@ export function renderShootStep() {
 
       ${rerollHint}
 
-      <div id="manual-defense-input" style="display:none; background:var(--dark-card); padding:12px; border-radius:8px; border:1px solid var(--panel-border);">
-        <div class="form-group">
-          <label>请输入 ${dfCount} 个防御骰子值（1-6 逗号隔开）：</label>
-          <input type="text" id="manual-def-dice-val" value="5, 2" style="margin-top:6px; padding:6px; font-size:1rem; width:100%;">
-        </div>
+      <div id="manual-defense-input" style="display:${wizardState.mode === 'manual' ? 'block' : 'none'}; background:var(--dark-card); padding:12px; border-radius:8px; border:1px solid var(--panel-border);">
+        ${buildDiceKeypadHtml('manual-def-dice-val', `请录入 ${dfCount} 个防御结果（按实际掷出顺序）`, dfCount)}
       </div>
     `;
 
@@ -728,15 +726,28 @@ export function renderShootStep() {
       </div>
     `;
 
-    let drInputHtml = '';
-    if (hasFactionTrait(wizardState.defender.faction, 'disgustingResilience') && attacksRequiringDr > 0) {
-      drInputHtml = `
-        <div id="manual-dr-container" style="background:var(--dark-card); padding:10px; border-radius:8px; margin-top:8px; border:1px solid var(--panel-border);">
-          <label style="font-size:0.75rem; color:var(--text-muted);">录入瘟疫守卫【恶心作呕】的 ${attacksRequiringDr} 个投骰点数 (每次≥3伤害的攻击各投一次, 为空则按随机)：</label>
-          <input type="text" id="manual-dr-dice-val" placeholder="例: 4,2,5" style="margin-top:4px; padding:6px; font-size:0.9rem; background:#000; border:1px solid #334155; color:#fff; width:100%;">
-        </div>
-      `;
-    }
+          let drInputHtml = '';
+      if (hasFactionTrait(wizardState.defender.faction, 'disgustingResilience') && attacksRequiringDr > 0) {
+        if (wizardState.mode === 'manual') {
+          drInputHtml = `
+            <div id="manual-dr-container" style="display:block; background:var(--dark-card); padding:10px; border-radius:8px; margin-top:8px; border:1px solid var(--panel-border);">
+              ${buildDiceKeypadHtml('manual-dr-dice-val', `防守方有减伤规则（如恶心无视），请依次录入减伤骰子（共 ${attacksRequiringDr} 组伤害）`, attacksRequiringDr)}
+            </div>
+          `;
+        } else {
+          drInputHtml = `
+            <div id="auto-dr-container" style="display:block; background:var(--dark-card); padding:10px; border-radius:8px; margin-top:8px; border:1px solid var(--panel-border);">
+              <p style="margin-bottom:8px; font-size:0.85rem; color:#fff;">触发【恶心无视】减伤规则 (需投 ${attacksRequiringDr} 颗骰子)</p>
+              <div class="dice-rolling-area" id="dr-rolling-zone" style="display:flex;">
+                <div class="dice-pool-view" id="dr-dice-pool">
+                  <span style="color:var(--text-muted); font-size:0.85rem;">等待掷骰...</span>
+                </div>
+                <button class="modal-btn primary" id="btn-roll-dr" onclick="rollDrDice(${attacksRequiringDr})">点击 掷骰减伤</button>
+              </div>
+            </div>
+          `;
+        }
+      }
 
     body.innerHTML = `
       ${getShootDuelHeaderHtml()}
@@ -753,9 +764,13 @@ export function renderShootStep() {
       ${drInputHtml}
     `;
 
-    nextBtn.textContent = '完成结算并扣血';
-    nextBtn.disabled = false;
-    nextBtn.onclick = () => confirmShootResult(dmgPerAttack);
+    nextBtn.textContent = '确认射击结果';
+      if (hasFactionTrait(wizardState.defender.faction, 'disgustingResilience') && attacksRequiringDr > 0) {
+        nextBtn.disabled = true;
+      } else {
+        nextBtn.disabled = false;
+      }
+      nextBtn.onclick = () => confirmShootResult(dmgPerAttack);
 
     if (rawDmg > 0) {
       setTimeout(() => {
@@ -787,21 +802,7 @@ export function setQA(prop, val) {
   }
 }
 
-export function setRollMode(mode) {
-  playSound('click');
-  wizardState.mode = mode;
-  renderShootStep();
 
-  if (mode === 'manual') {
-    document.getElementById('manual-attack-input').style.display = 'block';
-    document.getElementById('attack-rolling-zone').style.display = 'none';
-    document.getElementById('modal-btn-next').disabled = false;
-  } else {
-    document.getElementById('manual-attack-input').style.display = 'none';
-    document.getElementById('attack-rolling-zone').style.display = 'flex';
-    document.getElementById('modal-btn-next').disabled = wizardState.attackRolls.length === 0;
-  }
-}
 
 // ==========================================
 //          Attack Dice
@@ -1314,6 +1315,22 @@ export function recalculateDefenseStats() {
 //          Manual Input
 // ==========================================
 
+
+export function parseManualMelee() {
+  const attInput = document.getElementById('manual-melee-att-val');
+  const defInput = document.getElementById('manual-melee-def-val');
+  
+  if (attInput) {
+    const vals = attInput.value.split(',').map(s => parseInt(s.trim(), 10)).filter(n => !isNaN(n) && n >= 1 && n <= 6);
+    wizardState.activeAttackerDice = vals.map(n => ({ val: n, isCrit: n >= wizardState.weapon.ts || n === 6 ? (n === 6) : false, used: false })).sort((a,b) => b.val - a.val);
+  }
+  if (defInput) {
+    const vals = defInput.value.split(',').map(s => parseInt(s.trim(), 10)).filter(n => !isNaN(n) && n >= 1 && n <= 6);
+    const defWeapon = wizardState.defender.weapons.filter(w => !w.isRanged)[0] || { ts: 3 }; // fallback
+    wizardState.activeDefenderDice = vals.map(n => ({ val: n, isCrit: n >= defWeapon.ts || n === 6 ? (n === 6) : false, used: false })).sort((a,b) => b.val - a.val);
+  }
+}
+
 export function parseManualAttack() {
   const inputEl = document.getElementById('manual-att-dice-val');
   if (!inputEl) return;
@@ -1439,7 +1456,7 @@ export function openFightWizard() {
     weapon: op.weapons.filter(w => !w.isRanged)[0] || null,
     inMeleeRange: true,
     hasFallenBack: false,
-    mode: 'random',
+    mode: gameState.globalRollMode,
     activeAttackerDice: [],
     activeDefenderDice: [],
     meleeTurn: 'attacker',
@@ -1568,24 +1585,31 @@ export function renderFightStep() {
     title.textContent = '近战结算 - 步骤 4: 双方近战掷骰';
 
     body.innerHTML = `
-      <div class="melee-grid" style="margin-bottom: 16px;">
-        <div class="melee-pool-card">
-          <div class="melee-pool-title">攻击方 (${wizardState.attacker.name})</div>
-          <div class="melee-dice-pool" id="melee-att-pool">
-            <span style="color:var(--text-muted); font-size:0.8rem;">等待投骰...</span>
+      <div class="melee-grid" style="margin-bottom: 16px; display:${wizardState.mode === 'manual' ? 'none' : 'flex'};" id="melee-rolling-zone">
+          <div class="melee-pool-card">
+            <div class="melee-pool-title">攻击方 (${wizardState.attacker.name})</div>
+            <div class="melee-dice-pool" id="melee-att-pool">
+              <span style="color:var(--text-muted); font-size:0.8rem;">等待掷骰...</span>
+            </div>
+          </div>
+  
+          <div class="melee-pool-card">
+            <div class="melee-pool-title">防守方 (${wizardState.defender.name})</div>
+            <div class="melee-dice-pool" id="melee-def-pool">
+              <span style="color:var(--text-muted); font-size:0.8rem;">等待掷骰...</span>
+            </div>
           </div>
         </div>
-
-        <div class="melee-pool-card">
-          <div class="melee-pool-title">防守方 (${wizardState.defender.name})</div>
-          <div class="melee-dice-pool" id="melee-def-pool">
-            <span style="color:var(--text-muted); font-size:0.8rem;">等待投骰...</span>
-          </div>
+  
+        <div id="melee-roll-btn-container" style="display:${wizardState.mode === 'manual' ? 'none' : 'block'};">
+          <button class="btn-large" id="btn-roll-melee" onclick="rollMeleeDice()">点击 掷骰</button>
         </div>
-      </div>
 
-      <button class="btn-large" id="btn-roll-melee" onclick="rollMeleeDice()">开始掷骰</button>
-    `;
+        <div id="manual-melee-input" style="display:${wizardState.mode === 'manual' ? 'block' : 'none'}; background:var(--dark-card); padding:12px; border-radius:8px; border:1px solid var(--panel-border);">
+          ${buildDiceKeypadHtml('manual-melee-att-val', `录入攻击方 (${wizardState.attacker.name}) 的 ${wizardState.weapon.attacks} 个掷骰`, wizardState.weapon.attacks)}
+          ${buildDiceKeypadHtml('manual-melee-def-val', `录入防守方 (${wizardState.defender.name}) 的 ${wizardState.defender.weapons.filter(w => !w.isRanged)[0]?.attacks || 4} 个掷骰`, wizardState.defender.weapons.filter(w => !w.isRanged)[0]?.attacks || 4)}
+        </div>
+      `;
 
     if (wizardState.activeAttackerDice.length > 0 || wizardState.activeDefenderDice.length > 0) {
       nextBtn.disabled = false;
@@ -2434,3 +2458,161 @@ export function confirmFightResult() {
 
   closeModal();
 }
+
+
+// ==========================================
+//          Interactive Dice Keypad
+// ==========================================
+export function buildDiceKeypadHtml(inputId, label, maxDice) {
+  return `
+    <div class="form-group" style="margin-top:10px;">
+      <label>${label}</label>
+      <div class="dice-keypad-container">
+        <!-- Hidden input to store actual value -->
+        <input type="hidden" id="${inputId}" value="" data-max="${maxDice || 99}" onchange="if(window.onKeypadChange) window.onKeypadChange('${inputId}')">
+        
+        <!-- Display Area -->
+        <div class="keypad-display-area" id="display-${inputId}"></div>
+        
+        <!-- Controls -->
+        <div class="keypad-controls">
+          <button class="keypad-btn" onclick="handleKeypadBtn('${inputId}', 1)">1</button>
+          <button class="keypad-btn" onclick="handleKeypadBtn('${inputId}', 2)">2</button>
+          <button class="keypad-btn" onclick="handleKeypadBtn('${inputId}', 3)">3</button>
+          <button class="keypad-btn" onclick="handleKeypadBtn('${inputId}', 4)">4</button>
+          <button class="keypad-btn" onclick="handleKeypadBtn('${inputId}', 5)">5</button>
+          <button class="keypad-btn" onclick="handleKeypadBtn('${inputId}', 6)">6</button>
+        </div>
+        <div class="keypad-action-row">
+          <button class="keypad-btn action-btn" onclick="handleKeypadBtn('${inputId}', 'clear')">Clear</button>
+          <button class="keypad-btn action-btn" onclick="handleKeypadBtn('${inputId}', 'back')">⌫ Back</button>
+        </div>
+      </div>
+    </div>
+  `;
+}
+
+window.handleKeypadBtn = function(inputId, action) {
+  if (typeof playSound === 'function') playSound('click');
+  const inputEl = document.getElementById(inputId);
+  const displayEl = document.getElementById(`display-${inputId}`);
+  if (!inputEl || !displayEl) return;
+
+  let currentVals = inputEl.value ? inputEl.value.split(',').map(s => s.trim()) : [];
+
+  const maxDice = parseInt(inputEl.getAttribute('data-max') || '99', 10);
+  
+  if (action === 'clear') {
+    currentVals = [];
+  } else if (action === 'back') {
+    currentVals.pop();
+  } else {
+    if (currentVals.length < maxDice) {
+      currentVals.push(action.toString());
+    } else {
+      if (typeof showToast === 'function') showToast(`最多只能录入 ${maxDice} 个骰子`, 'warning');
+      else alert(`最多只能录入 ${maxDice} 个骰子`);
+      return;
+    }
+  }
+
+  inputEl.value = currentVals.join(',');
+  
+  // Render display
+  displayEl.innerHTML = currentVals.map(v => `<div class="keypad-die">${v}</div>`).join('');
+  
+  // Trigger change event to enable 'Next' buttons
+  const event = new Event('change');
+  inputEl.dispatchEvent(event);
+};
+
+window.onKeypadChange = function(inputId) {
+  // If we are in attack phase, enable the Next button if there are rolls
+  const inputEl = document.getElementById(inputId);
+  if (!inputEl) return;
+  const rolls = inputEl.value ? inputEl.value.split(',').filter(x => x) : [];
+  
+  const nextBtn = document.getElementById('modal-btn-next');
+  if (nextBtn) {
+if (inputId === 'manual-att-dice-val') {
+      nextBtn.disabled = rolls.length === 0;
+    } else if (inputId === 'manual-def-dice-val') {
+      nextBtn.disabled = rolls.length === 0 && !document.getElementById('modal-btn-next').disabledIfNoRolls; 
+    } else if (inputId === 'manual-melee-att-val' || inputId === 'manual-melee-def-val') {
+      const attInput = document.getElementById('manual-melee-att-val');
+      const defInput = document.getElementById('manual-melee-def-val');
+      const attRolls = attInput && attInput.value ? attInput.value.split(',').filter(x => x) : [];
+      const defRolls = defInput && defInput.value ? defInput.value.split(',').filter(x => x) : [];
+      nextBtn.disabled = attRolls.length === 0 && defRolls.length === 0;
+    }
+  }
+};
+
+export function rollDrDice(count) {
+  const nextBtn = document.getElementById('modal-btn-next');
+  const pool = document.getElementById('dr-dice-pool');
+  const rollBtn = document.getElementById('btn-roll-dr');
+  
+  if (wizardState.drRolls && wizardState.drRolls.length > 0) return;
+
+  if (typeof playSound === 'function') playSound('dice_roll');
+  if (rollBtn) rollBtn.style.display = 'none';
+  
+  const hasPloyActive = typeof getActivePloys === 'function' ? getActivePloys(wizardState.defender.faction).includes('contagious_resilience') : false;
+  
+  // Animate dice rolling
+  if (pool) {
+    pool.innerHTML = '';
+    const defDiceClass = typeof getDiceClass === 'function' ? getDiceClass(wizardState.defender.faction) : 'nurgle-dice';
+    for (let i=0; i<count; i++) {
+      const dice = document.createElement('div');
+      dice.className = 'kt-dice-cube ' + defDiceClass;
+      dice.textContent = '?';
+      dice.id = `dr-anim-dice-${i}`;
+      pool.appendChild(dice);
+    }
+  }
+
+  let finalRolls = [];
+  let hasRerolled = false;
+
+  setTimeout(() => {
+    if (typeof playSound === 'function') playSound('dice_drop');
+    for (let i=0; i<count; i++) {
+      let roll = Math.floor(Math.random() * 6) + 1;
+      let rerolledStr = '';
+      
+      // Auto reroll first failure if active
+      if (roll < 4 && hasPloyActive && !hasRerolled) {
+        hasRerolled = true;
+        const oldRoll = roll;
+        roll = Math.floor(Math.random() * 6) + 1;
+        rerolledStr = `[重投 ${oldRoll}->${roll}] `;
+        if (typeof ui !== 'undefined' && ui.addLog) {
+          ui.addLog(`[溃疡狂热] 自动重投了 1 颗失败的减伤骰子 (${oldRoll} -> ${roll})`);
+        }
+      }
+      
+      finalRolls.push(roll);
+      
+      const diceEl = document.getElementById(`dr-anim-dice-${i}`);
+      if (diceEl) {
+        diceEl.textContent = roll;
+        if (roll >= 4) {
+          diceEl.classList.add('crit-dice'); // Green/Crit color to show success
+        } else {
+          diceEl.style.opacity = '0.5'; // Fade out failures
+        }
+        if (rerolledStr !== '') {
+          diceEl.style.outline = "2px solid var(--sm-accent)";
+          diceEl.title = rerolledStr;
+        }
+      }
+    }
+
+    wizardState.drRolls = finalRolls;
+
+    if (nextBtn) nextBtn.disabled = false;
+  }, 600);
+}
+window.rollDrDice = rollDrDice;

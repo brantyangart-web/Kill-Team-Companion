@@ -25,7 +25,7 @@
         <span class="tp-label">Turning Point</span>
         <span class="tp-num" id="dash-tp">1</span>
         <span class="phase-badge" id="dash-phase">Initiative</span>
-        <button class="qa-btn" id="btn-toggle-rollmode" style="margin-top: 8px; font-size: 0.75rem; padding: 4px;" onclick="toggleRollMode()">🎲 物理录入模式</button>
+        <button class="qa-btn" id="btn-toggle-rollmode" style="margin-top: 8px; font-size: 0.75rem; padding: 4px;" onclick="toggleRollMode()">当前: 自动投骰</button>
       </div>
 
       <div class="faction-scores">
@@ -162,23 +162,33 @@
 
       <div class="roster-picker-grid">
 
-        <div class="roster-picker-card sm" id="team0-roster-card">
-          <div class="roster-picker-header">
-            <span class="roster-picker-title" id="team0-roster-title">死亡天使 (Angels of Death)</span>
-            <span class="roster-picker-limit" id="team0-roster-count">已选: 0 / 6 人</span>
-          </div>
-          <div id="team0-leader-section"></div>
+        <div class="roster-picker-card sm sm-team" id="team0-roster-card" style="padding:0; overflow:hidden; border-top:none;">
+            <div class="board-header">
+              <img src="./assets/images/headers/faction_header_sm.png" class="board-header-img" id="team0-header-img" alt="" width="400" height="80" style="object-position: center 47%;">
+              <div class="board-header-content">
+                <span class="roster-picker-title" id="team0-roster-title">星际战士 (Angels of Death)</span>
+                <span class="roster-picker-limit" id="team0-roster-count" style="color:var(--text-light); font-weight:bold;">配置: 0 / 6 员</span>
+              </div>
+            </div>
+            <div style="padding: 16px; padding-top:8px;">
+              <div id="team0-leader-section"></div>
           <div id="team0-operator-section"></div>
-        </div>
-
-        <div class="roster-picker-card pm" id="team1-roster-card">
-          <div class="roster-picker-header">
-            <span class="roster-picker-title" id="team1-roster-title">瘟疫守卫 (Plague Marines)</span>
-            <span class="roster-picker-limit" id="team1-roster-count">已选: 0 / 6 人</span>
+              </div>
           </div>
-          <div id="team1-leader-section"></div>
+
+        <div class="roster-picker-card pm pm-team" id="team1-roster-card" style="padding:0; overflow:hidden; border-top:none;">
+            <div class="board-header">
+              <img src="./assets/images/headers/faction_header_pm.png" class="board-header-img" id="team1-header-img" alt="" width="400" height="80" style="object-position: center 47%;">
+              <div class="board-header-content">
+                <span class="roster-picker-title" id="team1-roster-title">瘟疫星际战士 (Plague Marines)</span>
+                <span class="roster-picker-limit" id="team1-roster-count" style="color:var(--text-light); font-weight:bold;">配置: 0 / 6 员</span>
+              </div>
+            </div>
+            <div style="padding: 16px; padding-top:8px;">
+              <div id="team1-leader-section"></div>
           <div id="team1-operator-section"></div>
-        </div>
+              </div>
+          </div>
 
       </div>
 
@@ -191,7 +201,7 @@
       <!-- 左方战队特工列表 -->
       <div class="operative-board sm-team" id="sm-board">
         <div class="board-header">
-          <img src="/Kill-Team-Companion/assets/images/headers/faction_header_sm.png" class="board-header-img" id="board-header-img-0" alt="左方战队旗帜" width="400" height="80">
+          <img src="./assets/images/headers/faction_header_sm.png" class="board-header-img" id="board-header-img-0" alt="左方战队旗帜" width="400" height="80" style="object-position: center 47%;">
           <div class="board-header-content">
             <span id="board-header-name-0">死亡天使战队 (Angels of Death)</span>
             <span class="team-status" id="sm-alive-count">6/6 存活</span>
@@ -231,10 +241,10 @@
             <div class="active-agent-name" id="active-op-name">-</div>
             <div class="active-agent-faction" id="active-op-faction">-</div>
 
-            <div style="display: flex; justify-content: center; gap: 8px; margin: 10px 0;">
-              <span style="font-size: 0.8rem; color: var(--text-muted);">剩余 APL:</span>
-              <div class="apl-badge-container" id="active-apl-dots"></div>
-            </div>
+                          <div style="display: flex; justify-content: center; align-items: center; gap: 8px; margin: 10px 0;">
+                <span style="font-size: 0.85rem; color: var(--text-muted);">剩余 APL: <b id="active-op-apl-text" style="color:var(--sm-accent); font-size:1.1rem;">-</b></span>
+                <div class="apl-badge-container" id="active-apl-dots" style="margin-left: 4px;"></div>
+              </div>
 
             <div id="active-ploys-display" style="text-align: center; font-size: 0.85rem; margin-bottom: 10px; min-height: 20px;"></div>
 
@@ -314,7 +324,7 @@
       <!-- 右方战队特工列表 -->
       <div class="operative-board pm-team" id="pm-board">
         <div class="board-header">
-          <img src="/Kill-Team-Companion/assets/images/headers/faction_header_pm.png" class="board-header-img" id="board-header-img-1" alt="右方战队旗帜" width="400" height="80">
+          <img src="./assets/images/headers/faction_header_pm.png" class="board-header-img" id="board-header-img-1" alt="右方战队旗帜" width="400" height="80" style="object-position: center 47%;">
           <div class="board-header-content">
             <span id="board-header-name-1">瘟疫守卫战队 (Plague Marines)</span>
             <span class="team-status" id="pm-alive-count">5/5 存活</span>

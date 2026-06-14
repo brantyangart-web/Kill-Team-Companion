@@ -376,6 +376,7 @@ export function updateBattlePanelNames() {
     if (boardImgEl && factionData && factionData.headerImg) {
       boardImgEl.src = getAssetPath(factionData.headerImg);
       boardImgEl.alt = `${shortName}战队旗帜`;
+        boardImgEl.style.objectPosition = "center 47%";
     }
 
     // Operative board CSS class (for theme border/glow)
@@ -678,14 +679,22 @@ function renderRosterPickerForSlot(slot) {
   const factionData = getFaction(faction);
 
   // 更新 roster card 标题和 CSS
-  const rosterCard = document.getElementById(`team${slot}-roster-card`);
-  const rosterTitle = document.getElementById(`team${slot}-roster-title`);
-  if (rosterCard) {
-    rosterCard.className = `roster-picker-card ${cssSuffix}`;
-  }
-  if (rosterTitle) {
-    rosterTitle.textContent = factionData ? `${factionData.shortName} (${factionData.id})` : faction;
-  }
+      const rosterCard = document.getElementById(`team${slot}-roster-card`);
+    const rosterTitle = document.getElementById(`team${slot}-roster-title`);
+    const headerImg = document.getElementById(`team${slot}-header-img`);
+    if (rosterCard) {
+      rosterCard.className = `roster-picker-card ${cssSuffix} ${cssSuffix}-team`;
+    }
+    if (rosterTitle) {
+      rosterTitle.textContent = factionData ? `${factionData.shortName} (${factionData.id})` : faction;
+      rosterTitle.style.color = `var(--${cssSuffix}-accent, #fff)`;
+    }
+    if (headerImg) {
+      if (cssSuffix === 'sm') headerImg.src = getAssetPath('assets/images/headers/faction_header_sm.png');
+      else if (cssSuffix === 'pm') headerImg.src = getAssetPath('assets/images/headers/faction_header_pm.png');
+      else if (cssSuffix === 'leg') headerImg.src = getAssetPath('assets/images/headers/faction_header_leg.png');
+      headerImg.style.objectPosition = 'center 47%';
+    }
 
   const leaders = templates.filter(t => t.isLeader);
   const operators = templates.filter(t => !t.isLeader);
@@ -1552,6 +1561,9 @@ export function updateActivePanel() {
     activeCard.className = `active-card ${getFactionCssSuffix(op.faction)}-active`;
     document.getElementById('active-op-name').textContent = op.name;
     document.getElementById('active-op-faction').textContent = getFactionDisplayName(op.faction);
+
+    const aplText = document.getElementById('active-op-apl-text');
+    if (aplText) aplText.textContent = op.apl;
 
     const dots = document.getElementById('active-apl-dots');
     dots.innerHTML = '';

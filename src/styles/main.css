@@ -1683,3 +1683,82 @@
     color: var(--imperial-gold-bright);
     font-size: 1.1rem;
   }
+/* ==========================================
+   Manual Dice Keypad
+   ========================================== */
+.dice-keypad-container {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  margin-top: 8px;
+}
+
+.keypad-display-area {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  min-height: 40px;
+  padding: 8px;
+  background: var(--dark-bg);
+  border: 1px solid var(--panel-border);
+  border-radius: 6px;
+  align-items: center;
+}
+
+.keypad-die {
+  width: 32px;
+  height: 32px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--primary-color);
+  color: #fff;
+  font-family: 'Outfit', sans-serif;
+  font-weight: 700;
+  font-size: 1.2rem;
+  border-radius: 4px;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.3);
+  animation: popIn 0.2s ease-out;
+}
+
+.keypad-controls {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 8px;
+}
+
+.keypad-btn {
+  background: var(--dark-card);
+  border: 1px solid var(--panel-border);
+  color: var(--text-color);
+  padding: 12px 0;
+  font-size: 1.2rem;
+  font-weight: 600;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  user-select: none;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.keypad-btn:active {
+  background: var(--primary-color);
+  color: #fff;
+  transform: scale(0.95);
+}
+
+.keypad-action-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+  margin-top: 4px;
+}
+
+.keypad-btn.action-btn {
+  font-size: 1rem;
+  background: #334155;
+}
+
+.keypad-btn.action-btn:active {
+  background: #475569;
+}

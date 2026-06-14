@@ -12,6 +12,7 @@ export function initUiCallbacks(callbacks) {
 // ==========================================
 
 export const gameState = {
+  globalRollMode: 'random',
   turningPoint: 1,
   phase: 'Initiative',
   initiative: 'Space Marine',
@@ -86,7 +87,7 @@ const defaultWizardState = {
   inCover: false,
   enemyInControlRange: false,
 
-  mode: 'random',
+  mode: gameState.globalRollMode,
   attackRolls: [],
   attackCrit: 0,
   attackNorm: 0,
@@ -108,6 +109,7 @@ export let wizardState = { ...defaultWizardState };
 
 export function resetWizardState(overrides = {}) {
   wizardState = { ...defaultWizardState, ...overrides };
+  wizardState.mode = gameState.globalRollMode; // Enforce global roll mode
 }
 
 // ==========================================
