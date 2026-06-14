@@ -80,8 +80,8 @@ export class Operative {
 
     // Poison Token 机制
     this.poisonTokens = 0;
-    // Conceal Order
-    this.hasConceal = false;
+    // Conceal Order (规则 L7: 部署时所有特工默认隐匿)
+    this.hasConceal = true;
     // Counteract 标记 (反击激活时为 true, 激活结束后重置)
     this.counteracting = false;
     // Counteract 每 TP 限用 1 次 (per-operative)
@@ -95,9 +95,10 @@ export class Operative {
     return this.wounds > 0 && this.wounds < this.maxWounds / 2;
   }
 
-  /** 当前有效 APL（Injured 时 -1） */
+  /** 当前有效 APL（Injured 时 standard -1，lite 规则无 APL 惩罚 - L167） */
   get currentApl() {
-    return this.maxApl - (this.isInjured ? 1 : 0);
+    const injuredAplPenalty = gameState.rulesVersion === 'standard' ? 1 : 0;
+    return this.maxApl - (this.isInjured ? injuredAplPenalty : 0);
   }
 
   /** 当前有效 Move（Injured 时 -2"） */
@@ -118,7 +119,7 @@ export class Operative {
     this.isDead = false;
     this.actionsPerformed = [];
     this.poisonTokens = 0;
-    this.hasConceal = false;
+    this.hasConceal = true;
     this.counteracting = false;
     this.orderSwitchedThisActivation = false;
   }

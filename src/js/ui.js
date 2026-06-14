@@ -1020,15 +1020,16 @@ export function renderOperatives() {
       }
     }
 
-    // Conceal 切换按钮（未激活时 / 激活中时均可切换，每激活限切换 1 次）
+    // Conceal 切换按钮：激活开始自由选命令，执行首个行动后锁定 (规则 L57)
     const isSelectable = !op.isDead && !op.hasActed && gameState.phase === 'Firefight' && gameState.activeTurnSlot === op.teamSlot;
     const isActiveAgent = gameState.activeAgent && gameState.activeAgent.id === op.id;
-    const canToggleConceal = (isSelectable || isActiveAgent) && !op.orderSwitchedThisActivation;
-    const concealDisabled = (isSelectable || isActiveAgent) && op.orderSwitchedThisActivation;
+    const orderLocked = op.actionsPerformed.length > 0;  // 执行过任意行动即锁定命令
+    const canToggleConceal = (isSelectable || isActiveAgent) && !orderLocked;
+    const concealDisabled = (isSelectable || isActiveAgent) && orderLocked;
     const concealBtnHtml = canToggleConceal
-      ? `<button class="conceal-toggle-btn" onclick="event.stopPropagation(); toggleConceal('${op.id}')" title="切换命令 (每激活限 1 次)" style="font-size:0.65rem; padding:2px 6px; margin-left:4px; background:${op.hasConceal ? 'rgba(129,140,248,0.3)' : 'transparent'}; border:1px solid #818cf8; color:#818cf8; border-radius:4px; cursor:pointer;">${op.hasConceal ? '🛡️隐蔽' : '🛡️'}</button>`
+      ? `<button class="conceal-toggle-btn" onclick="event.stopPropagation(); toggleConceal('${op.id}')" title="选择命令 (开始行动后锁定)" style="font-size:0.65rem; padding:2px 6px; margin-left:4px; background:${op.hasConceal ? 'rgba(129,140,248,0.3)' : 'transparent'}; border:1px solid #818cf8; color:#818cf8; border-radius:4px; cursor:pointer;">${op.hasConceal ? '🛡️隐蔽' : '🛡️交战'}</button>`
       : concealDisabled
-        ? `<button class="conceal-toggle-btn" disabled title="本激活已切换过命令" style="font-size:0.65rem; padding:2px 6px; margin-left:4px; background:transparent; border:1px solid #475569; color:#475569; border-radius:4px; cursor:not-allowed; opacity:0.5;">🛡️已切换</button>`
+        ? `<button class="conceal-toggle-btn" disabled title="已开始行动，命令锁定" style="font-size:0.65rem; padding:2px 6px; margin-left:4px; background:${op.hasConceal ? 'rgba(129,140,248,0.15)' : 'transparent'}; border:1px solid #475569; color:#64748b; border-radius:4px; cursor:not-allowed; opacity:0.6;">${op.hasConceal ? '🛡️隐蔽(锁)' : '🛡️交战(锁)'}</button>`
         : '';
 
     const avatarHtml = getAvatarHtml(op.id, op.faction);
@@ -1040,7 +1041,7 @@ export function renderOperatives() {
           ${avatarHtml}
           <span class="op-card-title">${op.name} ${tagHtml} ${statusTagsHtml} ${concealBtnHtml}</span>
         </div>
-        <span class="op-card-tag">${op.currentApl} APL${op.isInjured ? ' <span style="color:var(--red); font-size:0.6rem;">(-1)</span>' : ''}</span>
+        <span class="op-card-tag">${op.currentApl} APL${op.isInjured && gameState.rulesVersion === 'standard' ? ' <span style="color:var(--red); font-size:0.6rem;">(-1)</span>' : ''}</span>
       </div>
       <div class="op-card-hp">
         <span>HP (Wounds):</span>
@@ -1094,13 +1095,13 @@ export function toggleConceal(opId) {
   playSound('click');
   const op = gameState.operatives.find(o => o.id === opId);
   if (!op || op.isDead) return;
-  if (op.orderSwitchedThisActivation) {
-    showToast('本激活已切换过命令 (每激活限切换 1 次)！', 'warning');
+  // 规则 L57: 激活开始选定命令，执行首个行动后锁定
+  if (op.actionsPerformed.length > 0) {
+    showToast('已开始行动，命令锁定，无法再切换！', 'warning');
     return;
   }
   op.toggleConceal();
-  op.orderSwitchedThisActivation = true;
-  addLog(`[命令切换] ${op.name} ${op.hasConceal ? '进入隐蔽状态 (Conceal Order)，不可被指定为射击/近战目标。' : '切换为交战状态 (Engage Order)。'}`);
+  addLog(`[命令切换] ${op.name} ${op.hasConceal ? '进入隐蔽 (Conceal)：在掩体中不可被射击；本激活不能主动射击/冲锋。' : '切换为交战 (Engage)。'}`);
   renderOperatives();
   updateActivePanel();
 }
@@ -1155,8 +1156,10 @@ export function activateOperative(opId) {
 
   // Poison Token 伤害：携带毒素标记的特工在激活开始时受到 1 点伤害
   if (op.poisonTokens > 0) {
+    const prevHp = op.wounds;
     addLog(`[毒素] ${op.name} 携带毒素标记，激活开始受到 1 点伤害！`);
     op.applyWounds(1);
+    showToast(`☠️ ${op.name} 毒素发作：受到 1 点伤害 (${prevHp} → ${op.wounds})`, 'warning');
     // 如果因此阵亡则不再继续激活
     if (op.isDead) {
       renderOperatives();
@@ -1168,7 +1171,8 @@ export function activateOperative(opId) {
   // Injured 时 APL -1（使用 currentApl getter）
   op.apl = op.currentApl;
 
-  addLog(`[激活] ${op.name} 开始激活，获得 ${op.apl} APL！${op.isInjured ? ' (Injured: APL -1)' : ''}`);
+  const injuredNote = op.isInjured ? (gameState.rulesVersion === 'standard' ? ' (Injured: APL -1)' : ' (Injured: Move -2")') : '';
+  addLog(`[激活] ${op.name} 开始激活，获得 ${op.apl} APL！${injuredNote}`);
 
   renderOperatives();
   updateActivePanel();

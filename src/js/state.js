@@ -61,6 +61,7 @@ const defaultWizardState = {
   inRangeAndVisible: true,
   inCoverConcealed: false,
   inCover: false,
+  enemyInControlRange: false,
 
   mode: 'random',
   attackRolls: [],

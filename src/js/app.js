@@ -28,6 +28,7 @@ import {
   triggerAvatarUpload, handleAvatarFileSelect,
   triggerCombatVisual, triggerAvatarHitEffect,
   rollDicePool, evaluateAttackRolls, evaluateDefenseRolls,
+  showToast, trapFocus, releaseFocusTrap,
   initCombatCallbacks
 } from './ui.js';
 
@@ -43,7 +44,7 @@ import {
   rollMeleeDice, rerollMeleeDice, renderMeleeRollsView,
   getDuelAvatarHtml, getMeleeDuelHeaderHtml, getShootDuelHeaderHtml,
   chooseMeleeDice, resolveMeleeChoice, cancelMeleeChoice, confirmFightResult,
-  initCombatUiCallbacks
+  initCombatUiCallbacks, initCombatAccessibility
 } from './combat.js';
 
 // ==========================================
@@ -86,6 +87,13 @@ initCombatUiCallbacks({
   updateScoresUI,
   triggerAvatarHitEffect,
   triggerCombatVisual,
+});
+
+// Combat module needs toast/focus-trap for validation prompts
+initCombatAccessibility({
+  showToast,
+  trapFocus,
+  releaseFocusTrap,
 });
 
 // ==========================================

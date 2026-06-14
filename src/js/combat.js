@@ -75,7 +75,13 @@ export function nextModalStep() {
       }
       if (wizardState.inCoverConcealed) {
         playSound('alert');
-        if (showToast) showToast('目标处于隐蔽姿态且紧贴重掩体，无法对其进行射击！', 'error');
+        if (showToast) showToast('目标处于隐蔽状态且在掩体中，无法对其进行射击 (L185)！', 'error');
+        return;
+      }
+      // L111: 特工在敌方控制范围内时不能射击
+      if (wizardState.enemyInControlRange) {
+        playSound('alert');
+        if (showToast) showToast('有敌方特工处于你的控制范围内，无法进行射击行动 (L111)！', 'error');
         return;
       }
       // Torrent: 自动命中，跳过攻击骰步骤
@@ -136,6 +142,13 @@ export function openShootWizard() {
   playSound('click');
   const op = gameState.activeAgent;
   if (!op) return;
+  // L15/L111: 隐蔽单位不能射击，除非携带 Silent 武器 (L239)
+  const hasSilentWeapon = op.weapons.some(w => w.hasRule && w.hasRule('Silent'));
+  if (op.hasConceal && !hasSilentWeapon) {
+    playSound('alert');
+    if (showToast) showToast('隐蔽单位不能射击 (需先切为交战，或携带 Silent 武器)！', 'error');
+    return;
+  }
 
   const modalContent = document.querySelector('#combat-modal .modal-content');
   if (modalContent) {
@@ -153,6 +166,7 @@ export function openShootWizard() {
     inRangeAndVisible: true,
     inCoverConcealed: false,
     inCover: false,
+    enemyInControlRange: false,
     mode: 'random',
     attRerollIndex: -1,
     defRerollIndex: -1,
@@ -225,14 +239,10 @@ export function renderShootStep() {
   if (wizardState.step === 1) {
     title.textContent = '射击结算 - 步骤 1: 选择目标';
     const attackerSlot = wizardState.attacker.teamSlot >= 0 ? wizardState.attacker.teamSlot : getTeamSlot(wizardState.attacker.faction);
-    const allEnemies = gameState.operatives.filter(o => o.teamSlot !== attackerSlot && !o.isDead);
-    const targets = allEnemies.filter(o => !o.hasConceal);
+    // 规则 L180/L185: Engage 目标可见即可；Conceal 目标需可见且不在掩体 (步骤3 判定)
+    // 此处不做预过滤，所有敌方存活单位均列为可选，合法性由步骤3 的判定问题把关
+    const targets = gameState.operatives.filter(o => o.teamSlot !== attackerSlot && !o.isDead);
 
-    if (allEnemies.length > 0 && targets.length === 0) {
-      body.innerHTML = '<p style="color:var(--red);">所有敌方特工均处于隐蔽状态，无法被指定为射击目标。</p>';
-      nextBtn.disabled = true;
-      return;
-    }
     if (targets.length === 0) {
       body.innerHTML = '<p style="color:var(--red);">场上已无合法的敌方存活目标。</p>';
       nextBtn.disabled = true;
@@ -310,6 +320,20 @@ export function renderShootStep() {
       ? '<p style="color:#f59e0b; font-size:0.75rem;">💡 <b>寻光</b>：目标即使在掩体中也无法获得掩体加成。</p>'
       : '';
 
+    // 隐蔽状态自动判断 (规则 L185)：仅隐蔽目标才需检查掩体
+    const defenderIsConcealed = wizardState.defender && wizardState.defender.hasConceal;
+    if (!defenderIsConcealed) wizardState.inCoverConcealed = false;
+
+    const concealCoverCard = defenderIsConcealed
+      ? `<div class="qa-card" style="margin-top:10px;">
+          <div class="qa-question">2. 目标处于<strong>隐蔽</strong>状态，是否在掩体中？<span style="color:#f59e0b; font-size:0.75rem;">(隐蔽目标在掩体中不可射击 — L185)</span></div>
+          <div class="qa-options">
+            <button class="qa-btn ${wizardState.inCoverConcealed ? 'selected' : ''}" onclick="setQA('inCoverConcealed', true)">是 (无法射击)</button>
+            <button class="qa-btn ${!wizardState.inCoverConcealed ? 'selected' : ''}" onclick="setQA('inCoverConcealed', false)">否 (可以选定)</button>
+          </div>
+        </div>`
+      : '<p style="color:#7ab88a; font-size:0.75rem; margin-top:8px;">✓ 目标为交战(Engage)状态：可见即可射击，无需掩体判定 (L180)。</p>';
+
     body.innerHTML = `
       <p style="margin-bottom: 12px; color:var(--text-muted);">回答以下判定问题以完成结算：</p>
       ${rangeNote}
@@ -323,19 +347,21 @@ export function renderShootStep() {
         </div>
       </div>
 
-      <div class="qa-card" style="margin-top:10px;">
-        <div class="qa-question">2. 目标是否处于【隐蔽】状态，且紧贴重掩体？</div>
-        <div class="qa-options">
-          <button class="qa-btn ${wizardState.inCoverConcealed ? 'selected' : ''}" onclick="setQA('inCoverConcealed', true)">是 (无法射击)</button>
-          <button class="qa-btn ${!wizardState.inCoverConcealed ? 'selected' : ''}" onclick="setQA('inCoverConcealed', false)">否 (可以选定)</button>
-        </div>
-      </div>
+      ${concealCoverCard}
 
       <div class="qa-card" style="margin-top:10px;">
         <div class="qa-question">3. 目标是否在掩体中 (Cover)？${hasSeekLight ? ' <span style="color:#f59e0b;">(寻光忽略掩体)</span>' : ''}</div>
         <div class="qa-options">
           <button class="qa-btn ${wizardState.inCover ? 'selected' : ''}" onclick="setQA('inCover', true)" ${hasSeekLight ? 'style="pointer-events:none; opacity:0.6;"' : ''}>是 (触发掩体成功保留)</button>
           <button class="qa-btn ${!wizardState.inCover ? 'selected' : ''}" onclick="setQA('inCover', false)" ${hasSeekLight ? 'style="pointer-events:none; opacity:0.6;"' : ''}>否 (开阔地带)</button>
+        </div>
+      </div>
+
+      <div class="qa-card" style="margin-top:10px;">
+        <div class="qa-question">4. 是否有敌方特工处于<strong>你的控制范围内</strong>（1" 内）？<span style="color:#f59e0b; font-size:0.75rem;">(这将阻止射击 — L111)</span></div>
+        <div class="qa-options">
+          <button class="qa-btn ${wizardState.enemyInControlRange ? 'selected' : ''}" onclick="setQA('enemyInControlRange', true)">是 (无法射击)</button>
+          <button class="qa-btn ${!wizardState.enemyInControlRange ? 'selected' : ''}" onclick="setQA('enemyInControlRange', false)">否 (可以射击)</button>
         </div>
       </div>
     `;
@@ -431,6 +457,15 @@ export function renderShootStep() {
       coverDesc += `<p style="color:#f97316; margin-bottom: 4px;">🔥 <b>穿透 (Piercing ${piercingVal})</b>：DF 池减少 ${piercingVal} (DF = ${prevDf} -> ${dfCount})</p>`;
     }
 
+    // Piercing Crits 规则：同 Piercing 减骰池，但仅当攻击方有暴击成功时生效 (L221)
+    const piercingCritsMatch = wizardState.weapon.rules.find(r => r.startsWith('Piercing Crits'));
+    if (piercingCritsMatch && wizardState.attackCrit > 0) {
+      const pcVal = parseInt(piercingCritsMatch.match(/\d+/)?.[0] || '1');
+      const prevDf = dfCount;
+      dfCount = Math.max(0, dfCount - pcVal);
+      coverDesc += `<p style="color:#f97316; margin-bottom: 4px;">🔥 <b>穿透暴击 (Piercing Crits ${pcVal})</b>：暴击命中，DF 池减少 ${pcVal} (DF = ${prevDf} -> ${dfCount})</p>`;
+    }
+
     let rerollHint = '';
     const curCp = getCpForFaction(wizardState.defender.faction);
     if (wizardState.defenseRolls.length > 0 && dfCount > 0) {
@@ -519,18 +554,8 @@ export function renderShootStep() {
       ui.addLog(`[饱和] ${wizardState.weapon.name}：防御方不能保留掩体骰，移除 ${coverSavesRemoved} 个掩体自动成功！`);
     }
 
-    // Piercing Crits 规则：暴击穿透 N 点 SV (防御骰结果 -N)
-    const piercingMatch = wizardState.weapon.rules.find(r => r.startsWith('Piercing Crits'));
-    if (piercingMatch && wizardState.attackCrit > 0) {
-      const piercingVal = parseInt(piercingMatch.match(/\d+/)?.[0] || '1');
-      ui.addLog(`[穿透暴击 ${piercingVal}] 暴击命中时，防御骰 SV 判定 -${piercingVal}。`);
-      // 简化实现：从防御成功中移除等同于暴击数的普通成功 (假设 SV 被穿透后失败)
-      const svReduction = Math.min(wizardState.attackCrit * piercingVal, remainingNormSaves);
-      if (svReduction > 0) {
-        remainingNormSaves -= svReduction;
-        ui.addLog(`  → 穿透效果抵消了 ${svReduction} 个普通防御成功。`);
-      }
-    }
+    // Piercing Crits 的效果 (减防御骰池) 已在步骤5 dfCount 计算时处理 (L221)
+    // 此处不再后置移除成功防御骰
 
     const critWithCrit = Math.min(remainingCrits, remainingCritSaves);
     remainingCrits -= critWithCrit;
@@ -661,7 +686,11 @@ export function selectShootWeapon(idx) {
 export function setQA(prop, val) {
   playSound('click');
   wizardState[prop] = val;
-  renderShootStep();
+  if (wizardState.actionType === 'fight') {
+    renderFightStep();
+  } else {
+    renderShootStep();
+  }
 }
 
 export function setRollMode(mode) {
@@ -1267,14 +1296,9 @@ export function renderFightStep() {
   if (wizardState.step === 1) {
     title.textContent = '近战结算 - 步骤 1: 选择目标';
     const attackerSlot = wizardState.attacker.teamSlot >= 0 ? wizardState.attacker.teamSlot : getTeamSlot(wizardState.attacker.faction);
-    const allEnemies = gameState.operatives.filter(o => o.teamSlot !== attackerSlot && !o.isDead);
-    const targets = allEnemies.filter(o => !o.hasConceal);
+    // 规则 L151: 近战只要求目标在控制范围内，完全不受 Conceal 影响
+    const targets = gameState.operatives.filter(o => o.teamSlot !== attackerSlot && !o.isDead);
 
-    if (allEnemies.length > 0 && targets.length === 0) {
-      body.innerHTML = '<p style="color:var(--red);">所有敌方特工均处于隐蔽状态，无法被指定为近战目标。</p>';
-      nextBtn.disabled = true;
-      return;
-    }
     if (targets.length === 0) {
       body.innerHTML = '<p style="color:var(--red);">场上已无合法的敌方存活目标。</p>';
       nextBtn.disabled = true;
