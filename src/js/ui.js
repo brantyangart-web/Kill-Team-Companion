@@ -1292,7 +1292,14 @@ export function renderOperatives() {
   let smAlive = 0;
   let pmAlive = 0;
 
-  gameState.operatives.forEach(op => {
+  // 排序: 可行动 > 已行动 > 死亡
+  const sortedOperatives = [...gameState.operatives].sort((a, b) => {
+    const aScore = a.isDead ? 2 : (a.hasActed ? 1 : 0);
+    const bScore = b.isDead ? 2 : (b.hasActed ? 1 : 0);
+    return aScore - bScore;
+  });
+
+  sortedOperatives.forEach(op => {
     const opSlot = op.teamSlot >= 0 ? op.teamSlot : getTeamSlot(op.faction);
     const cssSuffix = getFactionCssSuffix(op.faction);
     if (opSlot === 0 && !op.isDead) smAlive++;
@@ -2437,6 +2444,8 @@ export function showTurnEndScoringOverlay(isFinal = false) {
 
 export function renderTurnEndScoringContent() {
   const overlayBox = document.getElementById('phase-overlay-content');
+  const team0Faction = gameState.teamFactions[0];
+  const team1Faction = gameState.teamFactions[1];
   const totalSmVpThisTurn = gameState.tempSmKillVp + gameState.tempSmObjVp;
   const totalPmVpThisTurn = gameState.tempPmKillVp + gameState.tempPmObjVp;
 
