@@ -786,10 +786,10 @@ export function renderShootStep() {
 
     nextBtn.textContent = '确认射击结果';
       if (hasFactionTrait(wizardState.defender.faction, 'disgustingResilience') && attacksRequiringDr > 0) {
-        nextBtn.disabled = true;
-      } else {
-        nextBtn.disabled = false;
-      }
+          nextBtn.disabled = false;
+        } else {
+          nextBtn.disabled = false;
+        }
       nextBtn.onclick = () => confirmShootResult(dmgPerAttack);
 
     if (rawDmg > 0) {
@@ -1503,13 +1503,33 @@ export function confirmShootResult(dmgPerAttack) {
   const attacker = wizardState.attacker;
   const defender = wizardState.defender;
 
+  const attacksRequiringDr = dmgPerAttack.filter(d => d >= 3).length;
+
   let manualDrRolls = null;
   const drInput = document.getElementById('manual-dr-dice-val');
   if (drInput && drInput.value.trim() !== '') {
     manualDrRolls = drInput.value.split(',').map(s => parseInt(s.trim(), 10)).filter(n => !isNaN(n) && n >= 1 && n <= 6);
   }
 
-  ui.addLog(`\n--- 射击对决结果 ---`);
+  // Validate DR rolls
+  if (hasFactionTrait(defender.faction, 'disgustingResilience') && attacksRequiringDr > 0) {
+    if (wizardState.mode === 'manual') {
+      if (!manualDrRolls || manualDrRolls.length === 0) {
+        playSound('alert');
+        if (typeof showToast !== 'undefined') showToast('请先填写并确认恶心无视 (DR) 的投掷结果再结算伤害！', 'warning');
+        return;
+      }
+    } else {
+      if (!wizardState.drRolls || wizardState.drRolls.length === 0) {
+        playSound('alert');
+        if (typeof showToast !== 'undefined') showToast('请先点击投掷“恶心无视”骰子再结算伤害！', 'warning');
+        return;
+      }
+    }
+  }
+
+  ui.addLog(`
+--- 射击结算阶段 ---`);
   ui.addLog(`[攻击方] ${attacker.name} 使用 ${wizardState.weapon.name} 射击`);
   ui.addLog(`[防守方] ${defender.name}`);
 
@@ -1522,8 +1542,8 @@ export function confirmShootResult(dmgPerAttack) {
     const themeVar = getFactionThemeVar(defender.faction);
     showDamageAnimation(avatarUrl, defender.maxWounds, oldWounds, actualDamage, themeVar, drReduced);
   } else if (actualDamage <= 0) {
-    playSound('sword_clash'); // Reuse parry sound for blocked shot
-    ui.triggerCombatVisual("SAVED", "parry");
+    playSound('save');
+      ui.triggerCombatVisual("SAVED", "parry");
   }
 
   // === Standard 规则: 击杀回调 ===

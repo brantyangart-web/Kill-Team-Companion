@@ -70,6 +70,7 @@ const MISSION_OBJECTIVES = {
 };
 
 export function updateMissionDesc() {
+  playSound('important_decision');
   const select = document.getElementById('mission-type');
   const desc = document.getElementById('mission-desc');
   if (select && desc) {
@@ -78,6 +79,7 @@ export function updateMissionDesc() {
 }
 
 export function updateRulesVersion() {
+  playSound('important_decision');
   const select = document.getElementById('rules-version');
   const desc = document.getElementById('rules-version-desc');
   if (select) {
@@ -805,6 +807,7 @@ function renderRosterPickerForSlot(slot) {
 
 // ---- 阵营切换时重新渲染 roster picker ----
 export function handleFactionChange(slot) {
+  playSound('important_decision');
   const select = document.getElementById(`team${slot}-faction`);
   if (!select) return;
   gameState.teamFactions[slot] = select.value;
