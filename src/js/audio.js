@@ -15,7 +15,7 @@ const types = [
 // Preload and decode audio files into Web Audio API buffers
 types.forEach(async type => {
   try {
-    const response = await fetch(getAssetPath(`assets/audio/${type}.wav`));
+    const response = await fetch(getAssetPath(`assets/audio/${type}.mp3`));
     if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
     const arrayBuffer = await response.arrayBuffer();
     const audioBuffer = await audioCtx.decodeAudioData(arrayBuffer);
