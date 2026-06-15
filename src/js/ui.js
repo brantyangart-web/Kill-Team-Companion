@@ -339,11 +339,11 @@ function processNextVisualEvent() {
       } else {
         console.warn('renderDamageAnimationFn is not registered yet. Auto-advancing visual queue.');
       }
-      // Auto-advance after 2200ms (animation duration)
+      // Auto-advance after 1400ms (animation duration)
       setTimeout(() => {
         isVisualQueueProcessing = false;
         processNextVisualEvent();
-      }, 2200);
+      }, 1400);
     } else if (event.type === 'death') {
       renderDeathOverlay(event.data.operative);
       // Do NOT auto-advance. It is advanced when confirmOperativeDeath is called!

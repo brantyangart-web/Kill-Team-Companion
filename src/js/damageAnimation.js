@@ -114,7 +114,7 @@ function renderDamageAnimation(data) {
         container.removeChild(wrapper);
       }
     }, 400);
-  }, 1800);
+  }, 1000);
 }
 
 registerDamageAnimationRenderer(renderDamageAnimation);
