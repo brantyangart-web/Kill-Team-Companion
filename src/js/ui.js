@@ -1975,21 +1975,17 @@ export function rollInitiativeOverlay() {
   const team1DiceCls = getDiceClass(team1Faction);
   smDiceEl.innerHTML = `<div class="kt-dice-cube ${team0DiceCls} rolling">?</div>`;
   pmDiceEl.innerHTML = `<div class="kt-dice-cube ${team1DiceCls} rolling">?</div>`;
-  playSound('shoot');
+  playSound('dice_roll');
 
   // 顺序停下
   setTimeout(() => {
     const smVal = Math.floor(Math.random() * 6) + 1;
     smDiceEl.innerHTML = `<div class="kt-dice-cube ${team0DiceCls} ${smVal===6?'crit-dice':''}">${smVal}</div>`;
-    playSound('click');
-    if (smVal === 6) playSound('crit');
-
+    playSound('dice_drop');
     setTimeout(() => {
       const pmVal = Math.floor(Math.random() * 6) + 1;
       pmDiceEl.innerHTML = `<div class="kt-dice-cube ${team1DiceCls} ${pmVal===6?'crit-dice':''}">${pmVal}</div>`;
-      playSound('click');
-      if (pmVal === 6) playSound('crit');
-
+      playSound('dice_drop');
       if (smVal === pmVal) {
         playSound('alert');
         document.getElementById('overlay-init-sm-val').textContent = `平局 [${smVal}]`;
@@ -2000,7 +1996,7 @@ export function rollInitiativeOverlay() {
       } else {
         const winner = smVal > pmVal ? team0Faction : team1Faction;
         const winnerCN = getFactionDisplayName(winner);
-        playSound('crit');
+        
 
         // 隐藏掷骰按钮 (结果已确定)
         rollBtn.style.display = 'none';
@@ -2073,7 +2069,7 @@ export function confirmTurnOrder() {
   const slot = parseInt(slotStr);
   const faction = gameState.teamFactions[slot];
 
-  playSound('crit');
+  playSound('click');
   gameState.initiativeSlot = slot;
   gameState.initiative = faction;
   gameState.activeTurnSlot = slot;
@@ -2243,8 +2239,8 @@ export function buyStrategyPloy(faction, ployId) {
     return;
   }
 
-  playSound('crit');
-  setCpForFaction(faction, cp - ploy.cp);
+  playSound('important_decision');
+    setCpForFaction(faction, cp - ploy.cp);
 
   if (ploy.duration === 'persistent') {
     activatePersistentPloy(ployId, faction);

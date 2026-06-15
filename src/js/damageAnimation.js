@@ -1,15 +1,15 @@
-﻿export function showDamageAnimation(imageUrl, maxWounds, currentWounds, damageAmount, themeVar = '--red') {
+﻿import { showDamageAnimation as originalShow } from './damageAnimation.js';
+
+export function showDamageAnimation(imageUrl, maxWounds, currentWounds, damageAmount, themeVar = '--red', drReduced = 0) {
   const container = document.getElementById('damage-animation-container');
   if (!container) return;
 
-  // Ensure any previous animation is cleared
   container.innerHTML = '';
 
   const finalWounds = Math.max(0, currentWounds - damageAmount);
   const startPercent = Math.max(0, Math.min(100, (currentWounds / maxWounds) * 100));
   const endPercent = Math.max(0, Math.min(100, (finalWounds / maxWounds) * 100));
 
-  // Construct DOM
   const wrapper = document.createElement('div');
   wrapper.className = 'damage-anim-wrapper';
 
@@ -33,9 +33,34 @@
   wrapper.appendChild(avatar);
   wrapper.appendChild(barContainer);
   wrapper.appendChild(textLabel);
+  
+  if (drReduced > 0) {
+    const drLabel = document.createElement('div');
+    drLabel.className = 'damage-anim-dr-text';
+    drLabel.style.position = 'absolute';
+    drLabel.style.top = '10px';
+    drLabel.style.right = '-20px';
+    drLabel.style.color = '#4ade80';
+    drLabel.style.fontWeight = 'bold';
+    drLabel.style.fontSize = '1.2rem';
+    drLabel.style.textShadow = '0 0 5px rgba(0,255,0,0.5)';
+    drLabel.style.opacity = '0';
+    drLabel.style.transform = 'translateY(10px)';
+    drLabel.style.transition = 'all 0.4s ease-out';
+    drLabel.innerHTML = `恶心无视 -${drReduced}`;
+    wrapper.appendChild(drLabel);
+    
+    // Animate DR text
+    requestAnimationFrame(() => {
+      requestAnimationFrame(() => {
+        drLabel.style.opacity = '1';
+        drLabel.style.transform = 'translateY(-20px)';
+      });
+    });
+  }
+
   container.appendChild(wrapper);
 
-  // Trigger animation after a brief delay so initial layout calculates
   requestAnimationFrame(() => {
     requestAnimationFrame(() => {
       barFill.style.width = `${endPercent}%`;
@@ -43,13 +68,12 @@
     });
   });
 
-  // Cleanup
   setTimeout(() => {
     wrapper.classList.add('fade-out');
     setTimeout(() => {
       if (container.contains(wrapper)) {
         container.removeChild(wrapper);
       }
-    }, 400); // Wait for fade-out
-  }, 1800); // Display duration
+    }, 400);
+  }, 1800);
 }

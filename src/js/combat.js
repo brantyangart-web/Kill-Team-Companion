@@ -884,7 +884,7 @@ export function rollAttackDice() {
 
   // 2. 滚动起手特效与声音
   ui.triggerCombatVisual("🔥 OPEN FIRE!", "shoot");
-  playSound('shoot');
+  playSound('dice_roll');
 
   // 3. 顺序停下 (逐个确定点数并播放音效)
   const finalRolls = [];
@@ -908,9 +908,9 @@ export function rollAttackDice() {
         playSound('crit');
       } else if (val < stepEffTs) {
         cube.classList.add('fail-dice');
-        playSound('click');
+        playSound('dice_drop');
       } else {
-        playSound('click');
+        playSound('dice_drop');
       }
 
       currentSettleIndex++;
@@ -978,7 +978,7 @@ export function renderAttackDiceView() {
 }
 
 export function rerollSingleAttackDice(idx) {
-  playSound('shoot');
+  playSound('dice_roll');
   setCpForFaction(wizardState.attacker.faction, getCpForFaction(wizardState.attacker.faction) - 1);
   ui.updateScoresUI();
 
@@ -1260,7 +1260,7 @@ export function rollDefenseDice(dfCount) {
   pool.parentElement.appendChild(skipBtn);
 
   ui.triggerCombatVisual("🛡️ INCOMING FIRE!", "parry");
-  playSound('shoot');
+  playSound('dice_roll');
 
   const finalRolls = [];
   let currentSettleIndex = 0;
@@ -1281,9 +1281,9 @@ export function rollDefenseDice(dfCount) {
         playSound('crit');
       } else if (val < wizardState.defender.sv) {
         cube.classList.add('fail-dice');
-        playSound('click');
+        playSound('dice_drop');
       } else {
-        playSound('click');
+        playSound('dice_drop');
       }
 
       currentSettleIndex++;
@@ -1515,11 +1515,12 @@ export function confirmShootResult(dmgPerAttack) {
 
   const oldWounds = defender.wounds;
   const actualDamage = defender.applyWounds(dmgPerAttack, manualDrRolls);
+  const drReduced = dmgPerAttack - actualDamage;
 
-  if (ui.getOperativeAvatarUrl && actualDamage > 0) {
+  if (ui.getOperativeAvatarUrl && (actualDamage > 0 || drReduced > 0)) {
     const avatarUrl = ui.getOperativeAvatarUrl(defender.id, defender.faction);
     const themeVar = getFactionThemeVar(defender.faction);
-    showDamageAnimation(avatarUrl, defender.maxWounds, oldWounds, actualDamage, themeVar);
+    showDamageAnimation(avatarUrl, defender.maxWounds, oldWounds, actualDamage, themeVar, drReduced);
   } else if (actualDamage <= 0) {
     playSound('sword_clash'); // Reuse parry sound for blocked shot
     ui.triggerCombatVisual("SAVED", "parry");
@@ -1697,7 +1698,7 @@ export function resolveSecondaries(confirmed) {
       ui.addLog(`  ${target.name}: ${oldWounds} → ${target.wounds} HP`);
 
       // 伤害动画
-      if (ui.getOperativeAvatarUrl && actualDmg > 0) {
+      if (ui.getOperativeAvatarUrl && (actualDmg > 0 || drReduced > 0)) {
         const avatarUrl = ui.getOperativeAvatarUrl(target.id, target.faction);
         const themeVar = getFactionThemeVar(target.faction);
         showDamageAnimation(avatarUrl, target.maxWounds, oldWounds, actualDmg, themeVar);
@@ -2199,7 +2200,7 @@ export function rollMeleeDice() {
   if (meleeBody) meleeBody.appendChild(skipBtn);
 
   ui.triggerCombatVisual("⚔️ MELEE CLASH!", "shoot");
-  playSound('shoot');
+  playSound('dice_roll');
 
   const finalAttRolls = [];
   const finalDefRolls = [];
@@ -2223,9 +2224,9 @@ export function rollMeleeDice() {
         playSound('crit');
       } else if (val < attEffTs) {
         cube.classList.add('fail-dice');
-        playSound('click');
+        playSound('dice_drop');
       } else {
-        playSound('click');
+        playSound('dice_drop');
       }
 
       attSettleIndex++;
@@ -2253,9 +2254,9 @@ export function rollMeleeDice() {
         playSound('crit');
       } else if (val < defEffTs) {
         cube.classList.add('fail-dice');
-        playSound('click');
+        playSound('dice_drop');
       } else {
-        playSound('click');
+        playSound('dice_drop');
       }
 
       defSettleIndex++;
@@ -2631,13 +2632,14 @@ export function resolveMeleeChoice(action) {
     wizardState.meleeLogs += msg;
 
     const oldWounds = targetOpponent.wounds;
-    targetOpponent.applyWounds(dmg);
+    const actualDmg = targetOpponent.applyWounds(dmg);
+      const drReduced = dmg - actualDmg;
 
-    // Show big damage animation
-    if (ui.getOperativeAvatarUrl && dmg > 0) {
-      const avatarUrl = ui.getOperativeAvatarUrl(targetOpponent.id, targetOpponent.faction);
-      const themeVar = getFactionThemeVar(targetOpponent.faction);
-      showDamageAnimation(avatarUrl, targetOpponent.maxWounds, oldWounds, dmg, themeVar);
+      // Show big damage animation
+      if (ui.getOperativeAvatarUrl && (actualDmg > 0 || drReduced > 0)) {
+        const avatarUrl = ui.getOperativeAvatarUrl(targetOpponent.id, targetOpponent.faction);
+        const themeVar = getFactionThemeVar(targetOpponent.faction);
+        showDamageAnimation(avatarUrl, targetOpponent.maxWounds, oldWounds, actualDmg, themeVar, drReduced);
     }
 
     // === Standard 规则: 近战击杀回调 ===
