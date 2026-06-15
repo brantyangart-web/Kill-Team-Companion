@@ -1526,8 +1526,6 @@ export function confirmShootResult(dmgPerAttack) {
       }
     }
   }
-    playSound('shoot');
-
   ui.addLog(`
 --- 射击结算阶段 ---`);
   ui.addLog(`[攻击方] ${attacker.name} 使用 ${wizardState.weapon.name} 射击`);
@@ -1538,6 +1536,7 @@ export function confirmShootResult(dmgPerAttack) {
   const drReduced = dmgPerAttack - actualDamage;
 
   if (ui.getOperativeAvatarUrl && (actualDamage > 0 || drReduced > 0)) {
+      playSound('shoot');
     const avatarUrl = ui.getOperativeAvatarUrl(defender.id, defender.faction);
     const themeVar = getFactionThemeVar(defender.faction);
     showDamageAnimation(avatarUrl, defender.maxWounds, oldWounds, actualDamage, themeVar, drReduced);
