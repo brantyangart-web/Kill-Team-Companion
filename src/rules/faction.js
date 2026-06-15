@@ -82,7 +82,7 @@ export const FACTIONS_DB = {
     shortName: '死亡天使',
     themeColor: 'var(--sm-accent)',
     diceClass: 'sm-dice',
-    headerImg: './assets/images/headers/faction_header_sm.png',
+    headerImg: './assets/images/headers/faction_header_sm.jpg',
     templates: null,
     // Ploy 数据已迁移至 rules/ploys.js 的 PLOY_DATABASE
   },
@@ -92,7 +92,7 @@ export const FACTIONS_DB = {
     shortName: '瘟疫守卫',
     themeColor: 'var(--pm-accent)',
     diceClass: 'pm-dice',
-    headerImg: './assets/images/headers/faction_header_pm.png',
+    headerImg: './assets/images/headers/faction_header_pm.jpg',
     templates: null,
   },
   'Legionary': {
@@ -101,7 +101,7 @@ export const FACTIONS_DB = {
     shortName: '黑军团',
     themeColor: '#8b1a1a',
     diceClass: 'leg-dice',
-    headerImg: './assets/images/headers/faction_header_leg.png',
+    headerImg: './assets/images/headers/faction_header_leg.jpg',
     templates: null,
   },
 };

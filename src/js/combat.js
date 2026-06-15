@@ -250,7 +250,7 @@ export function openShootWizard() {
 
   const modalContent = document.querySelector('#combat-modal .modal-content');
   if (modalContent) {
-    modalContent.style.backgroundImage = `linear-gradient(rgba(11, 17, 32, 0.85), rgba(11, 17, 32, 0.95)), url("${getAssetPath('assets/images/backgrounds/bg_shoot_action.png')}")`;
+    modalContent.style.backgroundImage = `linear-gradient(rgba(11, 17, 32, 0.85), rgba(11, 17, 32, 0.95)), url("${getAssetPath('assets/images/backgrounds/bg_shoot_action.jpg')}")`;
     modalContent.style.backgroundSize = 'cover';
     modalContent.style.backgroundPosition = 'center';
   }
@@ -1746,7 +1746,7 @@ export function openFightWizard() {
 
   const modalContent = document.querySelector('#combat-modal .modal-content');
   if (modalContent) {
-    modalContent.style.backgroundImage = `linear-gradient(rgba(11, 17, 32, 0.85), rgba(11, 17, 32, 0.95)), url("${getAssetPath('assets/images/backgrounds/bg_melee_action.png')}")`;
+    modalContent.style.backgroundImage = `linear-gradient(rgba(11, 17, 32, 0.85), rgba(11, 17, 32, 0.95)), url("${getAssetPath('assets/images/backgrounds/bg_melee_action.jpg')}")`;
     modalContent.style.backgroundSize = 'cover';
     modalContent.style.backgroundPosition = 'center';
   }
@@ -2461,7 +2461,7 @@ export function renderMeleeRollsView() {
 export function getDuelAvatarHtml(opId, faction) {
   const avatarUrl = gameState.customAvatars[opId];
   const cssSuffix = getFactionCssSuffix(faction);
-  let fallbackUrl = getAssetPath(`assets/images/defaults/default_${cssSuffix}_avatar.png`);
+  let fallbackUrl = getAssetPath(`assets/images/defaults/default_${cssSuffix}_avatar.jpg`);
 
   const activeOp = gameState.operatives.find(o => o.id === opId);
   if (activeOp && activeOp.defaultAvatar) {
@@ -2469,7 +2469,7 @@ export function getDuelAvatarHtml(opId, faction) {
   } else {
     // Determine the template source based on faction for avatar path
     const idSuffix = opId.replace(/^(sm_|pm_|leg_)/, '');
-    const templateAvatar = getAssetPath(`assets/images/operatives/${cssSuffix}/${cssSuffix}_${idSuffix}.png`);
+    const templateAvatar = getAssetPath(`assets/images/operatives/${cssSuffix}/${cssSuffix}_${idSuffix}.jpg`);
     // Try to use the template avatar as fallback if available
     // But keep using the default if no match
     fallbackUrl = templateAvatar;

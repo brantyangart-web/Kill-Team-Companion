@@ -463,7 +463,7 @@ export function updateGuidance(text) {
 export function getOperativeAvatarUrl(opId, faction) {
   const avatarUrl = gameState.customAvatars[opId];
   const cssSuffix = getFactionCssSuffix(faction);
-  let fallbackUrl = getAssetPath(`assets/images/defaults/default_${cssSuffix}_avatar.png`);
+  let fallbackUrl = getAssetPath(`assets/images/defaults/default_${cssSuffix}_avatar.jpg`);
 
   const activeOp = gameState.operatives.find(o => o.id === opId);
   const allTemplates = SM_TEMPLATES.concat(PM_TEMPLATES).concat(LEG_TEMPLATES);
@@ -709,9 +709,9 @@ function renderRosterPickerForSlot(slot) {
       rosterTitle.style.color = `var(--${cssSuffix}-accent, #fff)`;
     }
     if (headerImg) {
-      if (cssSuffix === 'sm') headerImg.src = getAssetPath('assets/images/headers/faction_header_sm.png');
-      else if (cssSuffix === 'pm') headerImg.src = getAssetPath('assets/images/headers/faction_header_pm.png');
-      else if (cssSuffix === 'leg') headerImg.src = getAssetPath('assets/images/headers/faction_header_leg.png');
+      if (cssSuffix === 'sm') headerImg.src = getAssetPath('assets/images/headers/faction_header_sm.jpg');
+      else if (cssSuffix === 'pm') headerImg.src = getAssetPath('assets/images/headers/faction_header_pm.jpg');
+      else if (cssSuffix === 'leg') headerImg.src = getAssetPath('assets/images/headers/faction_header_leg.jpg');
       headerImg.style.objectPosition = 'center 47%';
     }
 
