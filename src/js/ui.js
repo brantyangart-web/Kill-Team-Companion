@@ -299,9 +299,60 @@ export function addLog(text) {
   const logPanel = document.getElementById('battle-log-lines');
   if (!logPanel) return;
   const line = document.createElement('div');
-  line.textContent = text;
+  if (text.includes('<') && text.includes('>')) {
+    line.innerHTML = text;
+  } else {
+    line.textContent = text;
+  }
   logPanel.appendChild(line);
   logPanel.scrollTop = logPanel.scrollHeight;
+}
+
+// ==========================================
+//         Visual Event Queue Manager
+// ==========================================
+
+const visualQueue = [];
+let isVisualQueueProcessing = false;
+let renderDamageAnimationFn = null;
+
+export function registerDamageAnimationRenderer(fn) {
+  renderDamageAnimationFn = fn;
+}
+
+export function queueVisualEvent(event) {
+  visualQueue.push(event);
+  processNextVisualEvent();
+}
+
+function processNextVisualEvent() {
+  if (isVisualQueueProcessing) return;
+  if (visualQueue.length === 0) return;
+
+  isVisualQueueProcessing = true;
+  const event = visualQueue.shift();
+
+  try {
+    if (event.type === 'damage') {
+      if (renderDamageAnimationFn) {
+        renderDamageAnimationFn(event.data);
+      } else {
+        console.warn('renderDamageAnimationFn is not registered yet. Auto-advancing visual queue.');
+      }
+      // Auto-advance after 2200ms (animation duration)
+      setTimeout(() => {
+        isVisualQueueProcessing = false;
+        processNextVisualEvent();
+      }, 2200);
+    } else if (event.type === 'death') {
+      renderDeathOverlay(event.data.operative);
+      // Do NOT auto-advance. It is advanced when confirmOperativeDeath is called!
+    }
+  } catch (err) {
+    console.error('Error in processNextVisualEvent:', err);
+    isVisualQueueProcessing = false;
+    processNextVisualEvent();
+  }
 }
 
 export function updateScoresUI() {
@@ -1491,7 +1542,7 @@ export function activateOperative(opId) {
   if (op.poisonTokens > 0) {
     const prevHp = op.wounds;
     addLog(`[毒素] ${op.name} 携带毒素标记，激活开始受到 1 点伤害！`);
-    op.applyWounds(1);
+    op.applyWounds(1, null, 'auto', '毒素发作');
     showToast(`☠️ ${op.name} 毒素发作：受到 1 点伤害 (${prevHp} → ${op.wounds})`, 'warning');
     // 如果因此阵亡则不再继续激活
     if (op.isDead) {
@@ -1512,6 +1563,12 @@ export function activateOperative(opId) {
 }
 
 export function updateActivePanel() {
+  if (gameState.activeAgent && gameState.activeAgent.isDead) {
+    const deadOp = gameState.activeAgent;
+    addLog(`[阵亡] ${deadOp.name} 已阵亡，自动结束激活。`);
+    endActivation();
+    return;
+  }
   const content = document.getElementById('active-panel-content');
   const empty = document.getElementById('active-panel-empty');
   const statusTitle = document.getElementById('active-panel-status');
@@ -1637,24 +1694,24 @@ export function updateActivePanel() {
     const fightLimitReached = fightCount >= maxFights;
 
     // 移动行动: 一旦执行过任意移动，所有其他移动行动均禁用
-    document.getElementById('action-move').disabled = op.apl < 1 || hasAnyMove || isCounteracting;
+    document.getElementById('action-move').disabled = op.apl < 1 || hasAnyMove || isCounteracting || op.isDead;
     // Charge 禁用条件: Counteract / 已耗尽APL / 已执行任意移动 / 已近战 / 已射击 / Conceal 标记 (隐蔽不能冲锋)
-    document.getElementById('action-charge').disabled = isCounteracting ? true : (op.apl < 1 || hasAnyMove || hasFought || hasShot || op.hasConceal);
+    document.getElementById('action-charge').disabled = isCounteracting ? true : (op.apl < 1 || hasAnyMove || hasFought || hasShot || op.hasConceal) || op.isDead;
     // Advance: 同 Charge，且不能 Counteract
-    document.getElementById('action-advance').disabled = op.apl < 1 || hasAnyMove || hasFought || hasShot || isCounteracting;
+    document.getElementById('action-advance').disabled = op.apl < 1 || hasAnyMove || hasFought || hasShot || isCounteracting || op.isDead;
     // Dash: 同 Advance
-    document.getElementById('action-dash').disabled = op.apl < 1 || hasAnyMove || hasFought || hasShot || isCounteracting;
+    document.getElementById('action-dash').disabled = op.apl < 1 || hasAnyMove || hasFought || hasShot || isCounteracting || op.isDead;
     // Fall Back: lite 规则下消耗 2 APL，同 Advance 的其他约束
-    document.getElementById('action-fallback').disabled = op.apl < 2 || hasAnyMove || hasFought || hasShot || isCounteracting;
+    document.getElementById('action-fallback').disabled = op.apl < 2 || hasAnyMove || hasFought || hasShot || isCounteracting || op.isDead;
     // Shoot: 原有约束 + Advance/FallBack 后不能射击 + Dash 后仅 Heavy 武器可射
     // 特殊规则: 若所有武器都是 Heavy (Dash only)，未 Dash 时 Shoot 禁用；Dash 后 Shoot 可用
     const shootHeavyBlocked = hasHeavyWeapon && !hasDashed && op.weapons.every(w => w.hasRule('Heavy'));
     // Conceal 命令: 不能射击 (除非携带 Silent 武器)
     const hasSilentWeapon = op.weapons.some(w => w.hasRule('Silent'));
     const shootConcealBlocked = op.hasConceal && !hasSilentWeapon;
-    document.getElementById('action-shoot').disabled = op.apl < 1 || shootLimitReached || shootLocked || hasCharged || noCombatAfterMove || shootBlockedAfterDash || shootHeavyBlocked || shootConcealBlocked;
+    document.getElementById('action-shoot').disabled = op.apl < 1 || shootLimitReached || shootLocked || hasCharged || noCombatAfterMove || shootBlockedAfterDash || shootHeavyBlocked || shootConcealBlocked || op.isDead;
     // Fight: 原有约束 + Advance/Dash/FallBack 后都不能近战
-    document.getElementById('action-fight').disabled = op.apl < 1 || fightLimitReached || fightLocked || noCombatAfterMove || hasDashed;
+    document.getElementById('action-fight').disabled = op.apl < 1 || fightLimitReached || fightLocked || noCombatAfterMove || hasDashed || op.isDead;
 
     const doubleActionLabel = 'Astartes';
 
@@ -2336,6 +2393,13 @@ export function closeHelpModal() {
 // ==========================================
 
 export function triggerOperativeDeathOverlay(op) {
+  queueVisualEvent({
+    type: 'death',
+    data: { operative: op }
+  });
+}
+
+function renderDeathOverlay(op) {
   playSound('funeral');
 
   const overlay = document.getElementById('death-overlay');
@@ -2366,6 +2430,8 @@ export function confirmOperativeDeath() {
     releaseFocusTrap();
   }
   checkVictory();
+  isVisualQueueProcessing = false;
+  processNextVisualEvent();
 }
 
 export function checkVictory() {

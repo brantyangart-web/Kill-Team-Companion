@@ -175,18 +175,6 @@ export function nextModalStep() {
         if (showToast) showToast('有敌方特工处于你的控制范围内，无法进行射击行动 (L111)！', 'error');
         return;
       }
-      // Torrent: 自动命中，跳过攻击骰步骤
-      const torrentMatch = wizardState.weapon.rules.find(r => r.startsWith('Torrent'));
-      if (torrentMatch) {
-        const torrentHits = parseInt(torrentMatch.match(/\d+/)?.[0] || wizardState.weapon.attacks);
-        wizardState.attackRolls = [];
-        wizardState.attackCrit = 0;
-        wizardState.attackNorm = torrentHits;
-        if (showToast) showToast(`💧 激流 (Torrent): 自动命中 ${torrentHits} 次，跳过攻击骰步骤。`, 'info');
-        wizardState.step = 5; // 直接跳到防御骰步骤
-        renderShootStep();
-        return;
-      }
     } else if (wizardState.step === 4 && wizardState.mode === 'manual') {
       parseManualAttack();
       if (wizardState.attackRolls.length === 0) {
@@ -1532,17 +1520,18 @@ export function confirmShootResult(dmgPerAttack) {
   ui.addLog(`[防守方] ${defender.name}`);
 
   const oldWounds = defender.wounds;
-  const actualDamage = defender.applyWounds(dmgPerAttack, manualDrRolls);
+  const actualDamage = defender.applyWounds(
+    dmgPerAttack,
+    wizardState.mode === 'manual' ? manualDrRolls : wizardState.drRolls,
+    wizardState.mode === 'manual' ? 'manual' : 'auto'
+  );
   const drReduced = dmgPerAttack - actualDamage;
 
-  if (ui.getOperativeAvatarUrl && (actualDamage > 0 || drReduced > 0)) {
-      playSound('shoot');
-    const avatarUrl = ui.getOperativeAvatarUrl(defender.id, defender.faction);
-    const themeVar = getFactionThemeVar(defender.faction);
-    showDamageAnimation(avatarUrl, defender.maxWounds, oldWounds, actualDamage, themeVar, drReduced);
-  } else if (actualDamage <= 0) {
+  if (actualDamage > 0 || drReduced > 0) {
+    playSound('shoot');
+  } else {
     playSound('save');
-      ui.triggerCombatVisual("SAVED", "parry");
+    ui.triggerCombatVisual("SAVED", "parry");
   }
 
   // === Standard 规则: 击杀回调 ===
@@ -1562,8 +1551,13 @@ export function confirmShootResult(dmgPerAttack) {
   if (hasPsychic) {
     const perilCount = wizardState.attackRolls.filter(r => r === 1).length;
     if (perilCount > 0) {
-      ui.addLog(`[灵能反噬] ${wizardState.weapon.name} 引发危险！投出 ${perilCount} 个 1，攻击方受到 ${perilCount} 点伤害。`);
-      attacker.applyWounds(perilCount);
+      ui.addLog(`
+<div style="background: rgba(239, 68, 68, 0.12); border-left: 4px solid #ef4444; padding: 8px; margin: 6px 0; border-radius: 4px; font-size: 0.85rem;">
+  <span style="color:#ef4444; font-weight:bold; font-size: 0.95rem;">⚠️ [亚空间反噬 (PSYCHIC Peril)]</span><br>
+  灵能武器 <strong style="color:#fff;">${wizardState.weapon.name}</strong> 引导失败，发生反噬！<br>
+  在进攻投骰中出现了 <strong style="color:#ef4444; font-size: 1rem;">${perilCount}</strong> 个【1】，施法特工 <strong style="color:#fff;">${attacker.name}</strong> 因而受到 <strong style="color:#ef4444; font-size: 1rem;">${perilCount}</strong> 点致命伤害！
+</div>`);
+      attacker.applyWounds(perilCount, null, 'auto', '亚空间反噬');
     }
   }
 
@@ -1577,10 +1571,15 @@ export function confirmShootResult(dmgPerAttack) {
     const hitStat = wizardState.weapon.ts;
     if (hotRoll < hitStat) {
       const hotDamage = hotRoll * 2;
-      ui.addLog(`[过热] ${wizardState.weapon.name}：投出 ${hotRoll} < ${hitStat}，反噬 ${hotDamage} 点伤害！`);
-      attacker.applyWounds(hotDamage);
+      ui.addLog(`
+<div style="background: rgba(245, 158, 11, 0.12); border-left: 4px solid #f59e0b; padding: 8px; margin: 6px 0; border-radius: 4px; font-size: 0.85rem;">
+  <span style="color:#f59e0b; font-weight:bold; font-size: 0.95rem;">⚠️ [武器过热 (Hot Overcharge)]</span><br>
+  过热武器 <strong style="color:#fff;">${wizardState.weapon.name}</strong> 发生核心过热自伤！<br>
+  过热判定骰子掷出 <strong style="color:#f59e0b; font-size: 1.05rem;">[${hotRoll}]</strong>（小于该武器命中阈值 ${hitStat}），特工 <strong style="color:#fff;">${attacker.name}</strong> 受到 <strong style="color:#ef4444; font-size: 1rem;">${hotDamage}</strong> 点过热伤害 (判定值 ${hotRoll} × 2)！
+</div>`);
+      attacker.applyWounds(hotDamage, null, 'auto', '武器过热自伤');
     } else {
-      ui.addLog(`[过热] ${wizardState.weapon.name}：投出 ${hotRoll} ≥ ${hitStat}，安全。`);
+      ui.addLog(`[过热] ${wizardState.weapon.name}：过热判定掷出 [${hotRoll}] ≥ 命中阈值 ${hitStat}，安全。`);
     }
   }
 
@@ -1713,15 +1712,10 @@ export function resolveSecondaries(confirmed) {
     if (damage > 0) {
       ui.addLog(`  ${hits} 命中 - ${blocked} 格挡 = ${unblocked} 穿透 → ${damage} 伤害`);
       const oldWounds = target.wounds;
-      const actualDmg = target.applyWounds(Array(unblocked).fill(weapon.normalDamage));
+      const actualDmg = target.applyWounds(Array(unblocked).fill(weapon.normalDamage), null, 'auto', '次要目标溅射');
       ui.addLog(`  ${target.name}: ${oldWounds} → ${target.wounds} HP`);
 
-      // 伤害动画
-      if (ui.getOperativeAvatarUrl && (actualDmg > 0 || drReduced > 0)) {
-        const avatarUrl = ui.getOperativeAvatarUrl(target.id, target.faction);
-        const themeVar = getFactionThemeVar(target.faction);
-        showDamageAnimation(avatarUrl, target.maxWounds, oldWounds, actualDmg, themeVar);
-      }
+
 
       if (target.isDead) {
         ui.addLog(`  💀 ${target.name} 被击杀！`);
@@ -2651,15 +2645,10 @@ export function resolveMeleeChoice(action) {
     wizardState.meleeLogs += msg;
 
     const oldWounds = targetOpponent.wounds;
-    const actualDmg = targetOpponent.applyWounds(dmg);
-      const drReduced = dmg - actualDmg;
+    const actualDmg = targetOpponent.applyWounds(dmg, null, 'melee_auto');
+    const drReduced = dmg - actualDmg;
 
-      // Show big damage animation
-      if (ui.getOperativeAvatarUrl && (actualDmg > 0 || drReduced > 0)) {
-        const avatarUrl = ui.getOperativeAvatarUrl(targetOpponent.id, targetOpponent.faction);
-        const themeVar = getFactionThemeVar(targetOpponent.faction);
-        showDamageAnimation(avatarUrl, targetOpponent.maxWounds, oldWounds, actualDmg, themeVar, drReduced);
-    }
+
 
     // === Standard 规则: 近战击杀回调 ===
     if (targetOpponent.isDead && gameState.rulesVersion === 'standard') {

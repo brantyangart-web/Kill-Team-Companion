@@ -1,47 +1,57 @@
-﻿# 🎵 音频素材清单与激活说明 (Audio Assets & Triggers Guide)
+# 🎵 音频素材清单与激活说明 (Audio Assets & Triggers Guide)
 
-本项目使用了 Web Audio API 预加载并实现零延迟播放。所有音频文件必须为 `.wav` 格式，并放置在 `public/assets/audio/` 目录下。
+本项目使用了 Web Audio API 预加载并实现零延迟播放。所有音频文件为 `.mp3` 格式，并放置在 `public/assets/audio/` 目录下。
 
 ## ⚙️ 系统与 UI 交互 (UI & System)
-1. **`click.wav`** 
+1. **`click.mp3`** 
    - **激活时机**: 点击大多数 UI 按钮、确认界面、手动选择干员、选择先攻队伍等常规交互。
-2. **`alert.wav`**
+2. **`alert.mp3`**
    - **激活时机**: 发生警告或错误时，例如：CP 不足无法使用策略、不符合操作条件、先攻掷骰出现平局等。
-3. **`important_decision.wav`**
+3. **`important_decision.mp3`**
    - **激活时机**: 在战略阶段或交火阶段，消耗 CP **确认激活战术/战略策略 (Ploys)** 时。
 
 ## 🎲 掷骰子动画 (Dice Rolling)
-4. **`dice_roll.wav`**
+4. **`dice_roll.mp3`**
    - **激活时机**: 掷骰子动画开始时（包含先攻判定、射击攻击、射击防御、近战拼杀的起始投掷），或使用重投策略单掷骰子时。
-5. **`dice_drop.wav`**
+5. **`dice_drop.mp3`**
    - **激活时机**: 每颗骰子在动画中停止滚动并落地结算出点数（失败或普通成功）时。
 
 ## 🔫 射击阶段 (Shooting)
-6. **`shoot.wav`**
+6. **`shoot.mp3`**
    - **激活时机**: (预留) 射击动画或特定枪械开火时。
-7. **`sword_clash.wav`**
+7. **`sword_clash.mp3`**
    - **激活时机**: (预留) 护盾抵挡或特殊防御触发时。
 
 ## ⚔️ 近战阶段 (Melee)
-8. **`heavy_strike.wav`**
+8. **`heavy_strike.mp3`**
    - **激活时机**: 结算近战命中，造成常规伤害时。
-9. **`metal_clash.wav`**
+9. **`metal_clash.mp3`**
    - **激活时机**: 近战中使用“招架 (Parry)”成功抵消对方攻击时。
 
 ## 💥 结算与判定 (Resolution)
-10. **`crit.wav`**
+10. **`crit.mp3`**
     - **激活时机**: 投骰子掷出 6 点（暴击），或在近战/射击结算时造成致命伤害（Critical Damage）。
-11. **`save.wav`**
+11. **`save.mp3`**
     - **激活时机**: 成功进行装甲豁免（Save）时，或在重投单个防御骰时。
-12. **`flesh.wav`**
+12. **`flesh.mp3`**
     - **激活时机**: 受到伤害、干员生命值减少时。
-13. **`bubble.wav`**
+13. **`bubble.mp3`**
     - **激活时机**: 瘟疫战士触发“恶心恶韧 (Disgustingly Resilient)”抵抗伤害的特效时。
 
 ## 🎭 极端结果与战斗状态 (Extreme Results & Status)
-14. **`epic_win.wav`**
+14. **`epic_win.mp3`**
     - **激活时机**: 在自动掷骰动画中，投出了“碾压”结果：例如攻击骰全部成功，或掷出至少 2 个暴击（EPIC SHOTS!）。
-15. **`epic_fail.wav`**
+15. **`epic_fail.mp3`**
     - **激活时机**: 在自动掷骰动画中，投出了“血崩”结果：例如攻击骰全部未命中（ALL MISSED!），或所有防御骰子全部破防失败（DEFENSE BUSTED!）。
-16. **`funeral.wav`**
+16. **`funeral.mp3`**
     - **激活时机**: 任意特工生命值归零，触发阵亡（Incapacitated）覆盖层时。
+
+## ⚠️ 特殊扣血情况 (Special Damage Events)
+17. **`psychic_peril.mp3`**
+    - **激活时机**: 灵能干员引导灵能武器失败，遭受“亚空间反噬”致命伤害时。
+18. **`plasma_overheat.mp3`**
+    - **激活时机**: 干员使用过热武器射击，掷骰结果触发“武器过热自伤”时。
+19. **`poison_damage.mp3`**
+    - **激活时机**: 干员受到持续毒素影响，触发“毒素发作”扣血时。
+20. **`splash_damage.mp3`**
+    - **激活时机**: 在射击阶段结算溅射伤害，导致“次要目标溅射”扣血时。

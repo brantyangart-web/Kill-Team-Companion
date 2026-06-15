@@ -1,6 +1,23 @@
-﻿import { showDamageAnimation as originalShow } from './damageAnimation.js';
+import { queueVisualEvent, registerDamageAnimationRenderer } from './ui.js';
+import { playSound } from './audio.js';
 
-export function showDamageAnimation(imageUrl, maxWounds, currentWounds, damageAmount, themeVar = '--red', drReduced = 0) {
+export function showDamageAnimation(imageUrl, maxWounds, currentWounds, damageAmount, themeVar = '--red', drReduced = 0, reason = '') {
+  queueVisualEvent({
+    type: 'damage',
+    data: { imageUrl, maxWounds, currentWounds, damageAmount, themeVar, drReduced, reason }
+  });
+}
+
+function renderDamageAnimation(data) {
+  const { imageUrl, maxWounds, currentWounds, damageAmount, themeVar, drReduced, reason, hitSound } = data;
+
+  // Play the sound in sync with the animation rendering
+  if (damageAmount > 0) {
+    if (hitSound) playSound(hitSound);
+  } else if (drReduced > 0) {
+    playSound('bubble');
+  }
+
   const container = document.getElementById('damage-animation-container');
   if (!container) return;
 
@@ -33,6 +50,28 @@ export function showDamageAnimation(imageUrl, maxWounds, currentWounds, damageAm
   wrapper.appendChild(avatar);
   wrapper.appendChild(barContainer);
   wrapper.appendChild(textLabel);
+  
+  if (reason) {
+    const reasonLabel = document.createElement('div');
+    reasonLabel.className = 'damage-anim-reason-text';
+    reasonLabel.style.position = 'absolute';
+    reasonLabel.style.top = '-35px';
+    reasonLabel.style.left = '50%';
+    reasonLabel.style.transform = 'translateX(-50%)';
+    reasonLabel.style.color = '#ffba3b';
+    reasonLabel.style.fontWeight = '900';
+    reasonLabel.style.fontSize = '1.35rem';
+    reasonLabel.style.textShadow = '0 0 8px rgba(245,158,11,0.8), 0 0 2px #000';
+    reasonLabel.style.whiteSpace = 'nowrap';
+    reasonLabel.style.background = 'rgba(15,23,42,0.95)';
+    reasonLabel.style.padding = '6px 16px';
+    reasonLabel.style.borderRadius = '6px';
+    reasonLabel.style.border = '2px solid rgba(245,158,11,0.8)';
+    reasonLabel.style.boxShadow = '0 4px 15px rgba(0,0,0,0.6)';
+    reasonLabel.style.zIndex = '10';
+    reasonLabel.textContent = reason;
+    wrapper.appendChild(reasonLabel);
+  }
   
   if (drReduced > 0) {
     const drLabel = document.createElement('div');
@@ -77,3 +116,5 @@ export function showDamageAnimation(imageUrl, maxWounds, currentWounds, damageAm
     }, 400);
   }, 1800);
 }
+
+registerDamageAnimationRenderer(renderDamageAnimation);

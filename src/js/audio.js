@@ -1,4 +1,4 @@
-﻿import { getAssetPath } from './paths.js';
+import { getAssetPath } from './paths.js';
 
 const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
 export { audioCtx };
@@ -9,13 +9,15 @@ const audioBufferCache = {};
 const types = [
   'click', 'alert', 'dice_roll', 'dice_drop', 'shoot', 'sword_clash', 
   'heavy_strike', 'metal_clash', 'crit', 'save', 'flesh', 'bubble', 
-  'epic_win', 'epic_fail', 'funeral', 'important_decision'
+  'epic_win', 'epic_fail', 'funeral', 'important_decision',
+  'psychic_peril', 'plasma_overheat', 'poison_damage', 'splash_damage'
 ];
 
 // Preload and decode audio files into Web Audio API buffers
 types.forEach(async type => {
   try {
-    const response = await fetch(getAssetPath(`assets/audio/${type}.mp3`));
+    // Append query parameter to bypass potential browser cache (like cached 404s)
+    const response = await fetch(getAssetPath(`assets/audio/${type}.mp3?v=1`));
     if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
     const arrayBuffer = await response.arrayBuffer();
     const audioBuffer = await audioCtx.decodeAudioData(arrayBuffer);

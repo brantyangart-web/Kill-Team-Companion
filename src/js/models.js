@@ -1,6 +1,7 @@
 import { playSound } from './audio.js';
-import { gameState } from './state.js';
-import { hasFactionTrait, getActivePloys, getFactionDisplayName } from '../rules/faction.js';
+import { gameState, wizardState } from './state.js';
+import { hasFactionTrait, getActivePloys, getFactionDisplayName, getFactionThemeVar } from '../rules/faction.js';
+import { isFirefightPloyActive } from '../rules/ploys.js';
 
 // UI callbacks - set during app initialization to avoid circular deps
 const ui = {};
@@ -218,11 +219,24 @@ export class Operative {
   /**
    * 分配伤害。
    * @param {number|number[]} amountOrAttacks - 总伤害值，或每次攻击的伤害数组（用于 DR per-attack）
-   * @param {number[]} [manualDrRolls] - 手动 DR 骰子
+   * @param {number[]} [drRolls] - 手动录入或系统自动生成的 DR 骰子
+   * @param {string} [drSource] - 骰子来源：'manual' (物理录入) | 'auto' (自动代投) | 'melee_auto' (近战自动代投)
+   * @param {string} [reason] - 扣血原因（用于在伤害动画上悬浮展示标签）
    * @returns {number} 实际受到的伤害
    */
-  applyWounds(amountOrAttacks, manualDrRolls = null) {
+  applyWounds(amountOrAttacks, drRolls = null, drSource = 'auto', reason = '') {
     if (this.isDead) return 0;
+
+    let hitSound = 'flesh';
+    if (reason === '亚空间反噬') {
+      hitSound = 'psychic_peril';
+    } else if (reason === '武器过热自伤') {
+      hitSound = 'plasma_overheat';
+    } else if (reason === '毒素发作') {
+      hitSound = 'poison_damage';
+    } else if (reason === '次要目标溅射') {
+      hitSound = 'splash_damage';
+    }
 
     // === Standard 规则: Iron Halo (SM Captain) ===
     // 每战一次，忽略 1 个 Normal Dmg
@@ -257,12 +271,15 @@ export class Operative {
     let actualDamage = 0;
 
     if (hasDr) {
-      // contagious_resilience 已移除。Sickening Resilience (firefight ploy) 有不同效果。
-      const hasPloyActive = false;
-      ui.addLog(`[特性] 触发${getFactionDisplayName(this.faction)}专属【恶心作呕 (DR 4+)】：`);
+      // Sickening Resilience (firefight ploy)
+      const hasPloyActive = isFirefightPloyActive('sickening_resilience', this.faction);
+      if (hasPloyActive) {
+        ui.addLog(`<span style="color:#7ab88a; font-weight:bold;">[战术特性] 【恶心坚韧】战术当前激活！(无需投骰，对所有 ≥3 伤害的攻击直接自动减免 1 点，最低降至 2)</span>`);
+      } else {
+        ui.addLog(`[特性] 触发${getFactionDisplayName(this.faction)}专属【恶心作呕 (DR 4+)】：`);
+      }
 
       let drRollIndex = 0;
-      let hasRerolled = false;
 
       for (const attackDmg of attackBreakdown) {
         if (attackDmg < 3) {
@@ -272,41 +289,78 @@ export class Operative {
           continue;
         }
 
-        let roll;
-        if (manualDrRolls && drRollIndex < manualDrRolls.length) {
-          roll = manualDrRolls[drRollIndex++];
-          ui.addLog(`  - 伤害 ${attackDmg} (>=3): 手动录入 DR 骰子 [${roll}]`);
-        } else {
-          roll = Math.floor(Math.random() * 6) + 1;
-          ui.addLog(`  - 伤害 ${attackDmg} (>=3): 投 DR 骰子 [${roll}]`);
+        if (hasPloyActive) {
+          const reduced = Math.max(2, attackDmg - 1);
+          ui.addLog(`  - 伤害 ${attackDmg}：【恶心坚韧】自动减免 1 点 -> ${reduced} 伤害`);
+          actualDamage += reduced;
+          continue;
         }
 
-        if (roll < 4 && hasPloyActive && !hasRerolled && !manualDrRolls) {
-          hasRerolled = true;
-          const oldRoll = roll;
+        let roll;
+        let sourceLabel = '';
+        let hintLabel = '';
+        if (drRolls && drRollIndex < drRolls.length) {
+          roll = drRolls[drRollIndex++];
+          if (drSource === 'manual') {
+            sourceLabel = `<span style="color:#7ab88a; font-weight:bold;">[玩家物理录入]</span> 录入 DR 骰子`;
+          } else {
+            sourceLabel = `<span style="color:#f59e0b; font-weight:bold;">[系统自动代投]</span> 投 DR 骰子`;
+          }
+          ui.addLog(`  - 伤害 ${attackDmg} (>=3): ${sourceLabel} [${roll}]`);
+        } else {
           roll = Math.floor(Math.random() * 6) + 1;
-          ui.addLog(`    -> [传染韧性] 自动重投失败 [${oldRoll}] -> [${roll}]`);
+          if (drSource === 'melee_auto') {
+            sourceLabel = `<span style="color:#ef4444; font-weight:bold;">[近战系统代投]</span> 投 DR 骰子`;
+          } else {
+            sourceLabel = `<span style="color:#f59e0b; font-weight:bold;">[系统自动代投]</span> 投 DR 骰子`;
+            hintLabel = ` <span style="font-size:0.75rem; color:var(--text-muted);">(当前为系统代投。若想使用物理骰子，请在设置中切换为“物理录入”模式)</span>`;
+          }
+          ui.addLog(`  - 伤害 ${attackDmg} (>=3): ${sourceLabel} [${roll}]${hintLabel}`);
         }
 
         if (roll >= 4) {
           const reduced = attackDmg - 1;
-          ui.addLog(`    -> 成功！伤害减免 1 点 (${attackDmg} -> ${reduced})`);
-          playSound('bubble');
+          ui.addLog(`    -> 🛡️ 减免成功！伤害减 1 点 (${attackDmg} -> ${reduced})`);
           actualDamage += reduced;
         } else {
-          ui.addLog(`    -> 减免失败，受到全额 ${attackDmg} 点伤害。`);
+          ui.addLog(`    -> ❌ 减免失败，受到全额 ${attackDmg} 点伤害。`);
           actualDamage += attackDmg;
-          playSound('flesh');
         }
       }
     } else {
       actualDamage = totalIncoming;
-      if (actualDamage > 0) playSound('flesh');
     }
 
     const prevHp = this.wounds;
     this.wounds = Math.max(0, this.wounds - actualDamage);
     ui.addLog(`[分配] ${this.name} 生命值: ${prevHp} -> ${this.wounds} ${this.wounds === 0 ? '(已阵亡!)' : ''}`);
+
+    // Queue damage animation automatically for any damage taken or reduced
+    const drReduced = hasDr ? Math.max(0, totalIncoming - actualDamage) : 0;
+    if (ui.queueVisualEvent && ui.getOperativeAvatarUrl && (actualDamage > 0 || drReduced > 0)) {
+      const avatarUrl = ui.getOperativeAvatarUrl(this.id, this.faction);
+      const themeVar = getFactionThemeVar(this.faction);
+      ui.queueVisualEvent({
+        type: 'damage',
+        data: {
+          imageUrl: avatarUrl,
+          maxWounds: this.maxWounds,
+          currentWounds: prevHp,
+          damageAmount: actualDamage,
+          themeVar: themeVar,
+          drReduced: drReduced,
+          reason: reason,
+          hitSound: hitSound
+        }
+      });
+    } else {
+      // Fallback when queue manager is not active
+      if (actualDamage > 0) {
+        playSound(hitSound);
+      } else if (drReduced > 0) {
+        playSound('bubble');
+      }
+    }
 
     if (this.wounds === 0) {
       this.isDead = true;

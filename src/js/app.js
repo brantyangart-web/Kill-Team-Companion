@@ -29,10 +29,11 @@ import {
   triggerCombatVisual, triggerAvatarHitEffect, getOperativeAvatarUrl,
   rollDicePool, evaluateAttackRolls, evaluateDefenseRolls,
   showToast, trapFocus, releaseFocusTrap,
-  initCombatCallbacks
+  initCombatCallbacks, queueVisualEvent
 } from './ui.js';
 
 import { skipCounteract } from './state.js';
+import './damageAnimation.js';
 
 import {
   openModal, closeModal, nextModalStep,
@@ -69,6 +70,8 @@ initUiCallbacks({
 initModelCallbacks({
   addLog,
   triggerOperativeDeathOverlay,
+  queueVisualEvent,
+  getOperativeAvatarUrl,
 });
 
 // UI module needs Combat functions
