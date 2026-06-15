@@ -1499,7 +1499,6 @@ export function parseManualDefense() {
 // ==========================================
 
 export function confirmShootResult(dmgPerAttack) {
-  playSound('click');
   const attacker = wizardState.attacker;
   const defender = wizardState.defender;
 
@@ -1527,6 +1526,7 @@ export function confirmShootResult(dmgPerAttack) {
       }
     }
   }
+    playSound('shoot');
 
   ui.addLog(`
 --- 射击结算阶段 ---`);
