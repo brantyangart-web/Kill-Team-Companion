@@ -86,6 +86,8 @@ const PM_TEMPLATES = [
     wounds: 15, apl: 3, df: 3, sv: 3, isLeader: true, move: 5,
     defaultAvatar: './assets/images/operatives/pm/pm_champion.jpg',
     weapons: [
+      new Weapon('Plasma Pistol (standard) (等离子手枪 - 标准)', 4, 3, 3, 5, true, 8, ['Piercing 1']),
+      new Weapon('Plasma Pistol (supercharge) (等离子手枪 - 超载)', 4, 3, 4, 5, true, 8, ['Hot', 'Lethal 5+', 'Piercing 1']),
       new Weapon('Plague Sword (瘟疫之剑)', 5, 3, 4, 5, false, null, ['Severe', 'Poison', 'Toxic'])
     ]
   },

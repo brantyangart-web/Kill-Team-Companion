@@ -9,7 +9,7 @@ PLAGUE MARINE CHAMPION
 |-----|------|------|--------|
 | 3   | 5"   | 3+   | 15     |
 
-<table><tr><td>NAME</td><td>ATK</td><td>HIT</td><td>DMG</td><td>WR</td></tr><tr><td>Plague sword</td><td>5</td><td>3+</td><td>4/5</td><td>Severe, Poison*, Toxic*</td></tr></table>
+<table><tr><td>NAME</td><td>ATK</td><td>HIT</td><td>DMG</td><td>WR</td></tr><tr><td>Plasma pistol (standard)</td><td>4</td><td>3+</td><td>3/5</td><td>Range 8&quot;, Piercing 1</td></tr><tr><td>Plasma pistol (supercharge)</td><td>4</td><td>3+</td><td>4/5</td><td>Range 8&quot;, Hot, Lethal 5+, Piercing 1</td></tr><tr><td>Plague sword</td><td>5</td><td>3+</td><td>4/5</td><td>Severe, Poison*, Toxic*</td></tr></table>
 
 Grandfather's Blessing: Whenever an enemy operative that has one of your Poison tokens loses one or more wounds within 7" of this operative, this operative regains up to an equal number of lost wounds (to a maximum of 3 lost wounds per turning point, and only if this operative isn't incapacitated). 
 

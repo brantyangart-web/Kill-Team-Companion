@@ -26,6 +26,10 @@ const RULE_I18N = {
   'Heavy (Dash only)': '重型(仅冲刺)',
   'Seek Light': '追光',
   'Silent': '静默',
+  'Piercing 1': '穿甲 1',
+  'Piercing 2': '穿甲 2',
+  'Hot': '过热',
+  'Lethal 5+': '致命 5+',
 };
 
 export function translateRule(rule) {
