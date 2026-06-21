@@ -1417,12 +1417,12 @@ export function renderOperatives() {
 
     card.innerHTML = `
       <div style="position:absolute;top:3px;right:6px;color:var(--imperial-gold);font-size:10px;opacity:0.4;pointer-events:none;z-index:1;">✦</div>
-      <div style="display:flex; flex-direction:column; gap:4px; margin-bottom:8px;">
+      <div style="display:flex; flex-direction:row; gap:4px; margin-bottom:8px;">
         <div class="op-avatar-row">
           ${avatarHtml}
           <span class="op-card-title">${op.name} ${tagHtml} ${concealBtnHtml}</span>
         </div>
-        <div style="display:flex; align-items:center; gap:4px; padding-left:${avatarHtml ? '36px' : '0'};">
+        <div style="display:flex; align-items:center; gap:4px;">
           ${statusTagsHtml}
           <span class="op-card-tag">${op.currentApl} APL${op.isInjured && gameState.rulesVersion === 'standard' ? ' <span style="color:var(--red); font-size:0.6rem;">(-1)</span>' : ''}</span>
         </div>

@@ -209,9 +209,11 @@
     box-shadow: inset 0 0 20px rgba(0,0,0,0.2), 0 0 10px var(--leg-glow);
   }
 
-  .score-values { display: flex; gap: 16px; }
+  .score-values { display: flex; 
+    flex-direction: column;
+    gap: 16px; }
 
-  .score-group { display: flex; flex-direction: column; }
+  .score-group { display: flex; flex-direction: row; align-items: center; gap: 16px; }
   .score-group .label { font-size: 0.75rem; color: var(--text-muted); text-transform: uppercase; }
   .score-group .val-control { display: flex; align-items: center; gap: 8px; margin-top: 2px; }
   .score-group .val { font-family: 'Pirata One', serif; font-size: 1.2rem; font-weight: bold; min-width: 24px; text-align: center; }
@@ -632,7 +634,7 @@
   .op-card.dead .op-card-title { text-decoration: line-through; color: #9a9da5; }
 
   .op-card-top { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; }
-  .op-card-title { font-size: 0.95rem; font-weight: 600; color: #fff; display: flex; align-items: center; gap: 6px; }
+  .op-card-title { font-size: 0.95rem; font-weight: 600; color: #fff; display: flex; align-items: center; gap: 6px; max-width: 300px; }
   .card-ploy-tag {
     font-size: 0.75rem; padding: 1px 5px; border-radius: 3px;
     background: rgba(201, 168, 76, 0.15); border: 1px solid var(--sm-accent); color: var(--sm-accent);
@@ -714,7 +716,8 @@
   .battle-log-card {
     display: flex;
     flex-direction: column;
-    flex-grow: 1;
+    flex-grow: 0;
+    max-width: 500px;
     height: 0;
     min-height: 150px;
     background: rgba(19, 21, 26, 0.4);
