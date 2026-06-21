@@ -2,8 +2,6 @@
 SPACE MARINE CAPTAIN
 
 
-<table><tr><td></td></tr></table>
-
 | APL | Move | Save | Wounds |
 |-----|------|------|--------|
 | 3   | 6"   | 3+   | 15     |
@@ -541,6 +539,92 @@ Changed to read:
 Relevant part of first sentence changed to read: 
 
 ‘[...] after your opponent rolls their attack dice, but before re-rolls, you can use this rule.’ 
+
+## PREVIOUS ERRATAS
+
+## FACTION RULES, CHAPTER TACTICS
+
+### Dueller
+
+Changed to read: 
+
+‘Whenever this operative is fighting or retaliating, each of your normal successes can block one unresolved critical success (unless the enemy operative’s weapon has the Brutal weapon rule).’ 
+
+### Resolute
+
+Changed to read: 
+
+‘You can ignore any changes to this operative’s APL stat and it isn’t affected by enemy operatives’ Shock weapon rule.’ 
+
+### Hardy
+
+Additional sentence added: 
+
+‘Whenever this operative is retaliating, the first time an attack dice inflicts Normal Dmg of 3 or more on this operative during that sequence, that dice inflicts 1 less damage on it.’ 
+
+### Sharpshooter
+
+Relevant parts changed to read: 
+
+‘[...] its bolt weapons have the Accurate 1 and Severe weapon rules.’ 
+
+### Siege Specialist
+
+Additional sentence added: 
+
+‘Whenever this operative is fighting or retaliating, enemy operatives cannot assist.’ 
+
+## INTERCESSOR SERGEANT OPERATIVE, DOCTRINE WARFARE RULE
+
+Changed to read: 
+
+‘You can do each of the following once per battle: 
+
+- When you would use the Combat Doctrine strategy ploy and then select Devastator, if this operative is in the killzone, it costs you OCP. 
+
+- When you would use the Combat Doctrine strategy ploy and then select Tactical, if this operative is in the killzone, it costs you OCP.’ 
+
+## ASSAULT INTERCESSOR SERGEANT OPERATIVE, DOCTRINE WARFARE RULE
+
+Changed to read: 
+
+‘You can do each of the following once per battle: 
+
+- When you would use the Combat Doctrine strategy ploy and then select Assault, if this operative is in the killzone, it costs you OCP. 
+
+- When you would use the Combat Doctrine strategy ploy and then select Tactical, if this operative is in the killzone, it costs you OCP.’ 
+
+## HEAVY INTERCESSOR GUNNER OPERATIVE
+
+Move stat changed to ‘5’. 
+
+## SPACE MARINE CAPTAIN OPERATIVE, HEROIC LEADER RULE
+
+Changed to read: 
+
+‘Once per turning point, you can do one of the following: 
+
+- Use a firefight ploy for OCP if this is the specified ANGEL OF DEATH operative (excluding Command Re-roll). 
+
+- Use the Combat Doctrine strategy ploy when you activate a friendly ANGEL OF DEATH operative if this operative is in the killzone and isn’t within control range of enemy operatives (pay its CP cost as normal). Note that you cannot do so if you’ve already used that ploy during this turning point. 
+
+- Use the Adjust Doctrine firefight ploy for OCP if this operative is in the killzone and isn’t within control range of enemy operatives.’ 
+
+## FACTION EQUIPMENT, TILTING SHIELDS
+
+Relevant part of first sentence changed to read: 
+
+‘[...] after your opponent rolls their attack dice, but before re-rolls, you can use this rule.’ 
+
+## TEAM SELECTION
+
+Following sentence and asterisks on ELIMINATOR SNIPER and HEAVY INTERCESSOR GUNNER deleted: 
+
+‘You cannot select more than one of these operatives combined.’ 
+
+## HEAVY INTERCESSOR GUNNER OPERATIVE, WEAPONS LIST
+
+‘Bolt pistol’ weapon added. 
 
 ## ANGELS OF DEATH OPERATIVES
 

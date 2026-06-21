@@ -5,7 +5,9 @@
       "Bash(MSYS_NO_PATHCONV=1 docker compose --env-file mirrors.env -f compose.base.yml -f compose.basic-general.yml -f compose.operator-server-api.yml down -v)",
       "Bash(ffmpeg -version)",
       "PowerShell(ffmpeg *)",
-      "PowerShell(where.exe ffmpeg 2>&1; where.exe sox 2>&1; where.exe lame 2>&1; \\(Get-Command choco -ErrorAction SilentlyContinue\\) | Select-Object -ExpandProperty Source; \\(Get-Command scoop -ErrorAction SilentlyContinue\\) | Select-Object -ExpandProperty Source)"
+      "PowerShell(where.exe ffmpeg 2>&1; where.exe sox 2>&1; where.exe lame 2>&1; \\(Get-Command choco -ErrorAction SilentlyContinue\\) | Select-Object -ExpandProperty Source; \\(Get-Command scoop -ErrorAction SilentlyContinue\\) | Select-Object -ExpandProperty Source)",
+      "Bash(python -c ' *)",
+      "Bash(pip install *)"
     ]
   }
 }

@@ -645,6 +645,74 @@ Changed to read:
 
 'Once per battle, when a friendly LEGIONARY WARRIOR operative is activated, you can use this rule. If you do, change that operative's Marks of Chaos keyword.' 
 
+## PREVIOUS ERRATAS
+
+## STRATEGY PLOYS, IMPLACABLE
+
+'NURGLE' keyword moved to other paragraph, paragraphs reordered and first paragraph changed to read: 
+
+'Whenever an operative is shooting a friendly LEGIONARY® operative, weapons with the Piercing 1 weapon rule have the Piercing Crits 1 weapon rule instead.' 
+
+## STRATEGY PLOYS, BLOOD FOR THE BLOOD GOD
+
+Relevant part of first paragraph changed to read: 
+
+'[...] inflict 1 additional damage (to a maximum of 7).' 
+
+Relevant part of second paragraph changed to read: 
+
+'LEGIONARY KHORNE operatives' melee weapons (to a maximum of 7).' 
+
+## STRATEGY PLOYS, QUICKSILVER SPEED
+
+First two paragraphs changed to read: 
+
+'Whenever a friendly LEGIONARY operative that performed an action in which it moved during this turning point is fighting or retaliating, worsen the Hit stat of the enemy operative's melee weapons by 1. 
+
+Whenever an operative is shooting a friendly LEGIONARY SLAANESH operative more than 6" from it that performed an action in which it moved during this turning point, worsen the Hit stat of the enemy operative's weapons by 1.' 
+
+## STRATEGY PLOYS, FICKLE FATES
+
+First paragraph changed to read: 
+
+'Whenever a friendly LEGIONARY operative is shooting a ready enemy operative, that friendly operative's ranged weapons have the Balanced weapon rule.; if the weapon already has that weapon rule (e.g. reaper chaincannon), it has the Relentless weapon rule.' 
+
+## FIREFIGHT PLOYS, MUTABILITY AND CHANGE
+
+Additional text added to end of paragraph: 
+
+'If it's a WARRIOR operative, that operative's Marks of Chaos keyword cannot be changed during this turning point (see Infernal Pact additional rule).' 
+
+## CHOSEN OPERATIVE, SOUL GORGE
+
+Changed to read: 
+
+'After this operative fights or retaliates, if it isn't incapacitated, but it incapacitated an enemy operative or inflicted Critical Dmg during that sequence, it regains up to D3+1 lost wounds.' 
+
+## ANOINTED OPERATIVE, UNLEASH DAEMON
+
+Additional text added to end of second bullet point: 
+
+'If this operative has the NURGLE keyword, you cannot reduce the damage of an attack dice by more than 1. In other words, you cannot use both rules to reduce Normal Dmg of 4 or more by 2.' 
+
+## BALEFIRE ACOLYTE OPERATIVE, SIPHON LIFE WEAPON RULE
+
+Changed to read: 
+
+'When you select this weapon, you can use this rule. If you do, at the start of the Resolve Attack Dice step, you can select one friendly LEGIONARY operative visible to and within 6" of this operative. For each attack dice you resolve during that step that inflicts damage, that friendly operative regains 1 lost wound, or D3 lost wounds if it was a critical success. You cannot use this weapon rule more than once per turning point.' 
+
+## ICON BEARER OPERATIVE, FAVOURED OF THE DARK GODS
+
+Changed to read: 
+
+'In the Ready step of each Strategy phase, if this operative controls an objective marker that isn't tainted, that objective marker is tainted for the battle and you gain 1CP. Note that if any operative (including enemy operatives) has tainted an objective marker, you cannot taint that objective marker.' 
+
+## WARRIOR OPERATIVE, INFERNAL PACT
+
+Changed to read: 
+
+'Once per battle, when a friendly LEGIONARY WARRIOR operative is activated, you can use this rule. If you do, change that operative's Marks of Chaos keyword.' 
+
 ## LEGIONARY OPERATIVES
 
 Legionary kill teams are bitter veterans who possess centuries of combat experience. Some are little more than ravening killers who desire only to reave, slaughter and despoil. Others are devoted worshippers of the Dark Gods, seeking to conduct fell rituals in the hope of pleasing their infernal patrons and attaining greater power. 

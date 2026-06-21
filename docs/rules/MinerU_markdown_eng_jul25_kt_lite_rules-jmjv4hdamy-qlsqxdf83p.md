@@ -1,3 +1,5 @@
+Kill Team is a tactical combat miniatures game set in the grim dark future of the 41st Millennium. Two rival teams of highly trained operatives battle and complete objectives to achieve victory. The rules presented here are simplified from those found in the Kill Team Core Book. They are intended for introductory, fast or easy play. A game is normally played with a mission from a mission pack, but you can play without one to learn the basic mechanics of the game. Some terms will be highlighted in orange, these are explained in more detail in their corresponding section of the Lite Rules. Rules for kill teams are available for free online at warhammer-community.com or on Warhammer 40,000 Kill Team: The App.
+
 ## SET UP
 
 Each player selects a kill team and gathers their Citadel miniatures (operatives) for those teams, alongside their free online rules, a killzone – 30" x 22" game board (unless otherwise specified) and terrain – a measuring device in inches, 10 six-sided dice (D6), tokens and markers. 
@@ -241,3 +243,5 @@ Silent: An operative can perform the Shoot action with this weapon while it has 
 Stun: If you retain any critical successes, subtract 1 from the APL stat of the operative this weapon is being used against until the end of its next activation. 
 
 Torrent x: Select a valid target as normal as the primary target, then select any number of other valid targets within x of the first valid target, but not within control range of friendly operatives, as secondary targets, e.g. Torrent 2". Shoot with this weapon against all of them in an order of your choice (roll each sequence separately). 
+
+© Copyright Games Workshop Limited 2024

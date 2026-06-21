@@ -439,6 +439,88 @@ First bullet point deleted:
 
 MARINE-operatives. 
 
+## PREVIOUS ERRATAS
+
+## CHAMPION OPERATIVE, GRANDFATHER’S BLESSING RULE
+
+Changed to read: 
+
+‘Whenever an enemy operative that has one of your Poison tokens loses one or more wounds within 7" of this operative, this operative regains up to an equal number of lost wounds (to a maximum of 3 lost wounds per turning point, and only if this operative isn’t incapacitated).’ 
+
+## MALIGNANT PLAGUECASTER OPERATIVE, PUTRESCENT VITALITY ACTION
+
+Condition changed to read: 
+
+‘This operative cannot perform this action while within control range of an enemy operative, or more than once per turning point.’ 
+
+## FIGHTER OPERATIVE, FLAIL ACTION
+
+Second sentence of effect changed to read: 
+
+‘Roll separately for each: if it’s an enemy operative, if the D3 result is a 3, that enemy operative also gains one of your Poison tokens (if it doesn’t already have one).’ 
+
+## ICON BEARER OPERATIVE, ICON OF CONTAGION
+
+Changed to read: 
+
+‘Whenever this operative is within your opponent’s territory, the Contagion strategy ploy costs you OCP.’ 
+
+## FACTION RULES, ASTARTES
+
+Third sentence of first paragraph changed to read: 
+
+‘You cannot select the same PSYCHIC ranged weapon more than once per activation.’ 
+
+## FACTION RULES, POISON
+
+Relevant part of first sentence of weapon rule changed to read: 
+
+‘[...] the operative this weapon is being used against (excluding friendly PLAGUE MARINE® operatives) gains one of your Poison tokens [...]’ 
+
+## FACTION EQUIPMENT, POISON VENTS
+
+Changed to read: 
+
+‘Whenever an enemy operative is activated within 3" of a friendly PLAGUE MARINE operative: 
+
+- If that enemy operative doesn’t have one of your Poison tokens, roll one D3: on a 3, it gains one. 
+
+- If that enemy operative has one of your Poison tokens, inflict D3 damage on it (instead of 1).’ 
+
+## FIREFIGHT PLOYS, POISONOUS DEMISE
+
+Additional text added to end of first sentence: 
+
+‘Use this firefight ploy when a friendly PLAGUE MARINE® operative is incapacitated, before it’s removed from the killzone.’ 
+
+## FIREFIGHT PLOYS, CURSE OF ROT
+
+Second sentence changed to read: 
+
+‘For each result of 3 they roll, inflict 1 damage on that enemy operative, that result cannot be retained as a success and they cannot re-roll it.’ 
+
+## FIREFIGHT PLOYS, VIRULENT POISON
+
+Changed to read: 
+
+‘Use this firefight ploy during a friendly PLAGUE MARINE operative’s activation or counteraction, before or after it performs an action. Select one of the following: 
+
+- One enemy operative within 3" of, or visible to and within 7" of, that operative gains one of your Poison tokens (if it doesn’t already have one). 
+
+- Roll 2D6: if the result is 7+, one enemy operative within 7" of that operative gains one of your Poison tokens (if it doesn’t already have one).’ 
+
+## STRATEGY PLOYS, CLOUD OF FLIES
+
+Relevant part of second sentence changed to read: 
+
+‘[...] if that friendly operative is wholly within 1" of that marker, that friendly operative is obscured.’ 
+
+## STRATEGY PLOYS, CONTAGION
+
+First bullet point deleted: 
+
+‘It’s within control range of friendly PLAGUE MARINE® operatives.’ 
+
 ## PLAGUE MARINE OPERATIVES
 
 Corrupted sons of Mortarion, Plague Marines are suffused and bloated with rot and disease. Though compact and slow moving, Plague Marines are horrifyingly resilient, trudging relentlessly towards their objectives while spreading contagion in their wake. 
