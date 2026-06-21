@@ -12,6 +12,8 @@
  */
 
 import { ACTION_COSTS } from './core.js';
+import { activeRuleSet } from './ruleSets.js';
+import { weaponHasRule } from './weapons.js';
 
 // 行: 已执行的行动; 列: 尝试执行的行动
 // 注: Move 在 lite 规则中叫 Reposition，这里两者等价
@@ -19,7 +21,7 @@ const MATRIX = {
   //             Move  Dash  Adv  FB  Charge Shoot Fight
   'Move':      { Move:false, Dash:false, Advance:false, FallBack:false, Charge:false, Shoot:true,  Fight:true  },
   'Reposition':{ Move:false, Dash:false, Advance:false, FallBack:false, Charge:false, Shoot:true,  Fight:true  },
-  'Dash':      { Move:false, Dash:false, Advance:false, FallBack:false, Charge:false, Shoot:'heavy',Fight:false },
+  'Dash':      { Move:false, Dash:false, Advance:false, FallBack:false, Charge:false, Shoot:true,  Fight:true  },
   'Advance':   { Move:false, Dash:false, Advance:false, FallBack:false, Charge:false, Shoot:false, Fight:false },
   'FallBack':  { Move:false, Dash:false, Advance:false, FallBack:false, Charge:false, Shoot:false, Fight:false },
   'Charge':    { Move:false, Dash:false, Advance:false, FallBack:false, Charge:false, Shoot:false, Fight:true  },
@@ -44,25 +46,23 @@ export function queryCompatibility(performed, target) {
  *
  * @param {Object} op - Operative 实例
  * @param {string} action - 行动名称 ('Move' | 'Dash' | 'Shoot' | ...)
- * @param {Object} [opts] - 额外上下文
- * @param {boolean} [opts.isLiteMode=true] - lite 模式隐藏 Advance
+ * @param {Object} [opts] - 额外上下文（保留以向后兼容）
  * @returns {{allowed: boolean, reason?: string}}
  */
 export function canPerformAction(op, action, opts = {}) {
-  const isLiteMode = opts.isLiteMode !== false;
-
   // 0. 通用检查
   if (!op || op.isDead) {
     return { allowed: false, reason: 'OPERATIVE_DEAD' };
   }
 
-  // 0.5 反击限制: 反击时只能执行 Reposition/Move (移动 ≤2")，不能射击/近战/冲锋等
-  if (op.counteracting && !['Move', 'Reposition'].includes(action)) {
-    return { allowed: false, reason: 'COUNTERACT_ONLY_REPOSITION' };
+  // 0.5 反击(Counteract)限制: 可免费执行一个 1AP 行动 (移动≤2" / 射击 / 近战)。
+  //    冲锋/冲刺 (移动会超过 2") 与后撤 (2AP) 违反 "移动≤2" 或 1AP 限制，禁止。
+  if (op.counteracting && ['Charge', 'Dash', 'FallBack', 'Advance'].includes(action)) {
+    return { allowed: false, reason: 'COUNTERACT_ACTION_NOT_ALLOWED' };
   }
 
-  // 1. lite 模式隐藏 Advance
-  if (action === 'Advance' && isLiteMode) {
+  // 1. 规则集未启用 Advance 行动时禁止
+  if (action === 'Advance' && !activeRuleSet().hasAdvanceAction) {
     return { allowed: false, reason: 'LITE_MODE_NO_ADVANCE' };
   }
 
@@ -94,7 +94,7 @@ export function canPerformAction(op, action, opts = {}) {
     case 'Shoot':
       if (op.hasConceal) {
         // 检查是否有 Silent 武器
-        const hasSilent = op.weapons.some(w => w.hasRule && w.hasRule('Silent'));
+        const hasSilent = op.weapons.some(w => weaponHasRule(w, 'Silent'));
         if (!hasSilent) return { allowed: false, reason: 'CONCEAL_NO_SHOOT' };
       }
       break;
@@ -102,18 +102,16 @@ export function canPerformAction(op, action, opts = {}) {
       break;
   }
 
-  // 5. Heavy (Dash only) 武器的 Shoot 特殊规则
+  // 5. Heavy 武器的 Shoot 特殊规则 (per-weapon 细节由 weapon picker 处理)
+  //    Heavy(仅限冲刺): 执行过非 Dash 移动后该武器不可用。
+  //    若所有远程武器都是 Heavy 且执行过非 Dash 移动，则无任何远程武器可用 → 禁止 Shoot。
   if (action === 'Shoot') {
-    const hasHeavy = op.weapons.some(w => w.hasRule && w.hasRule('Heavy'));
-    const hasDashed = op.actionsPerformed.includes('Dash');
-    const allWeaponsHeavy = op.weapons.filter(w => w.isRanged).every(w => w.hasRule && w.hasRule('Heavy'));
-
-    // Heavy 规则: 该激活中移动过就不能用 Heavy 武器
-    // Heavy (Dash only) 例外: 只禁止非 Dash 的移动
+    const rangedWeapons = op.weapons.filter(w => w.isRanged);
+    const allRangedHeavy = rangedWeapons.length > 0
+      && rangedWeapons.every(w => weaponHasRule(w, 'Heavy'));
     const nonDashMove = ['Move', 'Reposition', 'Advance', 'Charge', 'FallBack']
       .some(m => op.actionsPerformed.includes(m));
-
-    if (hasHeavy && !hasDashed && nonDashMove && allWeaponsHeavy) {
+    if (allRangedHeavy && nonDashMove) {
       return { allowed: false, reason: 'HEAVY_WEAPON_NEEDS_DASH' };
     }
   }

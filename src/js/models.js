@@ -2,6 +2,7 @@ import { playSound } from './audio.js';
 import { gameState, wizardState } from './state.js';
 import { hasFactionTrait, getActivePloys, getFactionDisplayName, getFactionThemeVar } from '../rules/faction.js';
 import { isFirefightPloyActive } from '../rules/ploys.js';
+import { activeRuleSet } from '../rules/ruleSets.js';
 
 // UI callbacks - set during app initialization to avoid circular deps
 const ui = {};
@@ -137,17 +138,17 @@ export class Operative {
     return this.wounds > 0 && this.wounds < this.maxWounds / 2;
   }
 
-  /** 当前有效 APL（Injured 时 standard -1，lite 规则无 APL 惩罚 - L167） */
+  /** 当前有效 APL（Injured 时按规则集减值：standard -1，lite 无 APL 惩罚） */
   get currentApl() {
-    const injuredAplPenalty = gameState.rulesVersion === 'standard' ? 1 : 0;
+    const injuredAplPenalty = activeRuleSet().injuredAplPenalty;
     return this.maxApl - (this.isInjured ? injuredAplPenalty : 0);
   }
 
   /** 当前有效 Move（Injured 时 -2"，Slaanesh Mark +1"） */
   get currentMove() {
     let move = this.maxMove - (this.isInjured ? 2 : 0);
-    // Standard 规则: Slaanesh Mark of Chaos +1" Move
-    if (gameState.rulesVersion === 'standard' && this.marksOfChaos === 'SLAANESH') {
+    // Slaanesh Mark of Chaos +1" Move（阵营机制，由 factionMechanicsEnabled 开关）
+    if (activeRuleSet().factionMechanicsEnabled && this.marksOfChaos === 'SLAANESH') {
       move += 1;
     }
     return Math.max(0, move);
@@ -156,8 +157,8 @@ export class Operative {
   /** 控制标记判定时的有效 APL (Icon Bearer +1) */
   getEffectiveAplForMarkerControl() {
     let apl = this.currentApl;
-    // Standard 规则: Icon Bearer (PM/LEG) 控制标记时 APL +1
-    if (gameState.rulesVersion === 'standard') {
+    // Icon Bearer (PM/LEG) 控制标记时 APL +1（阵营机制，由 factionMechanicsEnabled 开关）
+    if (activeRuleSet().factionMechanicsEnabled) {
       if (this.operativeType === 'pm_icon_bearer' || this.operativeType === 'leg_icon_bearer') {
         apl += 1;
       }
@@ -242,9 +243,9 @@ export class Operative {
       hitSound = 'splash_damage';
     }
 
-    // === Standard 规则: Iron Halo (SM Captain) ===
-    // 每战一次，忽略 1 个 Normal Dmg
-    if (gameState.rulesVersion === 'standard' &&
+    // === Iron Halo (SM Captain) ===
+    // 每战一次，忽略 1 个 Normal Dmg（阵营机制，由 factionMechanicsEnabled 开关）
+    if (activeRuleSet().factionMechanicsEnabled &&
         this.operativeType === 'sm_captain' &&
         !this.ironHaloUsed &&
         !Array.isArray(amountOrAttacks)) { // 只对单次伤害触发
@@ -258,7 +259,8 @@ export class Operative {
       }
     }
 
-    const hasDr = hasFactionTrait(this.faction, 'disgustingResilience');
+    const hasDr = activeRuleSet().factionMechanicsEnabled
+      && hasFactionTrait(this.faction, 'disgustingResilience');
     let totalIncoming = 0;
     let attackBreakdown = [];
 

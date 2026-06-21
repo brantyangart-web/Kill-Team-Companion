@@ -7,8 +7,7 @@ import {
   getTeamSlot
 } from '../rules/faction.js';
 import {
-  hasChapterTactic, hasMarkOfChaos, getMarksOfChaos,
-  calculateAttackModifications, calculateDefenseModifications
+  hasChapterTactic, hasMarkOfChaos
 } from '../rules/abilities.js';
 import {
   isPloyActive, isFirefightPloyActive, getCombatDoctrineChoice, isIgnoreInjuredPenalties,
@@ -18,7 +17,72 @@ import {
 } from '../rules/ploys.js';
 import { getAssetPath } from './paths.js';
 import { showDamageAnimation } from './damageAnimation.js';
+import { activeRuleSet } from '../rules/ruleSets.js';
+import { applyWeaponRules, parseWeaponRule, weaponHasRule, getWeaponRuleParam } from '../rules/weapons.js';
 
+
+/**
+ * 近战武器暴击阈值：支持 Lethal x+ 规则 (如 Lethal 5+)，默认 6。
+ * 与射击侧一致，阈值由声明式注册表解析。
+ * @param {Object} weapon - 武器对象 (需有 rules 数组)
+ * @returns {number} 暴击阈值 (5 或 6)
+ */
+function meleeCritThreshold(weapon) {
+  return weaponMods(weapon).critThreshold ?? 6;
+}
+
+/**
+ * 取武器在指定上下文下的所有规则修饰符（声明式注册表的统一入口）。
+ * combat.js 各结算阶段按需读取返回的 mods 字段应用。
+ * @param {Object} weapon - 武器实例
+ * @param {Object} [ctx] - 规则上下文 (retainedCrits / defenderPoisoned / ...)
+ * @returns {Object} 聚合后的 modifiers
+ */
+function weaponMods(weapon, ctx = {}) {
+  return applyWeaponRules(weapon, ctx);
+}
+
+/**
+ * 阵营派生规则注入：把阵营被动（混沌印记/章战术）授予的武器规则列出来。
+ * 由 factionMechanicsEnabled 门控。注入后随基础规则一起走注册表，统一判定。
+ *
+ * 映射 (文档/阵营规则):
+ *   Khorne  + 近战      → Severe
+ *   Tzeentch + 远程     → Severe
+ *   Aggressive + 近战   → Rending
+ *   Siege Specialist + 远程 → Saturate
+ *   Sharpshooter + 爆弹 + 未移动 → Accurate 1 + Severe
+ * @param {Object} attacker - 攻击方 Operative
+ * @param {Object} weapon - 武器实例
+ * @returns {string[]} 注入的规则字符串
+ */
+function injectedFactionRules(attacker, weapon) {
+  if (!activeRuleSet().factionMechanicsEnabled) return [];
+  const isMelee = !weapon.isRanged;
+  const rules = [];
+  if (hasMarkOfChaos(attacker, 'KHORNE') && isMelee) rules.push('Severe');
+  if (hasMarkOfChaos(attacker, 'TZEENTCH') && !isMelee) rules.push('Severe');
+  if (hasChapterTactic(attacker, 'aggressive') && isMelee) rules.push('Rending');
+  if (hasChapterTactic(attacker, 'siege_specialist') && !isMelee) rules.push('Saturate');
+  const isBoltWeapon = /bolt/i.test(weapon.name);
+  const notMoved = attacker && attacker.actionsPerformed.length === 0;
+  if (hasChapterTactic(attacker, 'sharpshooter') && isBoltWeapon && notMoved) {
+    rules.push('Accurate 1', 'Severe');
+  }
+  return rules;
+}
+
+/**
+ * 构建含阵营派生规则的"有效武器"对象（rules = 基础规则 + 注入规则）。
+ * 供 weaponMods 统一判定，使阵营派生的 Severe/Rending/Saturate/Accurate 与基础规则同源。
+ * @param {Object} weapon
+ * @param {Object} attacker
+ * @returns {Object} 新武器对象（共享 weapon 其它字段，rules 合并）
+ */
+function effectiveWeapon(weapon, attacker) {
+  const extra = injectedFactionRules(attacker, weapon);
+  return extra.length ? { ...weapon, rules: [...(weapon.rules || []), ...extra] } : weapon;
+}
 
 // UI callbacks
 const ui = {};
@@ -67,7 +131,7 @@ function scheduleTimeout(fn, delay) {
  * @param {number} [damageDealt] - 造成的伤害量 (用于 Grandfather's Blessing)
  */
 function triggerKillAbilities(killer, victim, killType, damageDealt = 0) {
-  if (gameState.rulesVersion !== 'standard') return;
+  if (!activeRuleSet().hasKillCallbacks) return;
 
   ui.addLog(`\n>>> 击杀回调检测...`);
 
@@ -229,7 +293,7 @@ export function openShootWizard() {
   const op = gameState.activeAgent;
   if (!op) return;
   // L15/L111: 隐蔽单位不能射击，除非携带 Silent 武器 (L239)
-  const hasSilentWeapon = op.weapons.some(w => w.hasRule && w.hasRule('Silent'));
+  const hasSilentWeapon = op.weapons.some(w => weaponMods(w).canShootWhileConcealed);
   if (op.hasConceal && !hasSilentWeapon) {
     playSound('alert');
     if (showToast) showToast('隐蔽单位不能射击 (需先切为交战，或携带 Silent 武器)！', 'error');
@@ -268,37 +332,28 @@ export function openShootWizard() {
     return;
   }
 
-  // Torrent 规则检测：多目标射击（简化实现：仅对主目标生效，日志提示）
-  const hasTorrent = wizardState.weapon.hasRule && wizardState.weapon.hasRule('Torrent');
-  if (hasTorrent) {
+  // 多目标/重投类武器规则检测（声明式注册表；当前为日志提示，完整交互待后续）
+  const preMods = weaponMods(wizardState.weapon);
+  if (preMods.aoeRadius) {
     ui.addLog(`[激流] ${wizardState.weapon.name}：Torrent 规则生效！当前简化为仅对主目标射击。完整多目标选择待后续版本实现。`);
   }
-
-  // 其他武器关键字检测（日志提示）
-  const hasBlast = wizardState.weapon.hasRule && wizardState.weapon.hasRule('Blast');
-  if (hasBlast) {
+  if (preMods.aoePrimarySecondary) {
     ui.addLog(`[爆炸] ${wizardState.weapon.name}：Blast 规则生效！当前简化为仅对主目标。完整 AoE 待后续版本实现。`);
   }
-
-  const hasBalanced = wizardState.weapon.hasRule && wizardState.weapon.hasRule('Balanced');
-  if (hasBalanced) {
+  if (preMods.rerollOneAttackDie) {
     ui.addLog(`[平衡] ${wizardState.weapon.name}：Balanced 规则生效！可重投 1 个攻击骰（需手动操作）。`);
   }
-
-  const hasCeaseless = wizardState.weapon.hasRule && wizardState.weapon.hasRule('Ceaseless');
-  if (hasCeaseless) {
+  if (preMods.rerollSpecificValue) {
     ui.addLog(`[不息] ${wizardState.weapon.name}：Ceaseless 规则生效！可重投投出特定值的骰子（需手动操作）。`);
   }
-
-  const hasRelentless = wizardState.weapon.hasRule && wizardState.weapon.hasRule('Relentless');
-  if (hasRelentless) {
+  if (preMods.rerollAnyAttackDice) {
     ui.addLog(`[无情] ${wizardState.weapon.name}：Relentless 规则生效！可重投任意攻击骰（需手动操作）。`);
   }
 
-  // Limited x 规则: 追踪使用次数
-  const limitedMatch = wizardState.weapon.rules.find(r => r.startsWith('Limited'));
-  if (limitedMatch) {
-    const limitVal = parseInt(limitedMatch.match(/\d+/)?.[0] || '1');
+  // Limited x 规则: 追踪使用次数（参数由注册表解析）
+  const limitedParam = getWeaponRuleParam(wizardState.weapon, 'Limited');
+  if (limitedParam) {
+    const limitVal = parseInt(limitedParam);
     const opId = wizardState.attacker.id;
     const wName = wizardState.weapon.name;
     if (!gameState.limitedWeaponUsage[opId]) gameState.limitedWeaponUsage[opId] = {};
@@ -313,14 +368,16 @@ export function openShootWizard() {
     }
   }
 
-  const hasSeek = wizardState.weapon.hasRule && wizardState.weapon.hasRule('Seek');
+  // Seek (纯，非 Seek Light): 隐蔽单位不能利用地形掩体（注册表区分 Seek / Seek Light）
+  const seekMods = weaponMods(wizardState.weapon);
+  const hasSeek = seekMods.concealNoCover && !seekMods.onlyLightTerrain;
   if (hasSeek) {
     ui.addLog(`[寻的] ${wizardState.weapon.name}：Seek 规则生效！隐蔽单位不能利用地形掩体。`);
   }
 
-  const hasRange = wizardState.weapon.rules.some(r => r.startsWith('Range'));
-  if (hasRange) {
-    ui.addLog(`[射程] ${wizardState.weapon.name}：Range 规则生效！有最大射程限制（当前未检查）。`);
+  const rangeParam = getWeaponRuleParam(wizardState.weapon, 'Range');
+  if (rangeParam) {
+    ui.addLog(`[射程] ${wizardState.weapon.name}：Range ${rangeParam}" 规则生效！有最大射程限制（当前未检查）。`);
   }
 
   openModal();
@@ -374,16 +431,19 @@ export function renderShootStep() {
   else if (wizardState.step === 2) {
     title.textContent = '射击结算 - 步骤 2: 选择武器';
     const rangedWeapons = wizardState.attacker.weapons.filter(w => w.isRanged);
+    const hasHeavyRanged = rangedWeapons.some(w => weaponHasRule(w, 'Heavy'));
+    // Heavy(仅限冲刺): 该激活只允许 Dash 移动；执行过非 Dash 移动则 Heavy 武器不可用
+    const attackerNonDashMove = ['Move', 'Reposition', 'Charge', 'FallBack', 'Advance']
+      .some(m => wizardState.attacker.actionsPerformed.includes(m));
     const isInjuredAttacker = wizardState.attacker.isInjured;
-    const hasDashed = wizardState.attacker.actionsPerformed.includes('Dash');
     let listHtml = '<div class="weapon-picker-list">';
     rangedWeapons.forEach((w, idx) => {
       const hitStat = isInjuredAttacker ? `${w.ts}+ <span style="color:var(--red); font-size:0.7rem;">→ ${w.ts + 1}+</span>` : `${w.ts}+`;
       const rangeStr = w.range ? ` | Range: ${w.range}"` : '';
       const rulesStr = w.rules && w.rules.length > 0 ? ` | ${w.rules.map(translateRule).join(', ')}` : '';
-      const isHeavy = w.hasRule('Heavy');
-      const heavyBlocked = isHeavy && !hasDashed;
-      const heavyNote = heavyBlocked ? ' <span style="color:var(--red); font-size:0.65rem;">[需先冲刺]</span>' : '';
+      const isHeavy = weaponHasRule(w, 'Heavy');
+      const heavyBlocked = isHeavy && attackerNonDashMove;
+      const heavyNote = heavyBlocked ? ' <span style="color:var(--red); font-size:0.65rem;">[已移动·不可用]</span>' : '';
       const disabledStyle = heavyBlocked ? 'opacity:0.4; cursor:not-allowed; pointer-events:none;' : '';
       listHtml += `
         <div class="weapon-pick-item ${wizardState.weapon.name === w.name ? 'selected' : ''}" role="button" tabindex="0" style="${disabledStyle}" onclick="${heavyBlocked ? '' : `selectShootWeapon(${idx})`}" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();${heavyBlocked ? '' : `selectShootWeapon(${idx})`}}">
@@ -394,7 +454,7 @@ export function renderShootStep() {
     });
     listHtml += '</div>';
 
-    const dashHint = hasDashed ? '' : '<p style="color:var(--text-muted); font-size:0.75rem; margin-bottom:8px;">💡 标注<span style="color:var(--red);">[需先冲刺]</span>的武器为重武器，仅在执行冲刺 (Dash) 后可使用。</p>';
+    const dashHint = hasHeavyRanged ? '<p style="color:var(--text-muted); font-size:0.75rem; margin-bottom:8px;">💡 重武器 (Heavy 仅限冲刺)：执行过转移/冲锋/后撤后不可用；未移动或仅冲刺时可用。</p>' : '';
     body.innerHTML = `
       <p style="margin-bottom:10px;">选择你要射击使用的武器：</p>
       ${dashHint}
@@ -407,17 +467,21 @@ export function renderShootStep() {
   else if (wizardState.step === 3) {
     title.textContent = '射击结算 - 步骤 3: 距离与掩体判定';
     const w = wizardState.weapon;
-    const hasIndirect = w.hasRule('Indirect Fire');
+    const wMods = weaponMods(w);
+    const hasIndirect = !!wMods.ignoreRangeAndVisibility;
     // Silent 规则: Conceal 状态下也能射击 (不在射程/视线处理，由 Shoot 按钮判定)
-    const hasSeekLight = w.hasRule('Seek Light');
+    const hasSeekLight = !!(wMods.concealNoCover && wMods.onlyLightTerrain);
+    // Seek / Seek Light 都令目标无法利用地形掩体 (工具不区分轻/重地形，两者行为一致)
+    const seekIgnoresCover = !!wMods.concealNoCover;
+    const seekLabel = hasSeekLight ? '寻光' : '寻的';
 
     // Indirect Fire: 自动视为在射程和视线内
     const rangeNote = hasIndirect
       ? '<p style="color:#818cf8; font-size:0.75rem;">💡 <b>间接射击</b>：无需视线，射程判定跳过。</p>'
       : '';
 
-    const coverNote = hasSeekLight
-      ? '<p style="color:#f59e0b; font-size:0.75rem;">💡 <b>寻光</b>：目标即使在掩体中也无法获得掩体加成。</p>'
+    const coverNote = seekIgnoresCover
+      ? `<p style="color:#f59e0b; font-size:0.75rem;">💡 <b>${seekLabel}</b>：目标即使在掩体中也无法获得掩体加成。</p>`
       : '';
 
     // 隐蔽状态自动判断 (规则 L185)：仅隐蔽目标才需检查掩体
@@ -450,10 +514,10 @@ export function renderShootStep() {
       ${concealCoverCard}
 
       <div class="qa-card" style="margin-top:10px;">
-        <div class="qa-question">3. 目标是否在掩体中 (Cover)？${hasSeekLight ? ' <span style="color:#f59e0b;">(寻光忽略掩体)</span>' : ''}</div>
+        <div class="qa-question">3. 目标是否在掩体中 (Cover)？${seekIgnoresCover ? ` <span style="color:#f59e0b;">(${seekLabel}忽略掩体)</span>` : ''}</div>
         <div class="qa-options">
-          <button class="qa-btn ${wizardState.inCover ? 'selected' : ''}" onclick="setQA('inCover', true)" ${hasSeekLight ? 'style="pointer-events:none; opacity:0.6;"' : ''}>是 (触发掩体成功保留)</button>
-          <button class="qa-btn ${!wizardState.inCover ? 'selected' : ''}" onclick="setQA('inCover', false)" ${hasSeekLight ? 'style="pointer-events:none; opacity:0.6;"' : ''}>否 (开阔地带)</button>
+          <button class="qa-btn ${wizardState.inCover ? 'selected' : ''}" onclick="setQA('inCover', true)" ${seekIgnoresCover ? 'style="pointer-events:none; opacity:0.6;"' : ''}>是 (触发掩体成功保留)</button>
+          <button class="qa-btn ${!wizardState.inCover ? 'selected' : ''}" onclick="setQA('inCover', false)" ${seekIgnoresCover ? 'style="pointer-events:none; opacity:0.6;"' : ''}>否 (开阔地带)</button>
         </div>
       </div>
 
@@ -466,9 +530,9 @@ export function renderShootStep() {
       </div>
     `;
 
-    // 自动设置: Indirect Fire → inRangeAndVisible=true; Seek Light → inCover=false
+    // 自动设置: Indirect Fire → inRangeAndVisible=true; Seek/Seek Light → inCover=false
     if (hasIndirect) wizardState.inRangeAndVisible = true;
-    if (hasSeekLight) wizardState.inCover = false;
+    if (seekIgnoresCover) wizardState.inCover = false;
 
     nextBtn.textContent = '选择掷骰模式';
     nextBtn.disabled = false;
@@ -530,10 +594,10 @@ export function renderShootStep() {
 
     let coverDesc = '';
     let dfCount = wizardState.defender.df;
-    // Saturate 规则：防御方不能保留掩体骰
+    // Saturate 规则：防御方不能保留掩体骰（基础 + 阵营派生经 effectiveWeapon 注入）
     // "The defender cannot retain cover saves."
     // 掩体加成（+1 DF 骰、1 自动普通成功）被移除。
-    const hasSaturateForDf = wizardState.weapon.hasRule && wizardState.weapon.hasRule('Saturate');
+    const hasSaturateForDf = weaponMods(effectiveWeapon(wizardState.weapon, wizardState.attacker)).coverSavesDisabled;
     if (wizardState.inCover && !hasSaturateForDf) {
       coverDesc = `<p style="color:var(--pm-accent); margin-bottom: 4px;">🛡️ 目标在掩体中：自动获得 1 个普通成功，且防御投骰池减 1 (DF = ${dfCount} -> ${dfCount - 1})</p>`;
       dfCount = Math.max(0, dfCount - 1);
@@ -541,20 +605,20 @@ export function renderShootStep() {
       coverDesc = `<p style="color:var(--red); margin-bottom: 4px;">🔥 [饱和] 目标在掩体中，但 Saturate 生效：不能保留掩体骰！</p>`;
     }
 
-    // Piercing 规则：防御骰池减少 N 点
+    // Piercing 规则：防御骰池减少 N 点（参数由注册表解析）
     // "Piercing N: defence dice pool reduced by N"
-    const piercingMatch = wizardState.weapon.rules.find(r => r.startsWith('Piercing') && !r.startsWith('Piercing Crits'));
-    if (piercingMatch) {
-      const piercingVal = parseInt(piercingMatch.match(/\d+/)?.[0] || '1');
+    const piercingParam = getWeaponRuleParam(wizardState.weapon, 'Piercing');
+    if (piercingParam) {
+      const piercingVal = parseInt(piercingParam);
       const prevDf = dfCount;
       dfCount = Math.max(0, dfCount - piercingVal);
       coverDesc += `<p style="color:#f97316; margin-bottom: 4px;">🔥 <b>穿透 (Piercing ${piercingVal})</b>：DF 池减少 ${piercingVal} (DF = ${prevDf} -> ${dfCount})</p>`;
     }
 
     // Piercing Crits 规则：同 Piercing 减骰池，但仅当攻击方有暴击成功时生效 (L221)
-    const piercingCritsMatch = wizardState.weapon.rules.find(r => r.startsWith('Piercing Crits'));
-    if (piercingCritsMatch && wizardState.attackCrit > 0) {
-      const pcVal = parseInt(piercingCritsMatch.match(/\d+/)?.[0] || '1');
+    const piercingCritsParam = getWeaponRuleParam(wizardState.weapon, 'Piercing Crits');
+    if (piercingCritsParam && wizardState.attackCrit > 0) {
+      const pcVal = parseInt(piercingCritsParam);
       const prevDf = dfCount;
       dfCount = Math.max(0, dfCount - pcVal);
       coverDesc += `<p style="color:#f97316; margin-bottom: 4px;">🔥 <b>穿透暴击 (Piercing Crits ${pcVal})</b>：暴击命中，DF 池减少 ${pcVal} (DF = ${prevDf} -> ${dfCount})</p>`;
@@ -610,7 +674,8 @@ export function renderShootStep() {
     // "If you don't retain any critical successes, you can change one of your
     //  normal successes to a critical success."
     // 如果无暴击保留，升级 1 个普通命中为暴击。
-    const hasSevere = wizardState.weapon.hasRule && wizardState.weapon.hasRule('Severe');
+    const step6Mods = weaponMods(effectiveWeapon(wizardState.weapon, wizardState.attacker), { retainedCrits: wizardState.attackCrit });
+    const hasSevere = !!(step6Mods.upgradeNormalToCrit && step6Mods.source === 'Severe');
     if (hasSevere && wizardState.attackCrit === 0 && wizardState.attackNorm >= 1) {
       wizardState.attackNorm -= 1;
       wizardState.attackCrit += 1;
@@ -621,7 +686,7 @@ export function renderShootStep() {
     // "If you retain any critical successes, subtract 1 from the APL stat of
     //  the operative this weapon is being used against until the end of its next activation."
     // 如果保留了暴击，目标 APL -1，直到其下一次激活结束。
-    const hasStun = wizardState.weapon.hasRule && wizardState.weapon.hasRule('Stun');
+    const hasStun = !!weaponMods(wizardState.weapon).targetAplReduction;
     if (hasStun && wizardState.attackCrit > 0 && !wizardState.stunApplied) {
       wizardState.defender.apl = Math.max(0, wizardState.defender.apl - 1);
       wizardState.defender.stunnedUntilEndOfNextActivation = true;
@@ -638,7 +703,7 @@ export function renderShootStep() {
     // ---- Saturate 规则 ----
     // "The defender cannot retain cover saves."
     // 防御方不能保留掩体骰（掩体提供的自动普通成功被移除）。
-    const hasSaturate = wizardState.weapon.hasRule && wizardState.weapon.hasRule('Saturate');
+    const hasSaturate = weaponMods(effectiveWeapon(wizardState.weapon, wizardState.attacker)).coverSavesDisabled;
     if (hasSaturate && wizardState.inCover && remainingNormSaves > 0) {
       const coverSavesRemoved = Math.min(1, remainingNormSaves);
       remainingNormSaves -= coverSavesRemoved;
@@ -668,33 +733,26 @@ export function renderShootStep() {
     remainingCritSaves -= normWithCrit;
 
     // Toxic 规则：defender 有 poison token 且武器有 Toxic，则 Normal/Crit Dmg 各 +1
+    // (阵营机制，由 factionMechanicsEnabled 开关；dmgBonusIfPoisoned 由注册表按 defenderPoisoned 判定)
     let normDmg = wizardState.weapon.normalDamage;
     let critDmg = wizardState.weapon.criticalDamage;
-    const hasToxic = wizardState.weapon.hasRule && wizardState.weapon.hasRule('Toxic');
-    if (hasToxic && wizardState.defender.poisonTokens > 0) {
+    const hasToxic = activeRuleSet().factionMechanicsEnabled
+      && !!weaponMods(wizardState.weapon, { defenderPoisoned: wizardState.defender.poisonTokens > 0 }).dmgBonusIfPoisoned;
+    if (hasToxic) {
       normDmg += 1;
       critDmg += 1;
       ui.addLog(`[剧毒] 目标携带毒素标记，${wizardState.weapon.name} 伤害 +1 (${normDmg}/${critDmg})`);
     }
 
-    // Severe 规则 (基础或来自章战术/混沌印记)：如果保留了暴击，普通伤害升级为暴击伤害
-    const hasSevereBase = wizardState.weapon.hasRule && wizardState.weapon.hasRule('Severe');
-    const hasSevereFromAbility = wizardState.severeFromAbility;
-    if ((hasSevereBase || hasSevereFromAbility) && remainingCrits > 0) {
-      const source = hasSevereFromAbility ? '章战术/印记' : '';
-      normDmg = critDmg;
-      ui.addLog(`[重伤] ${wizardState.weapon.name}：保留暴击，普通伤害升级为暴击伤害 (${normDmg})${source ? ` (${source})` : ''}！`);
-    }
+    // 注：Severe 武器规则的正确实现见上方保留阶段 (step 6, attackCrit===0 时升级 1 普通→暴击)。
+    // 此处曾有一段错误的"保留暴击→普通伤害升级为暴击伤害"逻辑，与文档不符，已移除。
 
-    // Devastating 规则：暴击立即额外造成 N 点伤害
+    // Devastating 规则：暴击立即额外造成 N 点伤害（参数由注册表解析）
     // "immediateCritDmg" — 每个暴击命中额外 +N 伤害
-    const devastatingMatch = wizardState.weapon.rules.find(r => r.startsWith('Devastating'));
-    if (devastatingMatch && remainingCrits > 0) {
-      const devastatingVal = parseInt(devastatingMatch.match(/\d+/)?.[0] || '0');
-      if (devastatingVal > 0) {
-        critDmg += devastatingVal;
-        ui.addLog(`[毁灭] ${wizardState.weapon.name}：暴击额外 +${devastatingVal} 伤害 (${critDmg})！`);
-      }
+    const devastatingVal = weaponMods(wizardState.weapon).immediateCritDmg || 0;
+    if (devastatingVal > 0 && remainingCrits > 0) {
+      critDmg += devastatingVal;
+      ui.addLog(`[毁灭] ${wizardState.weapon.name}：暴击额外 +${devastatingVal} 伤害 (${critDmg})！`);
     }
 
     // 构建每次攻击的伤害数组（用于 DR per-attack 结算）
@@ -824,6 +882,10 @@ export function rollAttackDice() {
   // 防御性检查：如果已经投过骰子，不允许重复投掷
   if (wizardState.attackRolls.length > 0) return;
 
+  // 重置武器规则重投状态（新一轮投骰；weaponRerollRule 由 recalculateAttackStats 在投完后设置）
+  wizardState.weaponRerollUsed = false;
+  wizardState.relenlessSelection = [];
+
   rollBtn.style.display = 'none';
   nextBtn.disabled = true;
 
@@ -936,22 +998,42 @@ export function renderAttackDiceView() {
   const attDiceClass = getDiceClass(faction);
   const renderEffTs = wizardState.weapon.ts + (wizardState.attacker.isInjured ? 1 : 0);
 
+  // 武器规则免费重投：基础 Balanced(单骰)/Relentless(任意) 走点击；Ceaseless 走值按钮
+  const wReroll = wizardState.weaponRerollRule;
+  const wRerollAvail = wReroll && !wizardState.weaponRerollUsed;
+  const perDieReroll = wRerollAvail && (wReroll === 'Balanced' || wReroll === 'Relentless');
+  const sel = wizardState.relenlessSelection || [];
+
   wizardState.attackRolls.forEach((val, idx) => {
     const d = document.createElement('div');
     let cls = `kt-dice-cube ${attDiceClass}`;
     if (val === 6) cls += ' crit-dice';
     else if (val < renderEffTs) cls += ' fail-dice';
+    if (wReroll === 'Relentless' && sel.includes(idx)) cls += ' fail-dice';
 
     d.className = cls;
     d.textContent = val;
 
     const isFail = val < renderEffTs;
-    if (isFail && curCp >= 1 && wizardState.attRerollIndex === -1) {
+
+    if (perDieReroll) {
+      // 免费武器重投（Balanced 单击即重投；Relentless 单击切换选中）
+      d.style.cursor = 'pointer';
+      const badge = document.createElement('div');
+      badge.className = 'reroll-indicator';
+      if (wReroll === 'Balanced') {
+        badge.textContent = 'B';
+        d.onclick = () => rerollWeaponRuleDice([idx], 'Balanced');
+      } else {
+        badge.textContent = sel.includes(idx) ? '✓' : '○';
+        d.onclick = () => toggleRelentlessSelect(idx);
+      }
+      d.appendChild(badge);
+    } else if (isFail && curCp >= 1 && wizardState.attRerollIndex === -1) {
       const badge = document.createElement('div');
       badge.className = 'reroll-indicator';
       badge.textContent = 'R';
       d.appendChild(badge);
-
       d.onclick = () => rerollSingleAttackDice(idx);
       d.style.cursor = 'pointer';
     } else if (idx === wizardState.attRerollIndex) {
@@ -963,6 +1045,44 @@ export function renderAttackDiceView() {
     }
     pool.appendChild(d);
   });
+
+  // Ceaseless：按攻击骰出现的点数提供"重投所有 X"按钮
+  if (wRerollAvail && wReroll === 'Ceaseless') {
+    const values = [...new Set(wizardState.attackRolls)].sort((a, b) => a - b);
+    const hint = document.createElement('p');
+    hint.style.cssText = 'color:var(--sm-accent); font-size:0.75rem; margin:8px 0 4px; text-align:center;';
+    hint.textContent = '💡 Ceaseless：选择一个点数，重投所有该点数的攻击骰';
+    pool.appendChild(hint);
+    const btnRow = document.createElement('div');
+    btnRow.style.cssText = 'display:flex; gap:6px; justify-content:center; flex-wrap:wrap;';
+    values.forEach(v => {
+      const b = document.createElement('button');
+      b.className = 'qa-btn';
+      b.style.cssText = 'padding:4px 12px; font-size:0.8rem;';
+      b.textContent = `重投所有 ${v}`;
+      b.onclick = () => {
+        const idxs = wizardState.attackRolls.map((rv, i) => rv === v ? i : -1).filter(i => i >= 0);
+        rerollWeaponRuleDice(idxs, 'Ceaseless');
+      };
+      btnRow.appendChild(b);
+    });
+    pool.appendChild(btnRow);
+  }
+
+  // Relentless：确认重投选中
+  if (wRerollAvail && wReroll === 'Relentless') {
+    const hint = document.createElement('p');
+    hint.style.cssText = 'color:var(--sm-accent); font-size:0.75rem; margin:8px 0 4px; text-align:center;';
+    hint.textContent = `💡 Relentless：点击骰子选择要重投的（已选 ${sel.length}），然后确认`;
+    pool.appendChild(hint);
+    const btn = document.createElement('button');
+    btn.className = 'qa-btn';
+    btn.style.cssText = 'padding:6px 18px; font-size:0.8rem; display:block; margin:0 auto;';
+    btn.textContent = '确认重投选中';
+    btn.disabled = sel.length === 0;
+    btn.onclick = () => confirmRelentlessReroll();
+    pool.appendChild(btn);
+  }
 }
 
 export function rerollSingleAttackDice(idx) {
@@ -990,6 +1110,41 @@ export function rerollSingleAttackDice(idx) {
   }, 500);
 }
 
+/**
+ * 武器规则免费重投（Balanced 单骰 / Ceaseless 按值多骰 / Relentless 任意多骰）。
+ * 不消耗 CP；每轮投骰每条规则最多用一次（wizardState.weaponRerollUsed）。
+ */
+export function rerollWeaponRuleDice(indices, ruleType) {
+  if (wizardState.weaponRerollUsed) return;
+  if (!indices || indices.length === 0) return;
+  playSound('dice_roll');
+  wizardState.weaponRerollUsed = true;
+  const oldVals = indices.map(i => wizardState.attackRolls[i]);
+  indices.forEach(i => { wizardState.attackRolls[i] = Math.floor(Math.random() * 6) + 1; });
+  const newVals = indices.map(i => wizardState.attackRolls[i]);
+  ui.addLog(`  - [${ruleType}] 免费重投骰子 [${oldVals.join(',')}] -> [${newVals.join(',')}]`);
+  wizardState.relenlessSelection = [];
+  recalculateAttackStats();
+  renderShootStep();
+}
+
+/** Relentless 多骰选择：点击骰子切换选中态。 */
+export function toggleRelentlessSelect(idx) {
+  if (wizardState.weaponRerollUsed) return;
+  if (!wizardState.relenlessSelection) wizardState.relenlessSelection = [];
+  const i = wizardState.relenlessSelection.indexOf(idx);
+  if (i >= 0) wizardState.relenlessSelection.splice(i, 1);
+  else wizardState.relenlessSelection.push(idx);
+  renderAttackDiceView();
+}
+
+/** Relentless：确认重投当前选中的骰子。 */
+export function confirmRelentlessReroll() {
+  const sel = wizardState.relenlessSelection || [];
+  if (sel.length === 0) return;
+  rerollWeaponRuleDice([...sel], 'Relentless');
+}
+
 // Brutal 规则已迁移至近战 (melee) 格挡阶段：
 // "Your opponent can only block with critical successes"
 // 对手只能使用暴击骰进行格挡(Parry)。
@@ -1009,9 +1164,8 @@ export function recalculateAttackStats() {
   }
   const effectiveTs = weapon.ts + injuryPenalty;
 
-  // Lethal 规则：N+ 视为暴击（不仅是 6）
-  const lethalMatch = weapon.rules.find(r => r.startsWith('Lethal'));
-  const lethalThreshold = lethalMatch ? parseInt(lethalMatch.match(/\d+/)?.[0] || '6') : 6;
+  // Lethal 规则：N+ 视为暴击（阈值由声明式注册表解析）
+  const lethalThreshold = weaponMods(weapon).critThreshold ?? 6;
 
   // 基础统计
   let crits = 0;
@@ -1021,22 +1175,22 @@ export function recalculateAttackStats() {
     else if (val >= effectiveTs) norms++;
   });
 
-  // === Standard 规则: 章战术 + 混沌印记 + Toxic ===
+  // === 保留阶段修饰符（声明式注册表；阵营派生规则经 effectiveWeapon 注入后统一判定） ===
+  const injected = injectedFactionRules(attacker, weapon);
+  if (injected.length > 0) {
+    ui.addLog(`[阵营] ${attacker.name}：阵营规则注入 ${weapon.name}：${injected.join(', ')}`);
+  }
+  const retainMods = weaponMods(effectiveWeapon(weapon, attacker), { retainedCrits: crits, retainedNorms: norms });
 
-  // Rending 规则：如果保留了暴击，升级 1 个普通命中为暴击
-  const hasRendingBase = weapon.hasRule && weapon.hasRule('Rending');
-  const hasAggressive = gameState.rulesVersion === 'standard' && hasChapterTactic(attacker, 'aggressive');
-  // Aggressive: 近战武器获得 Rending
-  const hasRending = hasRendingBase || (hasAggressive && isMelee);
-  if (hasRending && crits > 0 && norms > 0) {
+  // Rending (基础 + Aggressive 章战术，已注入)：保留暴击时升级 1 普通→暴击
+  if (retainMods.upgradeNormalToCrit && retainMods.source === 'Rending' && crits > 0 && norms > 0) {
     norms -= 1;
     crits += 1;
-    ui.addLog(`[撕裂] ${weapon.name}：保留暴击生效，升级 1 个普通命中为暴击！${hasAggressive && !hasRendingBase ? ' (凶猛章战术)' : ''}`);
+    ui.addLog(`[撕裂] ${weapon.name}：保留暴击生效，升级 1 个普通命中为暴击！`);
   }
 
-  // Punishing 规则：如果保留了暴击，保留 1 个失败骰作为普通成功
-  const hasPunishing = weapon.hasRule && weapon.hasRule('Punishing');
-  if (hasPunishing && crits > 0) {
+  // Punishing: 保留暴击时保留 1 个失败骰作为普通成功
+  if (retainMods.retainOneFailAsNormal && crits > 0) {
     const fails = wizardState.attackRolls.filter(val => val < effectiveTs && val !== 6 && val < lethalThreshold).length;
     if (fails > 0) {
       norms += 1;
@@ -1044,55 +1198,21 @@ export function recalculateAttackStats() {
     }
   }
 
-  // Accurate 规则：自动保留 N 个普通成功（不投）
-  const accurateMatch = weapon.rules.find(r => r.startsWith('Accurate'));
-  const hasSharpshooter = gameState.rulesVersion === 'standard' && hasChapterTactic(attacker, 'sharpshooter');
-  // Sharpshooter: 未移动时爆弹武器 Accurate 1 + Severe
-  const isBoltWeapon = /bolt/i.test(weapon.name);
-  const hasnNotMoved = attacker && attacker.actionsPerformed.length === 0;
-  const hasAccurateSharpshooter = hasSharpshooter && isBoltWeapon && hasnNotMoved;
-
-  if (accurateMatch || hasAccurateSharpshooter) {
-    const accurateVal = accurateMatch ? parseInt(accurateMatch.match(/\d+/)?.[0] || '1') : 1;
+  // Accurate (基础 + Sharpshooter，已注入；注册表合并多实例为 ≤2)
+  const accurateVal = retainMods.autoRetainNormal || 0;
+  if (accurateVal > 0) {
     const fails = wizardState.attackRolls.filter(val => val < effectiveTs && val < lethalThreshold).length;
     const upgradeCount = Math.min(accurateVal, fails);
     if (upgradeCount > 0) {
       norms += upgradeCount;
-      ui.addLog(`[精准] ${weapon.name}：自动保留 ${upgradeCount} 个普通成功！${hasAccurateSharpshooter && !accurateMatch ? ' (神射手章战术)' : ''}`);
+      ui.addLog(`[精准] ${weapon.name}：自动保留 ${upgradeCount} 个普通成功！`);
     }
   }
 
-  // === Standard 规则: Toxic 武器规则 (PM) ===
-  const hasToxic = weapon.hasRule && weapon.hasRule('Toxic');
-  if (hasToxic && defender && defender.poisonTokens > 0) {
-    ui.addLog(`[毒素] ${weapon.name}：目标携带毒素标记，Normal/Critical Dmg +1！`);
-    // Toxic 效果存储在 wizardState 中供伤害计算使用
-    wizardState.toxicBonusActive = true;
-  } else {
-    wizardState.toxicBonusActive = false;
-  }
-
-  // === Standard 规则: Severe from Chapter Tactics / Marks ===
-  const hasSevereBase = weapon.hasRule && weapon.hasRule('Severe');
-  const hasKhorne = gameState.rulesVersion === 'standard' && hasMarkOfChaos(attacker, 'KHORNE');
-  const hasTzeentch = gameState.rulesVersion === 'standard' && hasMarkOfChaos(attacker, 'TZEENTCH');
-  // Khorne: 近战 Severe; Tzeentch: 远程 Severe; Sharpshooter + 未移动: 爆弹 Severe
-  wizardState.severeFromAbility = !hasSevereBase && (
-    (hasKhorne && isMelee) ||
-    (hasTzeentch && !isMelee) ||
-    (hasSharpshooter && isBoltWeapon && hasnNotMoved)
-  );
-  if (wizardState.severeFromAbility) {
-    const source = hasKhorne ? '恐虐印记' : hasTzeentch ? '奸奇印记' : '神射手章战术';
-    ui.addLog(`[重伤] ${attacker.name}：${source}生效，武器获得 Severe！`);
-  }
-
-  // === Standard 规则: Siege Specialist — 远程 Saturate ===
-  const hasSiegeSpecialist = gameState.rulesVersion === 'standard' && hasChapterTactic(attacker, 'siege_specialist');
-  wizardState.saturateFromAbility = hasSiegeSpecialist && !isMelee;
-  if (wizardState.saturateFromAbility) {
-    ui.addLog(`[攻城专家] ${attacker.name}：远程武器获得 Saturate！`);
-  }
+  // 注：Toxic 武器规则的伤害加成在 step6 通过 weaponMods(...).dmgBonusIfPoisoned 处理。
+  // 注：阵营派生的 Severe(Khne)/Saturate(Siege) 等已通过 effectiveWeapon 注入，
+  //     其效果由 step6 (Severe 升级) 与防御阶段 (Saturate 移除掩体骰) 经 weaponMods 统一应用，
+  //     不再使用 severeFromAbility / saturateFromAbility 标志。
 
   // === Ploy: Combat Doctrine — Balanced 规则 ===
   // Devastator: 射击 6" 外; Tactical: 射击 6" 内; Assault: 近战/反击
@@ -1122,24 +1242,28 @@ export function recalculateAttackStats() {
     ui.addLog(`[🎲 命运无常] 射击 ready 敌方，武器获得 Balanced！`);
   }
 
-  // Balanced 效果: 重投 1 个失败骰 → 保留为普通成功
-  const hasBalancedBase = weapon.hasRule && weapon.hasRule('Balanced');
-  const hasBalanced = hasBalancedBase || hasBalancedFromDoctrine || hasBalancedFromFickle;
-  // Relentless: Fickle Fates 升级 (武器已有 Balanced 时)
+  // === 重投类武器规则 (Balanced / Ceaseless / Relentless) ===
+  // 基础规则 → 免费交互式重投 (renderAttackDiceView 提供 UI，见 weaponRerollRule)；
+  // ploy 派生的 Balanced (战斗教条/命运无常) 保留自动近似，避免与基础交互重复。
+  const hasBalancedBase = !!retainMods.rerollOneAttackDie;
+  wizardState.weaponRerollRule = retainMods.rerollOneAttackDie ? 'Balanced'
+    : retainMods.rerollSpecificValue ? 'Ceaseless'
+    : retainMods.rerollAnyAttackDice ? 'Relentless'
+    : null;
+
+  const hasBalancedFromPloy = hasBalancedFromDoctrine || hasBalancedFromFickle;
   const hasRelentless = hasFickleFates && !isMelee && defender && !defender.hasActed && hasBalancedBase;
 
-  if (hasBalanced && !hasRelentless) {
+  if (hasBalancedFromPloy && !hasBalancedBase && !hasRelentless) {
     const fails = wizardState.attackRolls.filter(val => val < effectiveTs && val < lethalThreshold).length;
     if (fails > 0) {
       norms += 1;
-      const source = hasBalancedFromDoctrine ? `战斗教条 (${doctrineChoice})` : hasBalancedFromFickle ? '命运无常' : '基础';
+      const source = hasBalancedFromDoctrine ? `战斗教条 (${doctrineChoice})` : '命运无常';
       ui.addLog(`[平衡] ${weapon.name}：重投 1 个失败骰 → 普通成功 (${source})`);
     }
   }
   if (hasRelentless) {
-    // Relentless: 可重投任意数量攻击骰 (简化为全部重投)
     ui.addLog(`[无情] ${weapon.name}：命运无常 + 已有 Balanced → 升级为 Relentless！`);
-    // Relentless 的完整实现需要玩家交互选择，这里简化为日志提示
   }
 
   // === Ploy: Lumbering Death — 移动 ≤3" 时 Ceaseless ===
@@ -1199,7 +1323,7 @@ export function rollDefenseDice(dfCount) {
   if (dfCount === 0) {
     wizardState.defCrit = 0;
     // Saturate 规则：掩体自动成功被移除
-    const hasSaturateForZeroDf = wizardState.weapon.hasRule && wizardState.weapon.hasRule('Saturate');
+    const hasSaturateForZeroDf = weaponMods(effectiveWeapon(wizardState.weapon, wizardState.attacker)).coverSavesDisabled;
     wizardState.defNorm = (wizardState.inCover && !hasSaturateForZeroDf) ? 1 : 0;
     nextBtn.disabled = false;
     return;
@@ -1368,13 +1492,11 @@ export function recalculateDefenseStats() {
   const weapon = wizardState.weapon;
   const sv = defender.sv;
 
-  // Saturate 规则：防御方不能保留掩体骰
-  const hasSaturateBase = weapon.hasRule && weapon.hasRule('Saturate');
-  // Siege Specialist (攻击方): 远程 Saturate (从攻击骰阶段保存)
-  const saturateActive = hasSaturateBase || wizardState.saturateFromAbility;
+  // Saturate 规则：防御方不能保留掩体骰（基础 + 阵营派生 Siege Specialist 经 effectiveWeapon 注入）
+  const saturateActive = weaponMods(effectiveWeapon(weapon, wizardState.attacker)).coverSavesDisabled;
 
   // Camo Cloak (SM Eliminator Sniper): 忽略 Saturate
-  const hasCamoCloak = gameState.rulesVersion === 'standard' && defender.operativeType === 'sm_eliminator_sniper';
+  const hasCamoCloak = activeRuleSet().factionMechanicsEnabled &&defender.operativeType === 'sm_eliminator_sniper';
   const saturateIgnored = hasCamoCloak && saturateActive;
   if (saturateIgnored) {
     ui.addLog(`[伪装斗篷] ${defender.name}：忽略 Saturate 规则！`);
@@ -1384,9 +1506,9 @@ export function recalculateDefenseStats() {
   let norms = (wizardState.inCover && !saturateEffective) ? 1 : 0;
 
   // Hardy (Chapter Tactic): 防御 5+ 为暴击
-  const hasHardy = gameState.rulesVersion === 'standard' && hasChapterTactic(defender, 'hardy');
+  const hasHardy = activeRuleSet().factionMechanicsEnabled &&hasChapterTactic(defender, 'hardy');
   // Repulsive Fortitude (PM Warrior): 防御 5+ 算暴击
-  const hasRepulsiveFortitude = gameState.rulesVersion === 'standard' && defender.operativeType === 'pm_warrior';
+  const hasRepulsiveFortitude = activeRuleSet().factionMechanicsEnabled &&defender.operativeType === 'pm_warrior';
   const critAtFive = hasHardy || hasRepulsiveFortitude;
 
   let crits = 0;
@@ -1410,7 +1532,7 @@ export function recalculateDefenseStats() {
   // === Ploy: Implacable — Piercing 1 降级为 Piercing Crits 1 (射击防御) ===
   const hasImplacable = isImplacableActive(defender?.faction);
   if (hasImplacable && !weapon.isRanged === false) { // 只在被射击时生效
-    const hasPiercing = weapon.hasRule && weapon.hasRule('Piercing');
+    const hasPiercing = weaponHasRule(weapon, 'Piercing');
     if (hasPiercing) {
       ui.addLog(`[🛡 坚定不移] Piercing 1 降级为 Piercing Crits 1！`);
       wizardState.piercingDowngraded = true;
@@ -1455,12 +1577,14 @@ export function parseManualMelee() {
   
   if (attInput) {
     const vals = attInput.value.split(',').map(s => parseInt(s.trim(), 10)).filter(n => !isNaN(n) && n >= 1 && n <= 6);
-    wizardState.activeAttackerDice = vals.map(n => ({ val: n, isCrit: n >= wizardState.weapon.ts || n === 6 ? (n === 6) : false, used: false })).sort((a,b) => b.val - a.val);
+    const attCrit = meleeCritThreshold(wizardState.weapon);
+    wizardState.activeAttackerDice = vals.map(n => ({ val: n, isCrit: n >= attCrit, used: false })).sort((a,b) => b.val - a.val);
   }
   if (defInput) {
     const vals = defInput.value.split(',').map(s => parseInt(s.trim(), 10)).filter(n => !isNaN(n) && n >= 1 && n <= 6);
     const defWeapon = wizardState.defender.weapons.filter(w => !w.isRanged)[0] || { ts: 3 }; // fallback
-    wizardState.activeDefenderDice = vals.map(n => ({ val: n, isCrit: n >= defWeapon.ts || n === 6 ? (n === 6) : false, used: false })).sort((a,b) => b.val - a.val);
+    const defCrit = meleeCritThreshold(defWeapon);
+    wizardState.activeDefenderDice = vals.map(n => ({ val: n, isCrit: n >= defCrit, used: false })).sort((a,b) => b.val - a.val);
   }
 }
 
@@ -1535,19 +1659,19 @@ export function confirmShootResult(dmgPerAttack) {
   }
 
   // === Standard 规则: 击杀回调 ===
-  if (defender.isDead && gameState.rulesVersion === 'standard') {
+  if (defender.isDead && activeRuleSet().hasKillCallbacks) {
     triggerKillAbilities(attacker, defender, 'shoot', actualDamage);
   }
 
-  // Poison 规则：造成 ≥1 伤害且武器有 Poison，defender 获得 poison token
-  const hasPoison = wizardState.weapon.hasRule && wizardState.weapon.hasRule('Poison');
+  // Poison 规则：造成 ≥1 伤害且武器有 Poison，defender 获得 poison token（注册表检测）
+  const hasPoison = !!weaponMods(wizardState.weapon).applyPoisonTokenOnDamage;
   if (hasPoison && actualDamage > 0 && defender.poisonTokens < 1) {
     defender.poisonTokens = 1;
     ui.addLog(`[毒素] ${defender.name} 获得了 1 个毒素标记！下次激活开始时将受到 1 点伤害。`);
   }
 
-  // PSYCHIC 规则：攻击方每投出 1，自己受到 1 点伤害 (Peril)
-  const hasPsychic = wizardState.weapon.hasRule && wizardState.weapon.hasRule('PSYCHIC');
+  // PSYCHIC 规则：攻击方每投出 1，自己受到 1 点伤害 (Peril，注册表检测)
+  const hasPsychic = !!weaponMods(wizardState.weapon).perilOnFailValue;
   if (hasPsychic) {
     const perilCount = wizardState.attackRolls.filter(r => r === 1).length;
     if (perilCount > 0) {
@@ -1565,7 +1689,7 @@ export function confirmShootResult(dmgPerAttack) {
   // "After an operative uses this weapon, roll one D6: if the result is less
   //  than the weapon's Hit stat, inflict damage on that operative equal to
   //  the result multiplied by two."
-  const hasHot = wizardState.weapon.hasRule && wizardState.weapon.hasRule('Hot');
+  const hasHot = !!weaponMods(wizardState.weapon).selfDamageOnLowRoll;
   if (hasHot) {
     const hotRoll = Math.floor(Math.random() * 6) + 1;
     const hitStat = wizardState.weapon.ts;
@@ -1596,10 +1720,19 @@ export function confirmShootResult(dmgPerAttack) {
   }
 
   // === Blast/Torrent 多目标射击 ===
-  const hasBlastRule = wizardState.weapon.hasRule && wizardState.weapon.hasRule('Blast');
-  const hasTorrentRule = wizardState.weapon.hasRule && wizardState.weapon.hasRule('Torrent');
+  const triggerMods = weaponMods(wizardState.weapon);
+  const hasBlastRule = !!triggerMods.aoePrimarySecondary;
+  const hasTorrentRule = !!triggerMods.aoeRadius;
   if (hasBlastRule || hasTorrentRule) {
     handleBlastTorrentSecondaries(attacker, defender, wizardState.weapon, hasBlastRule, hasTorrentRule);
+  }
+
+  // === Devastating 距离前缀 AoE（"1" Devastating x"）===
+  // 仅当保留暴击 + 距离前缀存在时；与 Blast/Torrent 互斥（避免双 modal，二者无现役组合）
+  const devAoeDist = triggerMods.aoeDistance;
+  const devVal = triggerMods.immediateCritDmg || 0;
+  if (!hasBlastRule && !hasTorrentRule && devAoeDist && devVal > 0 && wizardState.attackCrit > 0) {
+    handleDevastatingAoe(attacker, defender, wizardState.weapon, devVal, devAoeDist, wizardState.attackCrit);
   }
 }
 
@@ -1608,6 +1741,74 @@ export function confirmShootResult(dmgPerAttack) {
  * Blast: 主目标后，对 3" 内每个次要目标射击 (使用相同武器数据)
  * Torrent: 主目标后，选择任意数量额外目标射击
  */
+/**
+ * 自动结算一次"次要目标"攻击（用于 Blast/Torrent 多目标）。
+ * 自包含：独立投攻击骰 + 保留阶段规则 + 防御骰 + 对消级联 + 伤害（暴击/普通分算）。
+ * 不走向导 UI，结果直接写入日志并扣血。
+ * @param {Object} attacker - 攻击方 Operative
+ * @param {Object} weapon - 武器
+ * @param {Object} defender - 次要目标 Operative
+ */
+function autoResolveSecondaryAttack(attacker, weapon, defender) {
+  const injuryPenalty = (attacker && attacker.isInjured) ? 1 : 0;
+  const effTs = weapon.ts + injuryPenalty;
+  const lethalThreshold = weaponMods(effectiveWeapon(weapon, attacker)).critThreshold ?? 6;
+
+  // 攻击骰
+  const rolls = [];
+  for (let i = 0; i < weapon.attacks; i++) rolls.push(Math.floor(Math.random() * 6) + 1);
+  let aCrit = 0, aNorm = 0;
+  rolls.forEach(v => { if (v >= lethalThreshold) aCrit++; else if (v >= effTs) aNorm++; });
+
+  // 保留阶段规则 (基础 + 阵营派生经 effectiveWeapon 注入，与主目标同源)
+  const retainMods = weaponMods(effectiveWeapon(weapon, attacker), { retainedCrits: aCrit, retainedNorms: aNorm });
+  if (retainMods.autoRetainNormal) {
+    const fails = rolls.filter(v => v < effTs && v < lethalThreshold).length;
+    aNorm += Math.min(retainMods.autoRetainNormal, fails);
+  }
+  if (retainMods.upgradeNormalToCrit && retainMods.source === 'Rending' && aCrit > 0 && aNorm > 0) { aNorm -= 1; aCrit += 1; }
+  if (retainMods.retainOneFailAsNormal && aCrit > 0) {
+    const fails = rolls.filter(v => v < effTs && v !== 6 && v < lethalThreshold).length;
+    if (fails > 0) aNorm += 1;
+  }
+  if (retainMods.upgradeNormalToCrit && retainMods.source === 'Severe' && aCrit === 0 && aNorm >= 1) { aNorm -= 1; aCrit += 1; }
+
+  ui.addLog(`  攻击骰 [${rolls.join(', ')}] → ${aCrit} 暴击, ${aNorm} 普通`);
+  if (aCrit + aNorm === 0) { ui.addLog(`  无命中，跳过。`); return; }
+
+  // 防御骰
+  const defRolls = [];
+  for (let i = 0; i < defender.df; i++) defRolls.push(Math.floor(Math.random() * 6) + 1);
+  let dCrit = 0, dNorm = 0;
+  defRolls.forEach(v => { if (v === 6) dCrit++; else if (v >= defender.sv) dNorm++; });
+  ui.addLog(`  防御骰 [${defRolls.join(', ')}] → ${dCrit} 暴击, ${dNorm} 普通`);
+
+  // 对消级联（与主目标 step6 一致）：暴击攻 vs 暴击防；剩余暴击攻用 2 普通防；普通攻 vs 普通防；剩余普通攻用暴击防
+  let remACrit = aCrit, remANorm = aNorm, remDCrit = dCrit, remDNorm = dNorm;
+  const cwc = Math.min(remACrit, remDCrit); remACrit -= cwc; remDCrit -= cwc;
+  if (remACrit > 0 && remDNorm >= 2) {
+    const cwnp = Math.min(remACrit, Math.floor(remDNorm / 2)); remACrit -= cwnp; remDNorm -= cwnp * 2;
+  }
+  const nwn = Math.min(remANorm, remDNorm); remANorm -= nwn; remDNorm -= nwn;
+  const nwc = Math.min(remANorm, remDCrit); remANorm -= nwc; remDCrit -= nwc;
+
+  // 伤害（暴击=criticalDamage，普通=normalDamage；Devastating 每个剩余暴击 +x）
+  const devVal = weaponMods(effectiveWeapon(weapon, attacker)).immediateCritDmg || 0;
+  const dmgPerAttack = [];
+  for (let i = 0; i < remACrit; i++) dmgPerAttack.push(weapon.criticalDamage + devVal);
+  for (let i = 0; i < remANorm; i++) dmgPerAttack.push(weapon.normalDamage);
+  const totalDmg = dmgPerAttack.reduce((s, v) => s + v, 0);
+
+  if (totalDmg > 0) {
+    const oldW = defender.wounds;
+    const actual = defender.applyWounds(dmgPerAttack, null, 'auto', '次要目标溅射');
+    ui.addLog(`  穿透 ${remACrit}暴击+${remANorm}普通 → ${actual} 伤害 (${oldW}→${defender.wounds} HP)`);
+    if (defender.isDead) ui.addLog(`  💀 ${defender.name} 被击杀！`);
+  } else {
+    ui.addLog(`  全部被格挡！`);
+  }
+}
+
 function handleBlastTorrentSecondaries(attacker, primaryDefender, weapon, hasBlast, hasTorrent) {
   const allEnemies = gameState.operatives.filter(
     op => op.teamSlot !== attacker.teamSlot && !op.isDead && op.id !== primaryDefender.id
@@ -1615,14 +1816,16 @@ function handleBlastTorrentSecondaries(attacker, primaryDefender, weapon, hasBla
 
   if (allEnemies.length === 0) return;
 
-  // 获取 Blast/Torrent 参数
-  const blastMatch = weapon.rules.find(r => r.startsWith('Blast'));
-  const blastRadius = blastMatch ? parseInt(blastMatch.match(/\d+/)?.[0] || '3') : 3;
+  // 获取 Blast/Torrent 参数（半径由注册表解析；Torrent 半径/控制范围过滤属几何，未强制）
+  const blastRadiusParam = getWeaponRuleParam(weapon, 'Blast');
+  const blastRadius = blastRadiusParam ? parseInt(blastRadiusParam) : 3;
+  const torrentRadiusParam = getWeaponRuleParam(weapon, 'Torrent');
+  const torrentRadius = torrentRadiusParam ? parseInt(torrentRadiusParam) : null;
 
-  const ruleName = hasBlast ? `Blast ${blastRadius}"` : 'Torrent';
+  const ruleName = hasBlast ? `Blast ${blastRadius}"` : (torrentRadius ? `Torrent ${torrentRadius}"` : 'Torrent');
   const ruleDesc = hasBlast
-    ? `对主目标 ${blastRadius}" 内的每个次要目标射击`
-    : '对任意数量额外可见目标射击';
+    ? `对主目标 ${blastRadius}" 内、可见的每个次要目标射击（距离需自行判断）`
+    : `选主目标${torrentRadius ? ` ${torrentRadius}" 内` : ''}、可见、且不在己方控制范围内的任意数量次要目标（距离/控制范围需自行判断）`;
 
   // 构建次要目标选择 UI
   let targetOptions = allEnemies.map(op =>
@@ -1684,47 +1887,83 @@ export function resolveSecondaries(confirmed) {
     const target = gameState.operatives.find(op => op.id === targetId);
     if (!target || target.isDead) return;
 
-    ui.addLog(`\n--- ${weapon.hasRule?.('Blast') ? 'Blast' : 'Torrent'} 次要目标: ${target.name} ---`);
+    const ruleLabel = weaponHasRule(weapon, 'Blast') ? 'Blast' : 'Torrent';
+    ui.addLog(`\n--- ${ruleLabel} 次要目标: ${target.name} ---`);
 
-    // 简化处理: 使用与主目标相同的攻击统计 (自动命中)
-    const hits = wizardState.attackCrit + wizardState.attackNorm;
-    if (hits <= 0) {
-      ui.addLog(`  无有效命中，跳过。`);
-      return;
-    }
-
-    // 投防御骰
-    const defDiceCount = target.df;
-    const defRolls = [];
-    for (let i = 0; i < defDiceCount; i++) {
-      defRolls.push(Math.floor(Math.random() * 6) + 1);
-    }
-    const defCrits = defRolls.filter(r => r === 6).length;
-    const defNorms = defRolls.filter(r => r >= target.sv && r !== 6).length;
-
-    ui.addLog(`  防御骰: [${defRolls.join(', ')}] → ${defCrits} 暴击, ${defNorms} 普通`);
-
-    // 计算伤害 (简化: 每个未挡攻击造成 normalDmg)
-    const blocked = defCrits * 2 + defNorms; // 1 crit blocks 2, 1 norm blocks 1
-    const unblocked = Math.max(0, hits - blocked);
-    const damage = unblocked * weapon.normalDamage;
-
-    if (damage > 0) {
-      ui.addLog(`  ${hits} 命中 - ${blocked} 格挡 = ${unblocked} 穿透 → ${damage} 伤害`);
-      const oldWounds = target.wounds;
-      const actualDmg = target.applyWounds(Array(unblocked).fill(weapon.normalDamage), null, 'auto', '次要目标溅射');
-      ui.addLog(`  ${target.name}: ${oldWounds} → ${target.wounds} HP`);
-
-
-
-      if (target.isDead) {
-        ui.addLog(`  💀 ${target.name} 被击杀！`);
-      }
-    } else {
-      ui.addLog(`  全部被格挡！`);
-    }
+    // 每个次要目标独立完整结算（投攻击骰/防御骰/对消/伤害，暴击与普通分算）
+    autoResolveSecondaryAttack(attacker, weapon, target);
   });
 
+  ui.renderOperatives?.();
+  ui.updateActivePanel?.();
+}
+
+/**
+ * Devastating 距离前缀 AoE（如 "1" Devastating 1"）：
+ * 每次保留暴击时，对目标及距离内可见的其他特工各造成 x 点伤害。
+ * 主目标的 per-crit +x 已在 step6 经 critDmg += devVal 处理；此处处理"距离内其他特工"。
+ * @param attacker 主攻方
+ * @param primaryDefender 主目标
+ * @param weapon 武器
+ * @param devVal x（每次暴击的伤害）
+ * @param aoeDistance 距离前缀（英寸，几何靠玩家自判）
+ * @param retainedCrits 主目标保留的暴击数
+ */
+function handleDevastatingAoe(attacker, primaryDefender, weapon, devVal, aoeDistance, retainedCrits) {
+  const allEnemies = gameState.operatives.filter(
+    op => op.teamSlot !== attacker.teamSlot && !op.isDead && op.id !== primaryDefender.id
+  );
+  if (allEnemies.length === 0 || retainedCrits <= 0) return;
+
+  const dmgPerTarget = retainedCrits * devVal;
+  const targetOptions = allEnemies.map(op =>
+    `<label style="display:flex; align-items:center; gap:6px; padding:4px 0; cursor:pointer;">
+      <input type="checkbox" value="${op.id}" />
+      <span>${op.name} (${op.wounds}/${op.maxWounds} HP)</span>
+    </label>`
+  ).join('');
+
+  const body = document.getElementById('combat-modal-body') || document.getElementById('modal-body');
+  const modal = document.getElementById('combat-modal');
+  if (!body || !modal) return;
+
+  body.innerHTML = `
+    <h3 style="color:var(--imperial-gold); text-align:center;">毁灭 (Devastating) 溅射</h3>
+    <p style="color:var(--text-muted); font-size:0.8rem; text-align:center; margin-bottom:12px;">
+      保留 ${retainedCrits} 个暴击，对主目标 ${aoeDistance}" 内、可见的其他特工各造成 <b>${dmgPerTarget}</b> 点伤害（距离需自行判断）。
+    </p>
+    <div style="max-height:200px; overflow-y:auto; margin-bottom:12px; padding:8px; background:rgba(0,0,0,0.3); border-radius:6px;">
+      ${targetOptions}
+    </div>
+    <div style="display:flex; gap:10px; justify-content:center;">
+      <button class="btn-large" onclick="resolveDevastationAoe(true)" style="padding:8px 24px; font-size:0.85rem; background:linear-gradient(135deg, var(--green), #2a5a3a);">✓ 确认溅射</button>
+      <button class="btn-large" onclick="resolveDevastationAoe(false)" style="padding:8px 24px; font-size:0.85rem; background:linear-gradient(135deg, var(--text-muted), #555);">✗ 跳过</button>
+    </div>
+  `;
+  wizardState._devastationAoeDmg = dmgPerTarget;
+  modal.style.display = 'flex';
+}
+
+export function resolveDevastationAoe(confirmed) {
+  const modal = document.getElementById('combat-modal');
+  const checkboxes = modal?.querySelectorAll('input[type="checkbox"]:checked');
+  const selectedIds = checkboxes ? Array.from(checkboxes).map(cb => cb.value) : [];
+  const dmgPerTarget = wizardState._devastationAoeDmg || 0;
+
+  closeModal();
+
+  if (!confirmed) { ui.addLog(`[毁灭] 跳过 AoE 溅射。`); return; }
+  if (selectedIds.length === 0) { ui.addLog(`[毁灭] 未选择溅射目标。`); return; }
+
+  ui.addLog(`\n--- Devastating 溅射 (${dmgPerTarget}/目标) ---`);
+  selectedIds.forEach(targetId => {
+    const target = gameState.operatives.find(op => op.id === targetId);
+    if (!target || target.isDead) return;
+    const oldW = target.wounds;
+    const actual = target.applyWounds(dmgPerTarget, null, 'auto', '毁灭溅射');
+    ui.addLog(`  ${target.name}: ${actual} 伤害 (${oldW}→${target.wounds} HP)`);
+    if (target.isDead) ui.addLog(`  💀 ${target.name} 被击杀！`);
+  });
   ui.renderOperatives?.();
   ui.updateActivePanel?.();
 }
@@ -2046,7 +2285,7 @@ export function renderFightStep() {
       const opponentWeaponForParry = side === 'attacker'
         ? (wizardState.defender.weapons.filter(w => !w.isRanged)[0] || null)
         : wizardState.weapon;
-      const opponentHasBrutal = opponentWeaponForParry && opponentWeaponForParry.hasRule && opponentWeaponForParry.hasRule('Brutal');
+      const opponentHasBrutal = opponentWeaponForParry && weaponMods(opponentWeaponForParry).defenseBlockRequiresCrit;
       const brutalBlocksParry = opponentHasBrutal && !dice.isCrit;
       const brutalNote = opponentHasBrutal
         ? (dice.isCrit
@@ -2287,28 +2526,33 @@ export function rollMeleeDice() {
     const defInjuryPenalty = (wizardState.defender && wizardState.defender.isInjured) ? 1 : 0;
     const effectiveAttTs = wizardState.weapon.ts + attInjuryPenalty;
     const effectiveDefTs = defMeleeWeapon.ts + defInjuryPenalty;
+    // 暴击阈值 (支持 Lethal x+，默认 6)，存储供重投路径复用
+    const attCritThreshold = meleeCritThreshold(wizardState.weapon);
+    const defCritThreshold = meleeCritThreshold(defMeleeWeapon);
+    wizardState.meleeAttCritThreshold = attCritThreshold;
+    wizardState.meleeDefCritThreshold = defCritThreshold;
 
     // 存储所有投骰结果（包括失败的）用于重投
     wizardState.allAttackerRolls = finalAttRolls.map((val, idx) => ({
       val,
-      isSuccess: val >= effectiveAttTs || val === 6,
-      isCrit: val === 6,
+      isSuccess: val >= effectiveAttTs || val >= attCritThreshold,
+      isCrit: val >= attCritThreshold,
       originalIdx: idx
     }));
     wizardState.allDefenderRolls = finalDefRolls.map((val, idx) => ({
       val,
-      isSuccess: val >= effectiveDefTs || val === 6,
-      isCrit: val === 6,
+      isSuccess: val >= effectiveDefTs || val >= defCritThreshold,
+      isCrit: val >= defCritThreshold,
       originalIdx: idx
     }));
 
     wizardState.activeAttackerDice = finalAttRolls
-      .filter(val => val >= effectiveAttTs || val === 6)
-      .map(val => ({ val, isCrit: val === 6, used: false }));
+      .filter(val => val >= effectiveAttTs || val >= attCritThreshold)
+      .map(val => ({ val, isCrit: val >= attCritThreshold, used: false }));
 
     wizardState.activeDefenderDice = finalDefRolls
-      .filter(val => val >= effectiveDefTs || val === 6)
-      .map(val => ({ val, isCrit: val === 6, used: false }));
+      .filter(val => val >= effectiveDefTs || val >= defCritThreshold)
+      .map(val => ({ val, isCrit: val >= defCritThreshold, used: false }));
 
     // 存储有效的 TS 值用于重投计算
     wizardState.meleeEffectiveAttTs = effectiveAttTs;
@@ -2368,9 +2612,12 @@ export function rerollMeleeDice(side) {
   const rerollIdx = Math.floor(Math.random() * failedRolls.length);
   const rerollTarget = failedRolls[rerollIdx];
   const effectiveTs = side === 'attacker' ? wizardState.meleeEffectiveAttTs : wizardState.meleeEffectiveDefTs;
+  const critThreshold = side === 'attacker'
+    ? (wizardState.meleeAttCritThreshold || 6)
+    : (wizardState.meleeDefCritThreshold || 6);
 
   const newVal = Math.floor(Math.random() * 6) + 1;
-  const wasSuccess = newVal >= effectiveTs || newVal === 6;
+  const wasSuccess = newVal >= effectiveTs || newVal >= critThreshold;
 
   playSound('crit');
 
@@ -2382,7 +2629,7 @@ export function rerollMeleeDice(side) {
   const oldVal = originalRoll.val;
   originalRoll.val = newVal;
   originalRoll.isSuccess = wasSuccess;
-  originalRoll.isCrit = newVal === 6;
+  originalRoll.isCrit = newVal >= critThreshold;
 
   // 重新计算成功骰列表
   const allSuccessful = (side === 'attacker' ? wizardState.allAttackerRolls : wizardState.allDefenderRolls)
@@ -2619,26 +2866,18 @@ export function resolveMeleeChoice(action) {
     // Toxic 规则：近战也适用
     let strikeNormDmg = activeWeapon.normalDamage;
     let strikeCritDmg = activeWeapon.criticalDamage;
-    const hasToxicMelee = activeWeapon.hasRule && activeWeapon.hasRule('Toxic');
-    if (hasToxicMelee && targetOpponent.poisonTokens > 0) {
+    // Toxic (近战): 阵营机制，由 factionMechanicsEnabled 开关；dmgBonusIfPoisoned 由注册表按 defenderPoisoned 判定
+    const hasToxicMelee = activeRuleSet().factionMechanicsEnabled
+      && !!weaponMods(activeWeapon, { defenderPoisoned: targetOpponent.poisonTokens > 0 }).dmgBonusIfPoisoned;
+    if (hasToxicMelee) {
       strikeNormDmg += 1;
       strikeCritDmg += 1;
       ui.addLog(`[剧毒] 目标携带毒素标记，${activeWeapon.name} 近战伤害 +1 (${strikeNormDmg}/${strikeCritDmg})`);
     }
 
-    // Severe 规则 (基础或来自章战术/混沌印记)
-    const hasSevereBaseMelee = activeWeapon.hasRule && activeWeapon.hasRule('Severe');
-    const hasKhorne = gameState.rulesVersion === 'standard' && hasMarkOfChaos(strikeAttacker, 'KHORNE');
-    const hasAggressive = gameState.rulesVersion === 'standard' && hasChapterTactic(strikeAttacker, 'aggressive');
-    // Khorne: 近战 Severe; Aggressive: 近战 Rending (已在掷骰处理)
-    const severeFromAbility = (hasKhorne && isMeleeWeapon);
-
-    // Severe: 如果保留暴击且打击使用暴击骰，普通伤害升级为暴击伤害
-    if ((hasSevereBaseMelee || severeFromAbility) && dice.isCrit) {
-      strikeNormDmg = strikeCritDmg;
-      const source = severeFromAbility && !hasSevereBaseMelee ? ' (恐虐印记)' : '';
-      ui.addLog(`[重伤] ${activeWeapon.name}：暴击打击，普通伤害升级为暴击伤害 (${strikeNormDmg})${source}！`);
-    }
+    // 注：近战 Severe (基础/Khne 印记) 的正确"保留阶段升级"尚未实现——近战按 die 逐个 strike/parry
+    //     结算，无聚合保留阶段。阵营派生规则已改为经 effectiveWeapon 注入，后续补全近战 Severe 时
+    //     可统一走 weaponMods(effectiveWeapon(...)).upgradeNormalToCrit。
 
     const dmg = dice.isCrit ? strikeCritDmg : strikeNormDmg;
     const msg = `> ${side === 'attacker' ? '攻击方' : '防守方'} 执行打击 (Strike)，分配了 ${dmg} 伤害！<br>`;
@@ -2651,13 +2890,13 @@ export function resolveMeleeChoice(action) {
 
 
     // === Standard 规则: 近战击杀回调 ===
-    if (targetOpponent.isDead && gameState.rulesVersion === 'standard') {
+    if (targetOpponent.isDead && activeRuleSet().hasKillCallbacks) {
       const meleeAttacker = side === 'attacker' ? wizardState.attacker : wizardState.defender;
       triggerKillAbilities(meleeAttacker, targetOpponent, 'fight', dmg);
     }
 
     // Poison 规则：近战造成 ≥1 伤害且武器有 Poison，给予毒素标记
-    const hasPoisonMelee = activeWeapon.hasRule && activeWeapon.hasRule('Poison');
+    const hasPoisonMelee = !!weaponMods(activeWeapon).applyPoisonTokenOnDamage;
     if (hasPoisonMelee && dmg > 0 && targetOpponent.poisonTokens < 1) {
       targetOpponent.poisonTokens = 1;
       ui.addLog(`[毒素] ${targetOpponent.name} 获得了 1 个毒素标记！(来自近战)`);
@@ -2668,7 +2907,7 @@ export function resolveMeleeChoice(action) {
     //  also discard one of your opponent's unresolved normal successes
     //  (or one of their critical successes if there are none)."
     // 每次序列中第一次暴击打击时，丢弃对手 1 个未解决的普通成功（或暴击成功，若无普通）。
-    const hasShockMelee = activeWeapon.hasRule && activeWeapon.hasRule('Shock');
+    const hasShockMelee = !!weaponMods(activeWeapon).firstCritDiscardsUnresolvedNormal;
     if (hasShockMelee && dice.isCrit && !wizardState.shockTriggered) {
       // 优先丢弃对手的普通成功
       let discardIdx = opponentDiceList.findIndex(d => !d.used && !d.isCrit);
@@ -2691,7 +2930,7 @@ export function resolveMeleeChoice(action) {
     // "If you retain any critical successes, subtract 1 from the APL stat
     //  of the operative this weapon is being used against until the end of its next activation."
     // 如果保留了暴击（此处：本次打击使用暴击骰），目标 APL -1。
-    const hasStunMelee = activeWeapon.hasRule && activeWeapon.hasRule('Stun');
+    const hasStunMelee = !!weaponMods(activeWeapon).targetAplReduction;
     if (hasStunMelee && dice.isCrit && !wizardState.stunApplied) {
       targetOpponent.apl = Math.max(0, targetOpponent.apl - 1);
       targetOpponent.stunnedUntilEndOfNextActivation = true;
@@ -2712,7 +2951,7 @@ export function resolveMeleeChoice(action) {
     const opponentWeapon = side === 'attacker'
       ? (wizardState.defender.weapons.filter(w => !w.isRanged)[0] || null)
       : wizardState.weapon;
-    const opponentHasBrutal = opponentWeapon && opponentWeapon.hasRule && opponentWeapon.hasRule('Brutal');
+    const opponentHasBrutal = opponentWeapon && weaponMods(opponentWeapon).defenseBlockRequiresCrit;
     if (opponentHasBrutal && !dice.isCrit) {
       playSound('alert');
       if (showToast) showToast('残暴 (Brutal)：只能使用暴击骰格挡！', 'warning');

@@ -24,6 +24,9 @@ export {
   STARTING_CP,
 } from './core.js';
 
+// 规则集 Profile (lite / standard 版本差异集中处)
+export { RULE_SETS, activeRuleSet, listRuleSets } from './ruleSets.js';
+
 // 行动约束矩阵
 export {
   canPerformAction,

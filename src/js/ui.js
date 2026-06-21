@@ -15,6 +15,8 @@ import {
   getCombatDoctrineChoice, setCombatDoctrineChoice
 } from '../rules/ploys.js';
 import { isFinalTurningPoint } from '../rules/strategy.js';
+import { activeRuleSet } from '../rules/ruleSets.js';
+import { weaponHasRule } from '../rules/weapons.js';
 
 // Accessibility: check reduced motion preference
 const prefersReducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)');
@@ -97,7 +99,7 @@ export function updateRulesVersion() {
   if (advanceBtn) {
     const advanceRow = advanceBtn.closest('.action-btn-row');
     if (advanceRow) {
-      advanceRow.style.display = gameState.rulesVersion === 'lite' ? 'none' : '';
+      advanceRow.style.display = activeRuleSet().hasAdvanceAction ? '' : 'none';
     }
   }
 }
@@ -1063,8 +1065,8 @@ export function validateRostersAndDeploy() {
   updateScoresUI();
   renderOperatives();
 
-  // Standard 规则: 部署后选择 Chapter Tactics / Marks of Chaos
-  if (gameState.rulesVersion === 'standard') {
+  // 部署后选择 Chapter Tactics / Marks of Chaos（阵营机制，由 factionMechanicsEnabled 开关）
+  if (activeRuleSet().factionMechanicsEnabled) {
     showStandardRulesSelections(() => {
       startInitiativePhase();
     });
@@ -1424,7 +1426,7 @@ export function renderOperatives() {
         </div>
         <div style="display:flex; align-items:center; gap:4px; padding-left:${avatarHtml ? '36px' : '0'};">
           ${statusTagsHtml}
-          <span class="op-card-tag">${op.currentApl} APL${op.isInjured && gameState.rulesVersion === 'standard' ? ' <span style="color:var(--red); font-size:0.6rem;">(-1)</span>' : ''}</span>
+          <span class="op-card-tag">${op.currentApl} APL${op.isInjured && activeRuleSet().injuredAplPenalty > 0 ? ' <span style="color:var(--red); font-size:0.6rem;">(-1)</span>' : ''}</span>
         </div>
       </div>
       <div class="op-card-hp">
@@ -1555,7 +1557,7 @@ export function activateOperative(opId) {
   // Injured 时 APL -1（使用 currentApl getter）
   op.apl = op.currentApl;
 
-  const injuredNote = op.isInjured ? (gameState.rulesVersion === 'standard' ? ' (Injured: APL -1)' : ' (Injured: Move -2")') : '';
+  const injuredNote = op.isInjured ? (activeRuleSet().injuredAplPenalty > 0 ? ' (Injured: APL -1)' : ' (Injured: Move -2")') : '';
   addLog(`[激活] ${op.name} 开始激活，获得 ${op.apl} APL！${injuredNote}`);
 
   renderOperatives();
@@ -1661,8 +1663,6 @@ export function updateActivePanel() {
     const hasCharged = op.actionsPerformed.includes('Charge');
     const hasAdvanced = op.actionsPerformed.includes('Advance');
     const hasDashed = op.actionsPerformed.includes('Dash');
-    // Heavy (Dash only) 武器例外：Dash 后仍可用 Heavy 武器射击
-    const hasHeavyWeapon = op.weapons.some(w => w.hasRule('Heavy'));
     const hasFallenBack = op.actionsPerformed.includes('FallBack');
 
     const shootCount = op.actionsPerformed.filter(a => a === 'Shoot').length;
@@ -1672,16 +1672,18 @@ export function updateActivePanel() {
 
     // Astartes 双重行动规则: 被动阵营规则 (SM/LEG 可选 2 Shoot 或 2 Fight，不能混合)
     // 注: 这不是 ploy，是免费的被动能力
-    const isAstartes = hasFactionTrait(op.faction, 'astartesDoubleAction');
+    const isAstartes = activeRuleSet().factionMechanicsEnabled
+      && hasFactionTrait(op.faction, 'astartesDoubleAction');
     const isCounteracting = op.counteracting === true;
 
     const canDoubleAction = isAstartes;
 
     // 任意移动行动标记 (Move/Charge/Advance/Dash/FallBack 均阻止其他移动行动)
     const hasAnyMove = hasMoved || hasCharged || hasAdvanced || hasDashed || hasFallenBack;
-    // Advance/FallBack 后不能再 Shoot/Fight；Dash 后 Fight 不能，Shoot 仅 Heavy 武器可
+    // Advance/FallBack 后不能再 Shoot/Fight (lite 无 Advance；保留以兼容 standard)
     const noCombatAfterMove = hasAdvanced || hasFallenBack;
-    const shootBlockedAfterDash = hasDashed && !hasHeavyWeapon;
+    // 注: lite 中 Dash 与 Reposition 等价，不再阻止后续射击/近战 (文档 L89)。
+    // Heavy 武器的 "移动后不可用" 限制属 Heavy 规则本身，单独处理 (见下方 shootHeavyBlocked)。
 
     // Counteract 模式下: 仅 1 次行动, 禁止冲锋, 移动不超过 2"
     const maxShoots = isCounteracting ? 1 : (canDoubleAction ? 2 : 1);
@@ -1693,8 +1695,8 @@ export function updateActivePanel() {
     const shootLimitReached = shootCount >= maxShoots;
     const fightLimitReached = fightCount >= maxFights;
 
-    // 移动行动: 一旦执行过任意移动，所有其他移动行动均禁用
-    document.getElementById('action-move').disabled = op.apl < 1 || hasAnyMove || isCounteracting || op.isDead;
+    // 移动行动: 一旦执行过任意移动，所有其他移动行动均禁用 (反击时仍可移动≤2"，不禁用)
+    document.getElementById('action-move').disabled = op.apl < 1 || hasAnyMove || op.isDead;
     // Charge 禁用条件: Counteract / 已耗尽APL / 已执行任意移动 / 已近战 / 已射击 / Conceal 标记 (隐蔽不能冲锋)
     document.getElementById('action-charge').disabled = isCounteracting ? true : (op.apl < 1 || hasAnyMove || hasFought || hasShot || op.hasConceal) || op.isDead;
     // Advance: 同 Charge，且不能 Counteract
@@ -1703,24 +1705,27 @@ export function updateActivePanel() {
     document.getElementById('action-dash').disabled = op.apl < 1 || hasAnyMove || hasFought || hasShot || isCounteracting || op.isDead;
     // Fall Back: lite 规则下消耗 2 APL，同 Advance 的其他约束
     document.getElementById('action-fallback').disabled = op.apl < 2 || hasAnyMove || hasFought || hasShot || isCounteracting || op.isDead;
-    // Shoot: 原有约束 + Advance/FallBack 后不能射击 + Dash 后仅 Heavy 武器可射
-    // 特殊规则: 若所有武器都是 Heavy (Dash only)，未 Dash 时 Shoot 禁用；Dash 后 Shoot 可用
-    const shootHeavyBlocked = hasHeavyWeapon && !hasDashed && op.weapons.every(w => w.hasRule('Heavy'));
+    // Shoot: 原有约束 + Advance/FallBack 后不能射击
+    // Heavy 规则: Heavy(仅限冲刺) 武器在执行过非 Dash 移动后不可用；若所有远程武器都因此不可用则禁用 Shoot。
+    const rangedWeapons = op.weapons.filter(w => w.isRanged);
+    const allRangedHeavy = rangedWeapons.length > 0 && rangedWeapons.every(w => weaponHasRule(w, 'Heavy'));
+    const nonDashMovePerformed = ['Move', 'Reposition', 'Charge', 'Advance', 'FallBack'].some(m => op.actionsPerformed.includes(m));
+    const shootHeavyBlocked = allRangedHeavy && nonDashMovePerformed;
     // Conceal 命令: 不能射击 (除非携带 Silent 武器)
-    const hasSilentWeapon = op.weapons.some(w => w.hasRule('Silent'));
+    const hasSilentWeapon = op.weapons.some(w => weaponHasRule(w, 'Silent'));
     const shootConcealBlocked = op.hasConceal && !hasSilentWeapon;
-    document.getElementById('action-shoot').disabled = op.apl < 1 || shootLimitReached || shootLocked || hasCharged || noCombatAfterMove || shootBlockedAfterDash || shootHeavyBlocked || shootConcealBlocked || op.isDead;
-    // Fight: 原有约束 + Advance/Dash/FallBack 后都不能近战
-    document.getElementById('action-fight').disabled = op.apl < 1 || fightLimitReached || fightLocked || noCombatAfterMove || hasDashed || op.isDead;
+    document.getElementById('action-shoot').disabled = op.apl < 1 || shootLimitReached || shootLocked || hasCharged || noCombatAfterMove || shootHeavyBlocked || shootConcealBlocked || op.isDead;
+    // Fight: 原有约束 + Advance/FallBack 后不能近战 (Dash 在 lite 中不限制近战)
+    document.getElementById('action-fight').disabled = op.apl < 1 || fightLimitReached || fightLocked || noCombatAfterMove || op.isDead;
 
     const doubleActionLabel = 'Astartes';
 
     const ployDisplay = document.getElementById('active-ploys-display');
     if (ployDisplay) {
         const ploysText = [];
-        if (isCounteracting) ploysText.push('<span style="color:#f97316;">⚡ 反击 (Counteract): 仅限 Reposition, 移动≤2", 不可冲锋</span>');
+        if (isCounteracting) ploysText.push('<span style="color:#f97316;">⚡ 反击 (Counteract): 可执行 1AP 行动 (移动≤2"/射击/近战)，不可冲锋/冲刺/后撤</span>');
         if (hasAdvanced) ploysText.push('<span style="color:#f59e0b;">🏃💨 已前进 (Advance): 不能再射击/近战</span>');
-        if (hasDashed) ploysText.push(`<span style="color:#f59e0b;">💨💨 已冲刺 (Dash): 不能再近战${hasHeavyWeapon ? '，仅 Heavy 武器可射击' : '，不能射击'}</span>`);
+        if (hasDashed) ploysText.push('<span style="color:#f59e0b;">💨💨 已冲刺 (Dash)</span>');
         if (hasFallenBack) ploysText.push('<span style="color:#f59e0b;">🔙 已撤退 (Fall Back): 不能再射击/近战</span>');
         if (hasShot && !isCounteracting && canDoubleAction) ploysText.push(`<span style="color:#6a9ad4;">💥 ${doubleActionLabel}: 已射击×${shootCount}，锁定近战</span>`);
         if (hasFought && !isCounteracting && canDoubleAction) ploysText.push(`<span style="color:#f87171;">⚔️ ${doubleActionLabel}: 已近战×${fightCount}，锁定射击</span>`);
@@ -2537,7 +2542,7 @@ export function renderTurnEndScoringContent() {
     `).join('');
   };
 
-  const isFinalTP = isFinalTurningPoint(gameState.turningPoint, gameState.rulesVersion);
+  const isFinalTP = isFinalTurningPoint(gameState.turningPoint);
   const confirmBtnText = isFinalTP ? '确认结算并完成对局' : '确认结算并推进回合';
   const confirmAction = isFinalTP ? 'declareScoreVictory()' : 'confirmTurnEndScoring()';
 

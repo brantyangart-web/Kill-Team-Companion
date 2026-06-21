@@ -2,6 +2,7 @@ import { playSound } from './audio.js';
 import { getEnemyFaction, getFactionDisplayName, getTeamSlot } from '../rules/faction.js';
 import { isFinalTurningPoint } from '../rules/strategy.js';
 import { resetPloysThisTP } from '../rules/ploys.js';
+import { activeRuleSet } from '../rules/ruleSets.js';
 
 // UI callbacks - set during app initialization to avoid circular deps
 const ui = {};
@@ -171,7 +172,7 @@ export function endTurningPoint() {
   playSound('click');
 
   // TP 上限检测：lite 规则 TP4 结束，standard 规则 TP5 结束
-  if (isFinalTurningPoint(gameState.turningPoint, gameState.rulesVersion)) {
+  if (isFinalTurningPoint(gameState.turningPoint)) {
     ui.addLog(`\n========================================`);
     ui.addLog(`>>> 已达第 ${gameState.turningPoint} 回合上限！进入最终胜负结算！`);
     ui.addLog(`========================================`);
@@ -223,7 +224,8 @@ export function endTurningPoint() {
 export function hasCounteractOperatives(slotOrFaction) {
   const slot = typeof slotOrFaction === 'number' ? slotOrFaction : getTeamSlot(slotOrFaction);
   const faction = gameState.teamFactions[slot];
-  const canIgnoreOrder = hasFactionTrait(faction, 'counteractRegardlessOfOrder');
+  const canIgnoreOrder = activeRuleSet().factionMechanicsEnabled
+    && hasFactionTrait(faction, 'counteractRegardlessOfOrder');
 
   return gameState.operatives.some(op =>
     op.teamSlot === slot && !op.isDead && op.hasActed &&

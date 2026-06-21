@@ -9,6 +9,7 @@
  */
 
 import { STARTING_CP } from './core.js';
+import { activeRuleSet } from './ruleSets.js';
 
 // ==========================================
 //            CP 经济
@@ -147,10 +148,8 @@ export function canCommandReroll(currentCp, alreadyRerolledThisSequence) {
 /**
  * 判断当前 TP 是否为最终 TP
  * @param {number} currentTp
- * @param {string} rulesVersion - 'lite' | 'standard'
  * @returns {boolean}
  */
-export function isFinalTurningPoint(currentTp, rulesVersion = 'lite') {
-  const maxTp = rulesVersion === 'lite' ? 4 : 5;
-  return currentTp >= maxTp;
+export function isFinalTurningPoint(currentTp) {
+  return currentTp >= activeRuleSet().maxTurningPoints;
 }

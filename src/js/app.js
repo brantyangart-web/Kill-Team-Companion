@@ -45,7 +45,8 @@ import {
   rollMeleeDice, rerollMeleeDice, renderMeleeRollsView,
   getDuelAvatarHtml, getMeleeDuelHeaderHtml, getShootDuelHeaderHtml,
   chooseMeleeDice, resolveMeleeChoice, cancelMeleeChoice, confirmFightResult,
-  resolveSecondaries, selectDefFightWeapon,
+  resolveSecondaries, resolveDevastationAoe, selectDefFightWeapon,
+  rerollWeaponRuleDice, toggleRelentlessSelect, confirmRelentlessReroll,
   initCombatUiCallbacks, initCombatAccessibility
 } from './combat.js';
 
@@ -153,6 +154,10 @@ window.selectFightDefender = selectFightDefender;
 window.selectFightWeapon = selectFightWeapon;
 window.selectDefFightWeapon = selectDefFightWeapon;
 window.resolveSecondaries = resolveSecondaries;
+window.resolveDevastationAoe = resolveDevastationAoe;
+window.rerollWeaponRuleDice = rerollWeaponRuleDice;
+window.toggleRelentlessSelect = toggleRelentlessSelect;
+window.confirmRelentlessReroll = confirmRelentlessReroll;
 window.rollMeleeDice = rollMeleeDice;
 window.rerollMeleeDice = rerollMeleeDice;
 window.chooseMeleeDice = chooseMeleeDice;

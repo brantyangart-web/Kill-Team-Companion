@@ -67,6 +67,7 @@ export function parseWeaponRule(ruleStr) {
  * @property {number} retainedNorms - 当前保留的普通成功骰数量
  * @property {boolean} isInMelee - 是否处于近战结算中
  * @property {boolean} isFirstCritStrike - 是否为本序列的第一次暴击命中 (Shock)
+ * @property {boolean} defenderPoisoned - 防御方是否携带毒素标记 (Toxic)
  * @property {string} phase - 当前阶段 ('attack-roll' | 'retain' | 'defense' | 'melee-strike' | ...)
  */
 
@@ -102,6 +103,10 @@ export function parseWeaponRule(ruleStr) {
  *   concealNoCover: boolean            — Seek: Conceal 单位不能利用掩体
  *   onlyLightTerrain: boolean          — Seek Light: 只针对 Light 地形
  *   maxRange: number                   — Range x: 射程上限
+ *   perilOnFailValue: number           — PSYCHIC: 每颗失败值(1)自伤量
+ *   applyPoisonTokenOnDamage: boolean  — Poison: 造成≥1伤害时给予毒素标记
+ *   dmgBonusIfPoisoned: number         — Toxic: 目标带毒素标记时 Normal/Crit Dmg 各 +N
+ *   ignoreRangeAndVisibility: boolean  — Indirect Fire: 无需视线/射程判定
  */
 export const WEAPON_RULES = {
 
@@ -219,6 +224,22 @@ export const WEAPON_RULES = {
 
   /** Range x: 射程上限 */
   'Range': (ctx, x) => ({ maxRange: parseInt(x, 10) }),
+
+  // ------------------------------------------
+  // 派系/特殊机制 (Faction / Special)
+  // ------------------------------------------
+
+  /** PSYCHIC: 攻击骰每颗 1 自伤 1（亚空间反噬，peril） */
+  'PSYCHIC': () => ({ perilOnFailValue: 1 }),
+
+  /** Poison: 造成 ≥1 伤害时给予目标 1 个毒素标记 */
+  'Poison': () => ({ applyPoisonTokenOnDamage: true }),
+
+  /** Toxic: 目标携带毒素标记时 Normal/Crit Dmg 各 +1 */
+  'Toxic': (ctx) => ctx.defenderPoisoned ? { dmgBonusIfPoisoned: 1 } : {},
+
+  /** Indirect Fire: 无需视线与射程判定 */
+  'Indirect Fire': () => ({ ignoreRangeAndVisibility: true }),
 };
 
 // ==========================================

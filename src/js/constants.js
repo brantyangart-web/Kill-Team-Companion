@@ -394,10 +394,11 @@ const RULE_TEXTS = {
     body: `
           <p><b>行动点消耗:</b> 1 APL</p>
           <p style="margin-top:6px;"><b>移动距离:</b> 固定 <b>3"</b> (lite 规则，且不能攀爬)。</p>
-          <p style="margin-top:6px;"><b>使用场景:</b> 需要快速穿越战场时使用。同时也是唯一能让 <b>Heavy (Dash only)</b> 武器开火的方式。</p>
+          <p style="margin-top:6px;"><b>使用场景:</b> 需要快速穿越战场时使用。冲刺后仍可射击/近战（与转移相同）。</p>
           <p style="margin-top:6px;"><b>规则限制:</b></p>
           <ul>
-            <li>冲刺后<b>不能再射击或近战</b>（Heavy (Dash only) 武器例外：Dash 后可以射击）。</li>
+            <li>与转移效果相同，但移动距离固定 3"，且不能攀爬。</li>
+            <li>Heavy (仅限冲刺) 武器：执行过非冲刺的移动后不可用；未移动或仅冲刺时可用。</li>
             <li>如果本回合该特工已经执行过任意移动/冲锋/前进/冲刺/撤退，则<b>不能</b>执行冲刺。</li>
           </ul>
         `
