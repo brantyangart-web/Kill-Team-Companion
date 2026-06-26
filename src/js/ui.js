@@ -498,6 +498,12 @@ export function confirmReset() {
     document.getElementById('start-screen').style.display = 'flex';
     document.getElementById('global-dash').style.display = 'none';
     document.getElementById('battle-area').style.display = 'none';
+    
+    const thp = document.getElementById('test-harness-panel');
+    if (thp) thp.style.display = 'none';
+    
+    const btnSandbox = document.getElementById('btn-enter-sandbox');
+    if (btnSandbox) btnSandbox.style.display = 'inline-block';
     document.getElementById('guidance-banner').style.display = 'none';
     document.getElementById('battle-log-lines').innerHTML = '';
 
@@ -584,13 +590,68 @@ function buildRosterRowHtml(tmpl, faction, isLeader, checked, disabled, toggleFn
     controlHtml = `<input type="checkbox" class="roster-checkbox" id="check-${prefix}-${tmpl.id}" ${checkedAttr} ${disabledAttr}>`;
   }
 
+    let tacticsHtml = '';
+    if (faction === 'Space Marine') {
+      const CT_OPTIONS = [
+        { id: 'aggressive', name: '凶猛(Aggressive)' },
+        { id: 'dueler', name: '决斗(Dueler)' },
+        { id: 'resolute', name: '坚毅(Resolute)' },
+        { id: 'stealthy', name: '隐蔽(Stealthy)' },
+        { id: 'mobile', name: '机动(Mobile)' },
+        { id: 'hardy', name: '坚韧(Hardy)' },
+        { id: 'sharpshooter', name: '神射手(Sharpshooter)' },
+        { id: 'siege_specialist', name: '攻城专家(Siege)' }
+      ];
+      let optionsHtml = '';
+      CT_OPTIONS.forEach(o => {
+        optionsHtml += `<option value="${o.id}">${o.name}</option>`;
+      });
+      // Default to slightly different ones so they aren't the same
+      let optionsHtml2 = '';
+      CT_OPTIONS.forEach((o, idx) => {
+        const sel = idx === 1 ? 'selected' : '';
+        optionsHtml2 += `<option value="${o.id}" ${sel}>${o.name}</option>`;
+      });
+
+      tacticsHtml = `
+        <div style="margin-top:6px; font-size:0.7rem; display:flex; gap:8px;" onclick="event.stopPropagation()">
+          <select id="ct-primary-${prefix}-${tmpl.id}" class="tactic-select" style="background:#1e293b; color:#94a3b8; border:1px solid #475569; border-radius:4px; padding:2px; font-size:0.65rem;">
+            ${optionsHtml}
+          </select>
+          <select id="ct-secondary-${prefix}-${tmpl.id}" class="tactic-select" style="background:#1e293b; color:#94a3b8; border:1px solid #475569; border-radius:4px; padding:2px; font-size:0.65rem;">
+            ${optionsHtml2}
+          </select>
+        </div>
+      `;
+    } else if (faction === 'Legionary') {
+      const MOC_OPTIONS = [
+        { id: 'KHORNE', name: 'Khorne (恐虐)' },
+        { id: 'NURGLE', name: 'Nurgle (纳垢)' },
+        { id: 'SLAANESH', name: 'Slaanesh (色孽)' },
+        { id: 'TZEENTCH', name: 'Tzeentch (奸奇)' },
+        { id: 'UNDIVIDED', name: 'Undivided (无分)' }
+      ];
+      let optionsHtml = '';
+      MOC_OPTIONS.forEach(o => {
+        optionsHtml += `<option value="${o.id}">${o.name}</option>`;
+      });
+      tacticsHtml = `
+        <div style="margin-top:6px; font-size:0.7rem;" onclick="event.stopPropagation()">
+          <select id="moc-${prefix}-${tmpl.id}" class="tactic-select" style="background:#1e293b; color:#94a3b8; border:1px solid #8b1a1a; border-radius:4px; padding:2px; font-size:0.65rem;">
+            ${optionsHtml}
+          </select>
+        </div>
+      `;
+    }
+
   return `
     ${controlHtml}
     ${avatarHtml}
-    <div class="roster-op-info">
+    <div class="roster-op-info" style="flex: 1;">
       <div class="roster-op-name">${tmpl.name} ${badge}${warriorTag}</div>
       <div class="roster-op-weapons">Move: ${tmpl.move || 6}" | HP: ${tmpl.wounds} | APL: ${tmpl.apl}</div>
       <div style="font-size:0.65rem; color:#9a9da5; margin-top:2px;">武器: ${buildWeaponSummary(tmpl)}</div>
+      ${tacticsHtml}
     </div>
   `;
 }
@@ -1028,6 +1089,22 @@ export function validateRostersAndDeploy() {
       const op = new Operative(uniqueId, displayName, team0Faction, tmpl.wounds, tmpl.apl, tmpl.df, tmpl.sv, tmpl.weapons, tmpl.defaultAvatar, tmpl.move || 6, 0);
       // Standard 规则: 从模板复制 operativeType
       if (tmpl.operativeType) op.operativeType = tmpl.operativeType;
+
+      if (team0Faction === 'Space Marine') {
+        const pSel = document.getElementById(`ct-primary-s0-${tmpl.id}`);
+        const sSel = document.getElementById(`ct-secondary-s0-${tmpl.id}`);
+        if (pSel && sSel) {
+          op.chapterTactics = [pSel.value, sSel.value];
+          gameState.chapterTacticSelections[op.id] = { primary: pSel.value, secondary: sSel.value };
+        }
+      } else if (team0Faction === 'Legionary') {
+        const mSel = document.getElementById(`moc-s0-${tmpl.id}`);
+        if (mSel) {
+          op.marksOfChaos = mSel.value;
+          gameState.marksOfChaosSelections[op.id] = mSel.value;
+        }
+      }
+
       gameState.operatives.push(op);
     }
   });
@@ -1040,6 +1117,22 @@ export function validateRostersAndDeploy() {
       const op = new Operative(uniqueId, displayName, team1Faction, tmpl.wounds, tmpl.apl, tmpl.df, tmpl.sv, tmpl.weapons, tmpl.defaultAvatar, tmpl.move || 5, 1);
       // Standard 规则: 从模板复制 operativeType
       if (tmpl.operativeType) op.operativeType = tmpl.operativeType;
+
+      if (team1Faction === 'Space Marine') {
+        const pSel = document.getElementById(`ct-primary-s1-${tmpl.id}`);
+        const sSel = document.getElementById(`ct-secondary-s1-${tmpl.id}`);
+        if (pSel && sSel) {
+          op.chapterTactics = [pSel.value, sSel.value];
+          gameState.chapterTacticSelections[op.id] = { primary: pSel.value, secondary: sSel.value };
+        }
+      } else if (team1Faction === 'Legionary') {
+        const mSel = document.getElementById(`moc-s1-${tmpl.id}`);
+        if (mSel) {
+          op.marksOfChaos = mSel.value;
+          gameState.marksOfChaosSelections[op.id] = mSel.value;
+        }
+      }
+
       gameState.operatives.push(op);
     }
   });
@@ -1056,6 +1149,9 @@ export function validateRostersAndDeploy() {
   document.getElementById('global-dash').style.display = 'grid';
   document.getElementById('battle-area').style.display = 'grid';
   document.getElementById('guidance-banner').style.display = 'flex';
+  
+  const btnSandbox = document.getElementById('btn-enter-sandbox');
+  if (btnSandbox) btnSandbox.style.display = 'none';
 
   addLog('>>> 战队挑选部署完毕！');
   addLog(`  - ${getFactionDisplayName(team0Faction)} 登场: ${gameState.operatives.filter(o => o.teamSlot === 0).map(o => o.name).join(', ')}`);
@@ -1065,14 +1161,9 @@ export function validateRostersAndDeploy() {
   updateScoresUI();
   renderOperatives();
 
-  // 部署后选择 Chapter Tactics / Marks of Chaos（阵营机制，由 factionMechanicsEnabled 开关）
-  if (activeRuleSet().factionMechanicsEnabled) {
-    showStandardRulesSelections(() => {
-      startInitiativePhase();
-    });
-  } else {
-    startInitiativePhase();
-  }
+  // 部署后选择 Chapter Tactics / Marks of Chaos 已经被集成到界面下拉框中
+  // 所以这里直接进入游戏
+  startInitiativePhase();
 }
 
 // ==========================================
@@ -1401,6 +1492,44 @@ export function renderOperatives() {
       if (op.poisonTokens > 0) {
         statusTagsHtml += '<span class="card-ploy-tag" style="border-color:#7ab88a; color:#7ab88a; background:rgba(122,184,138,0.15); font-size:0.6rem;">毒素×' + op.poisonTokens + '</span>';
       }
+      if (op.activeDebuffs) {
+        op.activeDebuffs.forEach(d => {
+          if (d.rule === 'nurglings') {
+            statusTagsHtml += '<span class="card-ploy-tag" style="border-color:var(--pm-accent); color:var(--pm-accent); background:rgba(122,184,138,0.15); font-size:0.6rem;">纳格林</span>';
+          } else if (d.rule === 'sickening_captivation') {
+            statusTagsHtml += '<span class="card-ploy-tag" style="border-color:#818cf8; color:#818cf8; background:rgba(129,140,248,0.15); font-size:0.6rem;">魅惑</span>';
+          }
+        });
+      }
+
+      // 阵营特有战术标签
+      if (op.faction === 'Space Marine' && op.chapterTactics && op.chapterTactics.length === 2) {
+        const CT_NAMES = {
+          'aggressive': '凶猛', 'dueler': '决斗', 'resolute': '坚毅', 'stealthy': '隐蔽',
+          'mobile': '机动', 'hardy': '坚韧', 'sharpshooter': '神射手', 'siege_specialist': '攻城专家'
+        };
+        const pName = CT_NAMES[op.chapterTactics[0]] || op.chapterTactics[0];
+        const sName = CT_NAMES[op.chapterTactics[1]] || op.chapterTactics[1];
+        
+        const isAdaptiveActive = isPloyActive('adaptive_tactics', 'Space Marine');
+        statusTagsHtml += `<span class="card-ploy-tag" style="border-color:#475569; color:#94a3b8; background:#1e293b; font-size:0.6rem;" title="主战术不可更改">主:${pName}</span>`;
+        
+        if (isAdaptiveActive) {
+          statusTagsHtml += `<span class="card-ploy-tag" style="border-color:#60a5fa; color:#60a5fa; background:rgba(96,165,250,0.15); font-size:0.6rem;" title="自适应战术生效中">副:${sName} ⚡</span>`;
+        } else {
+          statusTagsHtml += `<span class="card-ploy-tag" style="border-color:#475569; color:#94a3b8; background:#1e293b; font-size:0.6rem;" title="默认副战术">副:${sName}</span>`;
+        }
+      } else if (op.faction === 'Legionary' && op.marksOfChaos) {
+        const MOC_NAMES = {
+          'KHORNE': { n: '恐虐', c: '#dc2626' }, 'NURGLE': { n: '纳垢', c: '#16a34a' },
+          'SLAANESH': { n: '色孽', c: '#d946ef' }, 'TZEENTCH': { n: '奸奇', c: '#3b82f6' },
+          'UNDIVIDED': { n: '无分', c: '#a855f7' }
+        };
+        const moc = MOC_NAMES[op.marksOfChaos];
+        if (moc) {
+          statusTagsHtml += `<span class="card-ploy-tag" style="border-color:${moc.c}; color:${moc.c}; background:rgba(30,41,59,0.5); font-size:0.6rem;">印记:${moc.n}</span>`;
+        }
+      }
     }
 
     // Conceal 切换按钮：激活开始自由选命令，执行首个行动后锁定 (规则 L57)
@@ -1417,6 +1546,21 @@ export function renderOperatives() {
 
     const avatarHtml = getAvatarHtml(op.id, op.faction);
 
+    let aplModifiersText = '';
+    if (op.isInjured && activeRuleSet().injuredAplPenalty > 0) {
+      aplModifiersText += ' -1(重伤)';
+    }
+    if (op.activeDebuffs) {
+      op.activeDebuffs.forEach(d => {
+        if (d.stat === 'apl' && d.modifier !== 0) {
+          const sign = d.modifier > 0 ? '+' : '';
+          const ruleName = d.rule === 'nurglings' ? '纳格林' : (d.rule === 'sickening_captivation' ? '魅惑' : d.rule);
+          aplModifiersText += ` ${sign}${d.modifier}(${ruleName})`;
+        }
+      });
+    }
+    const aplExtraHtml = aplModifiersText ? ` <span style="color:var(--red); font-size:0.6rem;">(${aplModifiersText.trim()})</span>` : '';
+
     card.innerHTML = `
       <div style="position:absolute;top:3px;right:6px;color:var(--imperial-gold);font-size:10px;opacity:0.4;pointer-events:none;z-index:1;">✦</div>
       <div style="display:flex; flex-direction:column; gap:4px; margin-bottom:8px;">
@@ -1426,7 +1570,7 @@ export function renderOperatives() {
         </div>
         <div style="display:flex; align-items:center; gap:4px; padding-left:${avatarHtml ? '36px' : '0'};">
           ${statusTagsHtml}
-          <span class="op-card-tag">${op.currentApl} APL${op.isInjured && activeRuleSet().injuredAplPenalty > 0 ? ' <span style="color:var(--red); font-size:0.6rem;">(-1)</span>' : ''}</span>
+          <span class="op-card-tag">${op.currentApl} APL${aplExtraHtml}</span>
         </div>
       </div>
       <div class="op-card-hp">
@@ -1437,7 +1581,7 @@ export function renderOperatives() {
         <div class="op-hp-bar" style="width: ${hpPercent}%; background-color: ${hpPercent < 40 ? 'var(--red)' : 'var(--green)'}"></div>
       </div>
       <div class="op-card-stats">
-        <span>Move: <strong>${op.currentMove}"</strong>${op.isInjured ? ' <span style="color:var(--red); font-size:0.55rem;">(-2)</span>' : ''}</span>
+        <span>Move: <strong>${op.currentMove}"</strong>${op.isInjured && !op.ignoreInjuredPenalties ? ' <span style="color:var(--red); font-size:0.55rem;">(-2)</span>' : ''}</span>
         <span>DF: <strong>${op.df}</strong></span>
         <span>SV: <strong>${op.sv}+</strong></span>
         <span style="font-size: 0.65rem; color: #5a5d65; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 120px;">
@@ -1807,38 +1951,162 @@ export function updateActivePanel() {
   }
 }
 
+/**
+ * 显示移动受限警告弹窗（与 QA 判定界面风格统一）。
+ * @param {Object} op - 当前特工
+ * @param {string} actionLabel - 行动名称（用于标题）
+ * @param {string} maxMoveText - 最大移动距离描述文字
+ * @param {Function} onConfirm - 玩家确认后的回调
+ */
+function showMoveWarningDialog(op, actionLabel, maxMoveText, onConfirm) {
+  // 收集所有减益原因
+  const reasons = [];
+  if (op.isInjured && !op.ignoreInjuredPenalties) {
+    reasons.push('🩸 <strong>重伤状态</strong>：移动距离受到限制');
+  }
+  if (op.activeDebuffs) {
+    op.activeDebuffs.filter(d => d.stat === 'move' && d.modifier < 0).forEach(d => {
+      const source = d.rule || d.name || '状态减益';
+      reasons.push(`☣️ <strong>${source}</strong>：移动力 ${d.modifier}"`);
+    });
+  }
+
+  const reasonsHtml = reasons.map(r => `<div style="margin-bottom:6px; padding:6px 10px; background:rgba(255,60,60,0.1); border-left:3px solid var(--red); border-radius:4px;">${r}</div>`).join('');
+
+  const overlay = document.createElement('div');
+  overlay.className = 'modal-overlay';
+  overlay.style.cssText = 'display:flex; z-index:3500;';
+
+  overlay.innerHTML = `
+    <div class="modal-content" style="max-width:440px; border:1px solid var(--red); box-shadow:0 0 24px rgba(220,50,50,0.4);">
+      <div class="modal-header" style="background:rgba(40,10,10,0.97); border-bottom:2px solid var(--red); padding:14px 18px;">
+        <div class="modal-title" style="display:flex; align-items:center; gap:10px; color:#ff6b6b;">
+          <span style="font-size:1.5rem;">⚠️</span>
+          <span>移动受限警告：【${actionLabel}】</span>
+        </div>
+      </div>
+      <div class="modal-body" style="padding:20px;">
+        <div style="font-size:0.85rem; color:var(--text-muted); margin-bottom:12px;">
+          特工：<strong style="color:#fff;">${op.name}</strong>
+        </div>
+
+        <div class="qa-card" style="border-color:rgba(220,50,50,0.4); margin-bottom:14px;">
+          <div class="qa-question" style="color:#ff6b6b;">⚠️ 该特工移动力当前受到以下效果影响：</div>
+          <div style="font-size:0.88rem; line-height:1.7;">${reasonsHtml}</div>
+          <div style="margin-top:8px; padding:8px 12px; background:rgba(255,255,255,0.05); border-radius:6px; font-size:0.9rem;">
+            📏 <strong>当前最大移动距离：</strong><span style="color:#fbbf24; font-size:1.05rem; font-weight:bold;">${maxMoveText}</span>
+          </div>
+        </div>
+
+        <div class="qa-card" style="border-color:rgba(255,255,255,0.1);">
+          <div class="qa-question">是否确认在此状态下执行【${actionLabel}】？</div>
+          <div class="qa-options" style="gap:12px; margin-top:4px;">
+            <button id="btn-move-warn-cancel" class="qa-btn" style="border-color:rgba(220,50,50,0.4); color:#ff9999;">
+              ✖ 取消行动
+            </button>
+            <button id="btn-move-warn-confirm" class="qa-btn" style="background:rgba(220,50,50,0.25); border-color:var(--red); color:#ffcccc; font-weight:bold;">
+              ✔ 确认执行（移动受限）
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  `;
+
+  document.body.appendChild(overlay);
+
+  document.getElementById('btn-move-warn-cancel').onclick = () => {
+    playSound('click');
+    document.body.removeChild(overlay);
+  };
+
+  document.getElementById('btn-move-warn-confirm').onclick = () => {
+    playSound('click');
+    document.body.removeChild(overlay);
+    if (onConfirm) onConfirm();
+  };
+}
+
 export function performMove() {
   const op = gameState.activeAgent;
   if (!op || op.apl < 1) return;
-  playSound('click');
-  op.apl -= 1;
-  op.actionsPerformed.push('Move');
-  if (op.counteracting) {
-    addLog(`  - ${op.name} 执行 [反击移动]，消耗 1 AP。⚠️ 物理沙盘移动不得超过 2"！`);
+
+  const isMoveReduced = (op.activeDebuffs?.some(d => d.stat === 'move' && d.modifier < 0)) || (op.isInjured && !op.ignoreInjuredPenalties);
+
+  const doMove = () => {
+    evaluatePloyInteractions('before_move', op, () => {
+      playSound('click');
+      op.apl -= 1;
+      op.actionsPerformed.push('Move');
+      if (op.counteracting) {
+        addLog(`  - ${op.name} 执行 [反击移动]，消耗 1 AP。⚠️ 物理沙盘移动不得超过 2"！`);
+      } else {
+        const moveReduced = (op.activeDebuffs?.some(d => d.stat === 'move' && d.modifier < 0)) || (op.isInjured && !op.ignoreInjuredPenalties);
+        const moveNotice = moveReduced ? `⚠️ 移动受限，最大移动 ${op.currentMove}"` : `最大移动 ${op.currentMove}"`;
+        addLog(`  - ${op.name} 执行 [移动 (Move)]，消耗 1 APL。(${moveNotice})`);
+      }
+      updateActivePanel();
+    });
+  };
+
+  if (isMoveReduced) {
+    playSound('alert');
+    showMoveWarningDialog(op, '移动 (Move)', `${op.currentMove}"`, doMove);
   } else {
-    addLog(`  - ${op.name} 执行 [移动 (Move)]，消耗 1 APL。`);
+    doMove();
   }
-  updateActivePanel();
 }
 
 export function performCharge() {
   const op = gameState.activeAgent;
   if (!op || op.apl < 1) return;
-  playSound('click');
-  op.apl -= 1;
-  op.actionsPerformed.push('Charge');
-  addLog(`  - ${op.name} 执行 [冲锋 (Charge)]，移动最多 ${op.currentMove + 2}" 并贴入敌方控制范围，消耗 1 APL。`);
-  updateActivePanel();
+
+  const isMoveReduced = (op.activeDebuffs?.some(d => d.stat === 'move' && d.modifier < 0)) || (op.isInjured && !op.ignoreInjuredPenalties);
+
+  const doCharge = () => {
+    evaluatePloyInteractions('before_move', op, () => {
+      playSound('click');
+      op.apl -= 1;
+      op.actionsPerformed.push('Charge');
+      const moveReduced = (op.activeDebuffs?.some(d => d.stat === 'move' && d.modifier < 0)) || (op.isInjured && !op.ignoreInjuredPenalties);
+      const moveNotice = moveReduced ? `⚠️ 移动受限最多 ${op.currentMove + 2}"` : `最多 ${op.currentMove + 2}"`;
+      addLog(`  - ${op.name} 执行 [冲锋 (Charge)]，移动${moveNotice} 并贴入敌方控制范围，消耗 1 APL。`);
+      updateActivePanel();
+    });
+  };
+
+  if (isMoveReduced) {
+    playSound('alert');
+    showMoveWarningDialog(op, '冲锋 (Charge)', `${op.currentMove + 2}"`, doCharge);
+  } else {
+    doCharge();
+  }
 }
 
 export function performAdvance() {
   const op = gameState.activeAgent;
   if (!op || op.apl < 1) return;
-  playSound('click');
-  op.apl -= 1;
-  op.actionsPerformed.push('Advance');
-  addLog(`  - ${op.name} 执行 [前进 (Advance)]，移动距离 +3" (总计 ${op.currentMove + 3}")，但本激活不能再射击/近战。`);
-  updateActivePanel();
+
+  const isMoveReduced = (op.activeDebuffs?.some(d => d.stat === 'move' && d.modifier < 0)) || (op.isInjured && !op.ignoreInjuredPenalties);
+
+  const doAdvance = () => {
+    evaluatePloyInteractions('before_move', op, () => {
+      playSound('click');
+      op.apl -= 1;
+      op.actionsPerformed.push('Advance');
+      const moveReduced = (op.activeDebuffs?.some(d => d.stat === 'move' && d.modifier < 0)) || (op.isInjured && !op.ignoreInjuredPenalties);
+      const moveNotice = moveReduced ? `⚠️ 移动受限总计 ${op.currentMove + 3}"` : `总计 ${op.currentMove + 3}"`;
+      addLog(`  - ${op.name} 执行 [前进 (Advance)]，移动距离 +3" (${moveNotice})，但本激活不能再射击/近战。`);
+      updateActivePanel();
+    });
+  };
+
+  if (isMoveReduced) {
+    playSound('alert');
+    showMoveWarningDialog(op, '前进 (Advance)', `${op.currentMove + 3}"`, doAdvance);
+  } else {
+    doAdvance();
+  }
 }
 
 export function performDash() {
@@ -1858,17 +2126,46 @@ export function performFallBack() {
     if (op) addLog(`  - ❌ ${op.name} APL 不足 (${op.apl}/2)，无法执行撤退 (Fall Back)。`);
     return;
   }
-  playSound('click');
-  op.apl -= 2;
-  op.actionsPerformed.push('FallBack');
-  addLog(`  - ${op.name} 执行 [撤退 (Fall Back)]，脱离交战区域 (移动最多 ${op.currentMove}")，消耗 2 APL。本激活不能再射击/近战。`);
-  updateActivePanel();
+
+  const isMoveReduced = (op.activeDebuffs?.some(d => d.stat === 'move' && d.modifier < 0)) || (op.isInjured && !op.ignoreInjuredPenalties);
+
+  const doFallBack = () => {
+    evaluatePloyInteractions('before_move', op, () => {
+      playSound('click');
+      op.apl -= 2;
+      op.actionsPerformed.push('FallBack');
+      const moveReduced = (op.activeDebuffs?.some(d => d.stat === 'move' && d.modifier < 0)) || (op.isInjured && !op.ignoreInjuredPenalties);
+      const moveNotice = moveReduced ? `⚠️ 移动受限最多 ${op.currentMove}"` : `最多 ${op.currentMove}"`;
+      addLog(`  - ${op.name} 执行 [撤退 (Fall Back)]，脱离交战区域 (移动${moveNotice})，消耗 2 APL。本激活不能再射击/近战。`);
+      updateActivePanel();
+    });
+  };
+
+  if (isMoveReduced) {
+    playSound('alert');
+    showMoveWarningDialog(op, '撤退 (Fall Back)', `${op.currentMove}"`, doFallBack);
+  } else {
+    doFallBack();
+  }
 }
 
 export function endActivation() {
   playSound('click');
   const op = gameState.activeAgent;
   if (!op) return;
+
+  // 清除 "until_next_activation_end" 类型的 debuff (例如：纳格林引起的 APL -1)
+  if (op.activeDebuffs) {
+    const initialLen = op.activeDebuffs.length;
+    op.activeDebuffs = op.activeDebuffs.filter(d => d.duration !== 'until_next_activation_end');
+    if (op.activeDebuffs.length !== initialLen) {
+      addLog(`[状态恢复] ${op.name} 身上的临时减益效果（如纳格林）已结束。`);
+    }
+  }
+
+  if (op.id === gameState.nurglingsTarget) {
+    gameState.nurglingsTarget = null;
+  }
 
   // Counteract 激活结束后: 重新标记为 hasActed, 清除 counteracting 标记
   if (op.counteracting) {
@@ -2242,11 +2539,15 @@ function buildFactionPloyPanel(faction) {
       ? `<div style="font-size:0.7rem; color:var(--imperial-gold); margin-top:4px;">当前教条: ${getCombatDoctrineChoice(faction) || '未选择'}</div>`
       : '';
 
+    const durationText = ploy.duration === 'persistent'
+      ? `<span class="ploy-duration-tag persistent" style="font-size:0.6rem; border:1px solid var(--imperial-gold); color:var(--imperial-gold); padding:1px 4px; border-radius:3px; margin-left:6px; background:rgba(212,175,55,0.1); font-weight:normal; letter-spacing:0;">持续</span>`
+      : `<span class="ploy-duration-tag temporary" style="font-size:0.6rem; border:1px solid var(--text-muted); color:var(--text-muted); padding:1px 4px; border-radius:3px; margin-left:6px; font-weight:normal; letter-spacing:0;">单轮</span>`;
+
     cards += `<div class="ploy-choice-card ${alreadyOwned ? 'selected' : ''}" role="button" tabindex="0"
       style="${cursorStyle}" onclick="${clickHandler}"
       onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();${clickHandler}}">
       <div class="ploy-title">
-        <span>${ploy.name_cn}</span>
+        <span style="display:flex; align-items:center;">${ploy.name_cn}${durationText}</span>
         <span style="font-size:0.7rem; color:${statusColor};">${statusText}</span>
       </div>
       <div style="font-size:0.65rem; color:var(--text-muted); margin-bottom:2px;">${ploy.name_en}</div>
@@ -2272,28 +2573,7 @@ export function buyStrategyPloy(faction, ployId) {
   const isUsed = getUsedPloysThisTP(faction)[ployId];
 
   if (isActive || isUsed) {
-    // 取消已激活的 ploy
-    playSound('click');
-    setCpForFaction(faction, cp + ploy.cp); // 退回 CP
-
-    if (isActive && ploy.duration === 'persistent') {
-      // 从 persistentPloys 中移除
-      const persistent = gameState.persistentPloys?.[slot] || [];
-      gameState.persistentPloys[slot] = persistent.filter(p => p !== ployId);
-    }
-
-    // 从 usedPloysThisTP 中移除
-    if (gameState.usedPloysThisTP?.[slot]) {
-      delete gameState.usedPloysThisTP[slot][ployId];
-    }
-
-    // Combat Doctrine 取消时同步清除子选择
-    if (ployId === 'combat_doctrine') {
-      setCombatDoctrineChoice(faction, null);
-    }
-
-    addLog(`  ↩ ${factionName}取消策略：【${ploy.name_cn}】，退回 ${ploy.cp} CP`);
-    startStrategyPhase();
+    cancelBuyPloy(faction, ployId);
     return;
   }
 
@@ -2304,10 +2584,12 @@ export function buyStrategyPloy(faction, ployId) {
     return;
   }
 
-  playSound('important_decision');
-    setCpForFaction(faction, cp - ploy.cp);
+  window.pushStateSnapshot?.(`Buy Ploy: ${ploy.name_en}`);
 
-  if (ploy.duration === 'persistent') {
+  playSound('important_decision');
+  setCpForFaction(faction, cp - ploy.cp);
+
+  if (ploy.duration !== 'instant') {
     activatePersistentPloy(ployId, faction);
   } else {
     markPloyUsedThisTP(faction, ployId);
@@ -2321,6 +2603,72 @@ export function buyStrategyPloy(faction, ployId) {
     return;
   }
 
+  // Nurglings 需要选择敌方目标
+  if (ployId === 'nurglings') {
+    showNurglingsTargetChoice(faction);
+    return;
+  }
+
+  // Adaptive Tactics 需要全队选择副战术
+  if (ployId === 'adaptive_tactics') {
+    showAdaptiveTacticTeamSelector(faction);
+    return;
+  }
+
+  startStrategyPhase();
+}
+
+export function cancelBuyPloy(faction, ployId) {
+  const ploy = getPloy(ployId);
+  if (!ploy) return;
+  const slot = getTeamSlot(faction);
+  const cp = getCpForFaction(faction);
+
+  // Refund CP
+  setCpForFaction(faction, cp + ploy.cp);
+
+  // Remove from used
+  if (gameState.usedPloysThisTP?.[slot]) {
+    delete gameState.usedPloysThisTP[slot][ployId];
+  }
+  // Remove from persistent
+  if (gameState.persistentPloys?.[slot]) {
+    gameState.persistentPloys[slot] = gameState.persistentPloys[slot].filter(p => p !== ployId);
+  }
+
+  // Combat Doctrine 取消时同步清除子选择
+  if (ployId === 'combat_doctrine') {
+    setCombatDoctrineChoice(faction, null);
+  }
+
+  // Clear specific ploy state/debuffs
+  if (ployId === 'nurglings') {
+    if (gameState.nurglingsTarget) {
+      const targetId = gameState.nurglingsTarget;
+      const targetOp = gameState.operatives.find(o => o.id === targetId);
+      if (targetOp && targetOp.activeDebuffs) {
+        targetOp.activeDebuffs = targetOp.activeDebuffs.filter(d => d.rule !== 'nurglings');
+      }
+      gameState.nurglingsTarget = null;
+    }
+  }
+
+  // Adaptive Tactics 取消时恢复原战术
+  if (ployId === 'adaptive_tactics') {
+    gameState.operatives.forEach(op => {
+      if (op.faction === 'Space Marine' && gameState.chapterTacticSelections && gameState.chapterTacticSelections[op.id]) {
+        op.chapterTactics = [
+          gameState.chapterTacticSelections[op.id].primary,
+          gameState.chapterTacticSelections[op.id].secondary
+        ];
+      }
+    });
+    renderOperatives();
+  }
+
+  addLog(`  ↩ ${getFactionDisplayName(faction)}取消策略：【${ploy.name_cn}】，退回 ${ploy.cp} CP`);
+  playSound('click');
+  renderTestHarnessPloyButtons();
   startStrategyPhase();
 }
 
@@ -2356,6 +2704,90 @@ export function selectDoctrine(faction, choice) {
   addLog(`  → ${getFactionDisplayName(faction)}选择教条: ${choiceNames[choice]}`);
   playSound('click');
   startStrategyPhase();
+}
+
+export function showNurglingsTargetChoice(faction) {
+  showPhaseOverlay();
+  const overlayBox = document.getElementById('phase-overlay-content');
+  const themeVar = getFactionThemeVar(faction);
+
+  // Find all alive enemy operatives
+  const enemyOps = gameState.operatives.filter(op => op.faction !== faction && !op.isDead && op.wounds > 0);
+
+  let targetCards = '';
+  if (enemyOps.length === 0) {
+    targetCards = `<div style="color:var(--text-muted); font-size:0.85rem; text-align:center; padding:20px;">没有存活的敌方特工</div>`;
+  } else {
+    enemyOps.forEach(op => {
+      const poisonText = op.poisonTokens > 0 ? `<span style="color:#7ab88a;">(有毒素标记: ${op.poisonTokens})</span>` : '';
+      const rangeReq = op.poisonTokens > 0 ? '7"' : '3"';
+      targetCards += `
+        <div class="ploy-choice-card" role="button" onclick="selectNurglingsTarget('${faction}','${op.id}')" style="cursor:pointer; margin-bottom:8px;">
+          <div class="ploy-title">
+            <span>👤 ${op.name}</span>
+            <span style="font-size:0.75rem; color:var(--text-muted);">${op.wounds}/${op.maxWounds} HP ${poisonText}</span>
+          </div>
+          <div class="ploy-desc">判定距离：<b>${rangeReq}</b></div>
+        </div>
+      `;
+    });
+  }
+
+  overlayBox.innerHTML = `
+    <h3 style="color:var(${themeVar});">纳格林 (Nurglings) - 选择敌方目标</h3>
+    <p style="color:var(--text-muted); font-size:0.85rem; margin-bottom:16px;">
+      选择一个存活的敌方特工，纳格林将会对其进行骚扰。
+    </p>
+    <div style="display:flex; flex-direction:column; gap:10px; width:100%; margin-bottom:16px; max-height:40vh; overflow-y:auto;">
+      ${targetCards}
+    </div>
+    <div style="display:flex; justify-content:center; width:100%;">
+      <button class="btn-large" onclick="cancelBuyPloy('${faction}','nurglings')" style="padding: 10px 40px; font-size:0.9rem; background:rgba(100,116,139,0.2); border-color:#475569;">
+        取消购买 (Cancel)
+      </button>
+    </div>
+  `;
+}
+
+export function selectNurglingsTarget(faction, targetId) {
+  const op = gameState.operatives.find(o => o.id === targetId);
+  if (!op) {
+    cancelBuyPloy(faction, 'nurglings');
+    return;
+  }
+
+  const hasPoison = op.poisonTokens > 0;
+  const rangeReq = hasPoison ? '7"' : '3"';
+  const question = `🎯 物理沙盘测量：\n敌方特工 **${op.name}** 是否在当前友军特工的 **${rangeReq}** 范围内，且彼此可见？\n*(注：该特工${hasPoison ? '带有' : '未带有'}毒素标记，判定范围为 ${rangeReq})*`;
+
+  const ploy = getPloy('nurglings');
+  showPloyInteractionDialog(ploy, op, question, (isInRange) => {
+    if (isInRange) {
+      // 成功：应用 APL -1 debuff，记录 target
+      op.activeDebuffs = op.activeDebuffs || [];
+      const debuff = {
+        target: 'operative_stat',
+        stat: 'apl',
+        modifier: -1,
+        duration: 'until_next_activation_end',
+        rule: 'nurglings'
+      };
+      
+      if (!op.activeDebuffs.some(d => d.rule === 'nurglings')) {
+        op.activeDebuffs.push(debuff);
+      }
+      
+      gameState.nurglingsTarget = op.id;
+      addLog(`  → 纳格林成功干扰了【${op.name}】(APL -1 直到其下次激活结束)`);
+      playSound('click');
+      renderTestHarnessPloyButtons();
+      startStrategyPhase();
+    } else {
+      // 失败：退回 CP，清除状态
+      addLog(`  → 纳格林距离判定失败或玩家取消`);
+      cancelBuyPloy(faction, 'nurglings');
+    }
+  });
 }
 
 export function proceedToFirefight() {
@@ -2847,4 +3279,706 @@ export function evaluateDefenseRolls(rolls, sv) {
     }
   }
   return { criticals, normals, fails, rolls };
+}
+
+// ==========================================
+//   Sandbox Test Harness Mode
+// ==========================================
+
+export function setupSandboxTestHarness() {
+  gameState.operatives = [];
+  
+  // Set up Team 0 (SM)
+  gameState.teamFactions[0] = 'Space Marine';
+  const smLeader = SM_TEMPLATES.find(t => t.isLeader);
+  const smWarrior = SM_TEMPLATES.find(t => t.isWarrior);
+  
+  let idIdx = 1;
+  if (smLeader) {
+    const op = new Operative(`sm_leader_${idIdx}`, `SM Leader`, 'Space Marine', smLeader.wounds, smLeader.apl, smLeader.df, smLeader.sv, smLeader.weapons, smLeader.defaultAvatar, smLeader.move || 6, 0);
+    if (smLeader.operativeType) op.operativeType = smLeader.operativeType;
+    gameState.operatives.push(op);
+    idIdx++;
+  }
+  for(let i=0; i<5; i++) {
+    const op = new Operative(`sm_warrior_${idIdx}`, `SM Warrior #${i+1}`, 'Space Marine', smWarrior.wounds, smWarrior.apl, smWarrior.df, smWarrior.sv, smWarrior.weapons, smWarrior.defaultAvatar, smWarrior.move || 6, 0);
+    if (smWarrior.operativeType) op.operativeType = smWarrior.operativeType;
+    gameState.operatives.push(op);
+    idIdx++;
+  }
+
+  // Set up Team 1 (PM)
+  gameState.teamFactions[1] = 'Plague Marine';
+  const pmLeader = PM_TEMPLATES.find(t => t.isLeader);
+  const pmWarrior = PM_TEMPLATES.find(t => t.isWarrior);
+  
+  idIdx = 1;
+  if (pmLeader) {
+    const op = new Operative(`pm_leader_${idIdx}`, `PM Leader`, 'Plague Marine', pmLeader.wounds, pmLeader.apl, pmLeader.df, pmLeader.sv, pmLeader.weapons, pmLeader.defaultAvatar, pmLeader.move || 5, 1);
+    if (pmLeader.operativeType) op.operativeType = pmLeader.operativeType;
+    gameState.operatives.push(op);
+    idIdx++;
+  }
+  for(let i=0; i<5; i++) {
+    const op = new Operative(`pm_warrior_${idIdx}`, `PM Warrior #${i+1}`, 'Plague Marine', pmWarrior.wounds, pmWarrior.apl, pmWarrior.df, pmWarrior.sv, pmWarrior.weapons, pmWarrior.defaultAvatar, pmWarrior.move || 5, 1);
+    if (pmWarrior.operativeType) op.operativeType = pmWarrior.operativeType;
+    gameState.operatives.push(op);
+    idIdx++;
+  }
+  
+  gameState.missionType = 'custom';
+  
+  document.getElementById('start-screen').style.display = 'none';
+  document.getElementById('global-dash').style.display = 'grid';
+  document.getElementById('battle-area').style.display = 'grid';
+  document.getElementById('guidance-banner').style.display = 'flex';
+  
+  const btnSandbox = document.getElementById('btn-enter-sandbox');
+  if (btnSandbox) btnSandbox.style.display = 'none';
+  
+  const thp = document.getElementById('test-harness-panel');
+  if (thp) thp.style.display = 'block';
+
+  renderTestHarnessPloyButtons();
+  
+  addLog('>>> [TEST MODE] Sandbox Test Harness Initialized!');
+  updateBattlePanelNames();
+  updateScoresUI();
+  renderOperatives();
+  
+  // Bypass Initiative and Strategy phases, go directly to Firefight
+  gameState.tp = 1;
+  gameState.initiativeWinner = 0; // Force SM initiative
+  
+  hidePhaseOverlay();
+  proceedToFirefight();
+}
+
+export function renderTestHarnessPloyButtons() {
+  const container = document.getElementById('debug-ploy-buttons');
+  if (!container) return;
+  container.innerHTML = '';
+  
+  // Use a column layout for better readability with descriptions
+  container.style.flexDirection = 'column';
+  container.style.alignItems = 'flex-start';
+  
+  // 注入战术快速切换 UI
+  const tacticsControlHtml = `
+    <div style="width: 100%; border: 1px solid #475569; padding: 8px; border-radius: 6px; margin-bottom: 12px; background: rgba(0,0,0,0.3);">
+      <div style="font-size: 0.8rem; font-weight: bold; color: var(--gold); margin-bottom: 6px;">[TEST] 随时更换战术 (Tactics Override)</div>
+      
+      <!-- Space Marine Tactics -->
+      <div style="display: flex; gap: 8px; align-items: center; margin-bottom: 6px;">
+        <span style="font-size: 0.75rem; color: #94a3b8; width: 60px;">SM 战术:</span>
+        <select id="debug-sm-primary" style="background:#1e293b; color:#fff; border:1px solid #475569; padding:2px; font-size:0.75rem;">
+          <option value="aggressive">凶猛</option>
+          <option value="dueler">决斗</option>
+          <option value="resolute">坚毅</option>
+          <option value="stealthy">隐蔽</option>
+          <option value="mobile">机动</option>
+          <option value="hardy">坚韧</option>
+          <option value="sharpshooter">神射手</option>
+          <option value="siege_specialist">攻城专家</option>
+        </select>
+        <select id="debug-sm-secondary" style="background:#1e293b; color:#fff; border:1px solid #475569; padding:2px; font-size:0.75rem;">
+          <option value="aggressive">凶猛</option>
+          <option value="dueler">决斗</option>
+          <option value="resolute">坚毅</option>
+          <option value="stealthy">隐蔽</option>
+          <option value="mobile">机动</option>
+          <option value="hardy">坚韧</option>
+          <option value="sharpshooter">神射手</option>
+          <option value="siege_specialist">攻城专家</option>
+        </select>
+        <button onclick="window.applyDebugTactics('sm')" style="font-size:0.7rem; padding:2px 6px; background:#3b82f6; border:none; color:#fff; border-radius:4px; cursor:pointer;">应用 (Apply)</button>
+      </div>
+
+      <!-- Legionary Tactics -->
+      <div style="display: flex; gap: 8px; align-items: center;">
+        <span style="font-size: 0.75rem; color: #94a3b8; width: 60px;">Leg 印记:</span>
+        <select id="debug-leg-moc" style="background:#1e293b; color:#fff; border:1px solid #8b1a1a; padding:2px; font-size:0.75rem;">
+          <option value="KHORNE">恐虐 (Khorne)</option>
+          <option value="NURGLE">纳垢 (Nurgle)</option>
+          <option value="SLAANESH">色孽 (Slaanesh)</option>
+          <option value="TZEENTCH">奸奇 (Tzeentch)</option>
+          <option value="UNDIVIDED">无分 (Undivided)</option>
+        </select>
+        <button onclick="window.applyDebugTactics('leg')" style="font-size:0.7rem; padding:2px 6px; background:#dc2626; border:none; color:#fff; border-radius:4px; cursor:pointer;">应用 (Apply)</button>
+      </div>
+    </div>
+  `;
+  container.insertAdjacentHTML('beforeend', tacticsControlHtml);
+
+  
+  Object.values(PLOY_DATABASE).forEach(p => {
+    // Only show strategy ploys for the active factions
+    if (p.type !== 'strategy') return;
+    if (p.faction !== 'Space Marine' && p.faction !== 'Plague Marine' && p.faction !== 'ALL') return;
+    
+    const factionsToRender = p.faction === 'ALL' ? ['Space Marine', 'Plague Marine'] : [p.faction];
+    
+    factionsToRender.forEach(fac => {
+      const row = document.createElement('div');
+      row.style.display = 'flex';
+      row.style.alignItems = 'center';
+      row.style.gap = '12px';
+      row.style.marginBottom = '6px';
+      row.style.width = '100%';
+      
+      const btn = document.createElement('button');
+      const slot = fac === 'Space Marine' ? 0 : 1;
+      const isActive = gameState.persistentPloys && gameState.persistentPloys[slot]?.includes(p.id);
+      
+      const displayName = p.name_en || p.name_cn || p.id;
+      btn.textContent = `${fac === 'Space Marine' ? '[SM]' : '[PM]'} ${displayName} (${isActive ? 'ON' : 'OFF'})`;
+      
+      btn.style.background = isActive ? 'var(--green)' : 'rgba(255,255,255,0.1)';
+      btn.style.color = isActive ? 'white' : 'var(--text-muted)';
+      btn.style.border = '1px solid #555';
+      btn.style.padding = '4px 8px';
+      btn.style.borderRadius = '4px';
+      btn.style.cursor = 'pointer';
+      btn.style.fontSize = '0.8rem';
+      btn.style.minWidth = '220px';
+      btn.onclick = () => toggleTestPloy(p.id, fac);
+      
+      row.appendChild(btn);
+      
+      // If combat doctrine is ON, show its options dropdown
+      if (p.id === 'combat_doctrine' && isActive) {
+        const currentChoice = getCombatDoctrineChoice(fac) || 'devastator';
+        const select = document.createElement('select');
+        select.style.padding = '4px';
+        select.style.background = '#1a1d24';
+        select.style.color = '#fff';
+        select.style.border = '1px solid #555';
+        select.style.borderRadius = '4px';
+        select.style.fontSize = '0.75rem';
+        
+        p.options.forEach(opt => {
+          const option = document.createElement('option');
+          option.value = opt;
+          option.textContent = opt.charAt(0).toUpperCase() + opt.slice(1);
+          if (opt === currentChoice) option.selected = true;
+          select.appendChild(option);
+        });
+        
+        const descSpan = document.createElement('span');
+        descSpan.style.fontSize = '0.75rem';
+        descSpan.style.color = 'var(--text-muted)';
+        
+        const updateDesc = (choice) => {
+          const descs = {
+            devastator: '🎯 射击 6" 外目标获得 Balanced (平衡，可重投 1 个攻击骰)',
+            tactical: '📋 射击 6" 内目标获得 Balanced (平衡，可重投 1 个攻击骰)',
+            assault: '⚔️ 近战或反击获得 Balanced (平衡，可重投 1 个攻击骰)'
+          };
+          descSpan.innerHTML = ` &nbsp; ${descs[choice] || ''}`;
+        };
+        
+        select.onchange = (e) => {
+          setCombatDoctrineChoice(fac, e.target.value);
+          addLog(`[TEST MODE] ${fac} Combat Doctrine set to ${e.target.value}`);
+          updateDesc(e.target.value);
+        };
+        
+        // Ensure default is set in state if not already
+        if (!getCombatDoctrineChoice(fac)) {
+          setCombatDoctrineChoice(fac, 'devastator');
+        }
+        
+        updateDesc(getCombatDoctrineChoice(fac) || 'devastator');
+        
+        row.appendChild(select);
+        row.appendChild(descSpan);
+      }
+      
+      // If contagion is ON, show poison token test tool
+      if (p.id === 'contagion' && isActive) {
+        const enemyFaction = fac === 'Space Marine' ? 'Plague Marine' : 'Space Marine';
+        const enemies = gameState.operatives.filter(o => o.faction === enemyFaction && !o.isDead);
+        
+        const select = document.createElement('select');
+        select.style.padding = '4px';
+        select.style.background = '#1a1d24';
+        select.style.color = '#fff';
+        select.style.border = '1px solid #555';
+        select.style.borderRadius = '4px';
+        select.style.fontSize = '0.75rem';
+        
+        const defaultOpt = document.createElement('option');
+        defaultOpt.value = '';
+        defaultOpt.textContent = '测试：为敌方上毒...';
+        select.appendChild(defaultOpt);
+        
+        enemies.forEach(en => {
+          const opt = document.createElement('option');
+          opt.value = en.id;
+          opt.textContent = `${en.name} (${en.poisonTokens || 0} 毒)`;
+          select.appendChild(opt);
+        });
+        
+        const btnPoison = document.createElement('button');
+        btnPoison.textContent = '+ 施加剧毒';
+        btnPoison.style.padding = '4px 8px';
+        btnPoison.style.fontSize = '0.75rem';
+        btnPoison.style.background = '#8b5a2b';
+        btnPoison.style.color = 'white';
+        btnPoison.style.border = '1px solid #555';
+        btnPoison.style.borderRadius = '4px';
+        btnPoison.style.cursor = 'pointer';
+        
+        btnPoison.onclick = () => {
+          const targetId = select.value;
+          if (!targetId) return;
+          const target = gameState.operatives.find(o => o.id === targetId);
+          if (target) {
+            target.poisonTokens = (target.poisonTokens || 0) + 1;
+            addLog(`[TEST MODE] 为 ${target.name} 添加了 1 个 Poison Token！当前层数：${target.poisonTokens}`);
+            showToast(`已给 ${target.name} 上毒！`, 'warning');
+            renderTestHarnessPloyButtons(); // Refresh dropdown texts
+          }
+        };
+        
+        row.appendChild(select);
+        row.appendChild(btnPoison);
+      }
+      
+      const desc = document.createElement('span');
+      desc.textContent = p.desc || '暂无说明';
+      desc.style.fontSize = '0.75rem';
+      desc.style.color = 'var(--text-muted)';
+      desc.style.textAlign = 'left';
+      
+      row.appendChild(desc);
+      container.appendChild(row);
+    });
+  });
+}
+
+// ==========================================
+//   Modular Ploy Interactions Engine
+// ==========================================
+
+export function evaluatePloyInteractions(triggerEvent, triggerAgent, onComplete) {
+  // Find all active ploys that have this trigger
+  const activePloys = [];
+  const activeFactions = Object.values(gameState.teamFactions || {});
+  Object.values(PLOY_DATABASE).forEach(p => {
+    if (p.Trigger && p.Trigger.includes(triggerEvent)) {
+      // Check if it's active for any faction currently in game
+      activeFactions.forEach(faction => {
+        if (isPloyActive(p.id, faction)) {
+          activePloys.push({ ploy: p, activeFaction: faction });
+        }
+      });
+    }
+  });
+
+  if (activePloys.length === 0) {
+    if (onComplete) onComplete();
+    return;
+  }
+
+  let currentPloyIndex = 0;
+
+  function nextPloy() {
+    if (currentPloyIndex >= activePloys.length) {
+      if (onComplete) onComplete();
+      return;
+    }
+    const current = activePloys[currentPloyIndex++];
+    const ploy = current.ploy;
+    const activeFaction = current.activeFaction;
+    
+    // Evaluate hard conditions
+    const conditionsPassed = evaluatePloyConditions(ploy, activeFaction, triggerAgent);
+    if (!conditionsPassed) {
+      nextPloy();
+      return;
+    }
+
+    // Evaluate interactions (System asking User)
+    if (ploy.Interactions && ploy.Interactions.length > 0) {
+      evaluateNextInteraction(ploy, activeFaction, triggerAgent, 0, (interactionPassed) => {
+        if (interactionPassed) {
+          applyPloyEffects(ploy, activeFaction, triggerAgent, nextPloy);
+        } else {
+          removePloyEffects(ploy, triggerAgent);
+          nextPloy();
+        }
+      });
+    } else {
+      // No interactions needed, direct effect
+      applyPloyEffects(ploy, activeFaction, triggerAgent, nextPloy);
+    }
+  }
+
+  nextPloy();
+}
+
+function removePloyEffects(ploy, targetAgent) {
+  if (!targetAgent.activeDebuffs || !ploy.Effects) return;
+  const initialLength = targetAgent.activeDebuffs.length;
+  targetAgent.activeDebuffs = targetAgent.activeDebuffs.filter(d => {
+    // Keep debuffs that do NOT belong to this ploy
+    return !ploy.Effects.some(e => e.rule === d.rule && e.stat === d.stat);
+  });
+  if (targetAgent.activeDebuffs.length !== initialLength) {
+    addLog(`[状态恢复] 📏 ${targetAgent.name} 似乎已经脱离了 [${ploy.name_cn}] 的影响范围。`);
+  }
+}
+
+function evaluatePloyConditions(ploy, activeFaction, triggerAgent) {
+  if (!ploy.Conditions) return true;
+  for (const cond of ploy.Conditions) {
+    if (cond.type === 'is_enemy') {
+      if (triggerAgent.faction === activeFaction) return false;
+    }
+    if (cond.type === 'is_friendly') {
+      // 若指定了 cond.faction，直接匹配 triggerAgent.faction（用于 before_shoot_defense 等防守方判定）
+      const expectedFaction = cond.faction || activeFaction;
+      if (triggerAgent.faction !== expectedFaction) return false;
+    }
+  }
+  return true;
+}
+
+function evaluateNextInteraction(ploy, activeFaction, triggerAgent, index, callback) {
+  if (index >= ploy.Interactions.length) {
+    callback(true);
+    return;
+  }
+  const interaction = ploy.Interactions[index];
+  
+  if (interaction.type === 'boolean_confirm') {
+    const questionText = typeof interaction.question === 'function' ? interaction.question(triggerAgent, typeof wizardState !== 'undefined' ? wizardState : null) : interaction.question;
+    
+    // If question function returns null, it means conditions aren't met, auto skip
+    if (questionText === null) {
+      callback(false);
+      return;
+    }
+
+    showPloyInteractionDialog(ploy, triggerAgent, questionText, (result) => {
+      if (result) {
+        evaluateNextInteraction(ploy, activeFaction, triggerAgent, index + 1, callback);
+      } else {
+        callback(false);
+      }
+    });
+  } else {
+    evaluateNextInteraction(ploy, activeFaction, triggerAgent, index + 1, callback);
+  }
+}
+
+export function showPloyInteractionDialog(ploy, targetAgent, question, callback) {
+  const overlay = document.createElement('div');
+  overlay.className = 'modal-overlay';
+  overlay.style.display = 'flex';
+  overlay.style.zIndex = '2000';
+  
+  overlay.innerHTML = `
+    <div class="modal-content" style="max-width: 480px; box-shadow: 0 0 20px rgba(0,0,0,0.8); border: 1px solid var(--gold);">
+      <div class="modal-header" style="background: rgba(10, 20, 35, 0.95); color: var(--gold); padding: 15px; border-bottom: 2px solid var(--gold);">
+        <div class="modal-title" style="display:flex; align-items:center; gap:8px;">
+          <span style="font-size:1.4rem;">❓</span> 
+          <span>计谋判定：${ploy.name_cn || ploy.name_en}</span>
+        </div>
+      </div>
+      <div class="modal-body" style="padding: 25px 20px;">
+        <div style="margin-bottom: 15px; font-size: 0.9rem; color: var(--text-muted);">
+          目标特工：<strong style="color:white;">${targetAgent.name}</strong>
+        </div>
+        <p style="font-size: 1.05rem; line-height: 1.6; margin-bottom: 25px; color: var(--text-color); white-space: pre-wrap;">${question}</p>
+        <div style="display:flex; gap: 15px; justify-content: flex-end;">
+          <button id="btn-ploy-no" class="btn-cancel" style="padding: 10px 24px; min-width: 100px;">否 (No)</button>
+          <button id="btn-ploy-yes" class="btn-confirm" style="padding: 10px 24px; min-width: 100px;">是 (Yes)</button>
+        </div>
+      </div>
+    </div>
+  `;
+
+  document.body.appendChild(overlay);
+  
+  document.getElementById('btn-ploy-yes').onclick = () => {
+    playSound('click');
+    document.body.removeChild(overlay);
+    callback(true);
+  };
+  
+  document.getElementById('btn-ploy-no').onclick = () => {
+    playSound('click');
+    document.body.removeChild(overlay);
+    callback(false);
+  };
+}
+
+export function showPloyEffectDialog(ploy, targetAgent, effectTexts, callback) {
+  const overlay = document.createElement('div');
+  overlay.className = 'modal-overlay';
+  overlay.style.display = 'flex';
+  overlay.style.zIndex = '2001';
+  
+  const effectListHtml = effectTexts.map(t => `<div style="margin-bottom: 8px;">${t}</div>`).join('');
+
+  // Determine dialog theme color (blue/green/red)
+  const isBuff = ploy.faction === targetAgent.faction;
+  const themeColor = isBuff ? `var(${getFactionThemeVar(ploy.faction)})` : 'var(--red)';
+  const headerBg = isBuff ? 'rgba(10, 20, 35, 0.95)' : 'rgba(35, 10, 10, 0.95)';
+  const textColor = isBuff ? '#e0f2fe' : '#ffcccc';
+  const boxBg = isBuff ? 'rgba(0, 100, 255, 0.08)' : 'rgba(255, 0, 0, 0.1)';
+  const btnBg = isBuff ? 'var(--blue, #2563eb)' : 'var(--red)';
+  const titleColor = isBuff ? 'var(--blue, #60a5fa)' : '#ff6b6b';
+  const icon = isBuff ? '🛡️' : '⚠️';
+  const titleLabel = isBuff ? '能力生效' : '计谋生效';
+
+  overlay.innerHTML = `
+    <div class="modal-content" style="max-width: 480px; box-shadow: 0 0 20px rgba(0,0,0,0.8); border: 1px solid ${themeColor};">
+      <div class="modal-header" style="background: ${headerBg}; color: ${titleColor}; padding: 15px; border-bottom: 2px solid ${themeColor};">
+        <div class="modal-title" style="display:flex; align-items:center; gap:8px;">
+          <span style="font-size:1.4rem;">${icon}</span> 
+          <span>${titleLabel}：${ploy.name_cn || ploy.name_en}</span>
+        </div>
+      </div>
+      <div class="modal-body" style="padding: 25px 20px;">
+        <div style="margin-bottom: 15px; font-size: 0.9rem; color: var(--text-muted);">
+          受影响特工：<strong style="color:white;">${targetAgent.name}</strong>
+        </div>
+        <div style="font-size: 1.05rem; line-height: 1.6; margin-bottom: 25px; color: ${textColor}; background: ${boxBg}; padding: 15px; border-radius: 6px; border: 1px dashed ${themeColor};">
+          ${effectListHtml}
+        </div>
+        <div style="display:flex; justify-content: center;">
+          <button id="btn-ploy-ok" class="btn-large" style="padding: 10px 40px; background: ${btnBg}; border: none; font-weight: bold; color: white;">知道了 (OK)</button>
+        </div>
+      </div>
+    </div>
+  `;
+
+  document.body.appendChild(overlay);
+  
+  document.getElementById('btn-ploy-ok').onclick = () => {
+    playSound('click');
+    document.body.removeChild(overlay);
+    if (callback) callback();
+  };
+}
+
+function applyPloyEffects(ploy, activeFaction, targetAgent, onComplete) {
+  if (!ploy.Effects || ploy.Effects.length === 0) {
+    if (onComplete) onComplete();
+    return;
+  }
+
+  targetAgent.activeDebuffs = targetAgent.activeDebuffs || [];
+  let effectTexts = [];
+  
+  ploy.Effects.forEach(effect => {
+    // 特殊类型: set_wizard_flag — 设置射击向导状态标志，不写入 activeDebuffs
+    if (effect.target === 'set_wizard_flag') {
+      if (typeof wizardState !== 'undefined') {
+        wizardState[effect.flag] = effect.value;
+      }
+      addLog(`[计谋生效] 🐝 ${ploy.name_cn} -> ${targetAgent.name} 获得 ${effect.flag} 效果`);
+      effectTexts.push(`🐝 <strong>${targetAgent.name}</strong> 处于遮蔽状态 (Obscured)：防御骰池 -1，自动获得 1 个普通防御成功。`);
+      return;
+    }
+
+    // Prevent duplicate application
+    const existing = targetAgent.activeDebuffs && targetAgent.activeDebuffs.find(d => d.rule === effect.rule && d.stat === effect.stat);
+    if (existing) return;
+
+    targetAgent.activeDebuffs.push(effect);
+    
+    // 记录本次向导会话期间注入的临时 Buff
+    if (!wizardState.addedDebuffs) wizardState.addedDebuffs = [];
+    wizardState.addedDebuffs.push({ operative: targetAgent, debuff: effect });
+    
+    if (effect.target === 'operative_stat') {
+      if (effect.stat === 'move') {
+        addLog(`[计谋生效] ${ploy.name_cn} -> ${targetAgent.name} 移动距离修正 ${effect.modifier}"`);
+        effectTexts.push(`🔹 移动力受到修正: <strong>${effect.modifier}"</strong> (当前最大移动力变为 <strong>${targetAgent.currentMove}"</strong>)`);
+      }
+    } else if (effect.target === 'weapon_stat') {
+      if (effect.stat === 'hit') {
+        addLog(`[计谋生效] ${ploy.name_cn} -> ${targetAgent.name} 射击/近战命中(Hit)受到修正 ${effect.modifier}`);
+        effectTexts.push(`🔹 武器受到修正: 命中鉴定 <strong>${effect.modifier > 0 ? '+' + effect.modifier : effect.modifier}</strong>`);
+      }
+    } else if (effect.target === 'weapon_rule') {
+      const choice = getCombatDoctrineChoice(targetAgent.faction);
+      const choiceNames = { devastator: 'Devastator (远程)', tactical: 'Tactical (近程)', assault: 'Assault (近战)' };
+      const choiceText = choice ? `[教条: ${choiceNames[choice]}]` : '';
+      addLog(`[计谋生效] ${ploy.name_cn}${choiceText} -> ${targetAgent.name} 武器获得 ${effect.extra_rule} 规则`);
+      effectTexts.push(`🔹 武器获得规则: <strong>${effect.extra_rule}</strong>`);
+    }
+  });
+  
+  if (effectTexts.length > 0) {
+    showPloyEffectDialog(ploy, targetAgent, effectTexts, onComplete);
+  } else {
+    if (onComplete) onComplete();
+  }
+}
+
+export function toggleTestPloy(ployId, faction) {
+  const slot = faction === 'Space Marine' ? 0 : 1;
+  if (!gameState.persistentPloys) gameState.persistentPloys = {0:[], 1:[]};
+  const list = gameState.persistentPloys[slot];
+  const idx = list.indexOf(ployId);
+  const turningOn = idx < 0;
+  
+  if (turningOn) {
+    list.push(ployId);
+    if (ployId === 'nurglings') {
+      showNurglingsTargetChoice(faction);
+    }
+  } else {
+    list.splice(idx, 1);
+    if (ployId === 'nurglings') {
+      if (gameState.nurglingsTarget) {
+        const targetId = gameState.nurglingsTarget;
+        const targetOp = gameState.operatives.find(o => o.id === targetId);
+        if (targetOp && targetOp.activeDebuffs) {
+          targetOp.activeDebuffs = targetOp.activeDebuffs.filter(d => d.rule !== 'nurglings');
+        }
+        gameState.nurglingsTarget = null;
+      }
+    }
+  }
+  renderTestHarnessPloyButtons();
+  addLog(`[TEST MODE] Ploy ${ployId} toggled to ${turningOn ? 'ON' : 'OFF'}`);
+  updateScoresUI();
+}
+
+window.showAdaptiveTacticTeamSelector = function(faction) {
+  // 查找一个样本以获取当前主战术（全队统一）
+  const sampleOp = gameState.operatives.find(o => o.faction === faction && o.chapterTactics);
+  if (!sampleOp) {
+    startStrategyPhase();
+    return;
+  }
+
+  showPhaseOverlay();
+  const overlayBox = document.getElementById('phase-overlay-content');
+  const themeVar = getFactionThemeVar(faction);
+
+  const CT_OPTIONS = [
+    { id: 'aggressive', name: '凶猛(Aggressive)' },
+    { id: 'dueler', name: '决斗(Dueler)' },
+    { id: 'resolute', name: '坚毅(Resolute)' },
+    { id: 'stealthy', name: '隐蔽(Stealthy)' },
+    { id: 'mobile', name: '机动(Mobile)' },
+    { id: 'hardy', name: '坚韧(Hardy)' },
+    { id: 'sharpshooter', name: '神射手(Sharpshooter)' },
+    { id: 'siege_specialist', name: '攻城专家(Siege)' }
+  ];
+
+  // 不包含当前主战术
+  const primaryId = sampleOp.chapterTactics[0];
+  const availableOptions = CT_OPTIONS.filter(o => o.id !== primaryId);
+  const currentSecId = sampleOp.chapterTactics[1];
+
+  let optionsHtml = '';
+  availableOptions.forEach(opt => {
+    const isSelected = opt.id === currentSecId ? 'selected' : '';
+    optionsHtml += `<option value="${opt.id}" ${isSelected}>${opt.name}</option>`;
+  });
+
+  overlayBox.innerHTML = `
+    <h3 style="color:var(${themeVar});">自适应战术 (Adaptive Tactics)</h3>
+    <p style="color:var(--text-muted); font-size:0.85rem; margin-bottom:16px;">
+      为整个战队选择一个新的副战术（本 TP 结束时自动恢复）。
+    </p>
+    <div style="display:flex; flex-direction:column; gap:16px; width:100%; margin-bottom:20px; align-items:center;">
+      <select id="adaptive-dropdown" style="width: 80%; background:#1e293b; color:#fff; border:1px solid var(${themeVar}); padding:12px; border-radius:6px; font-size:1.1rem; cursor:pointer; text-align:center;">
+        ${optionsHtml}
+      </select>
+    </div>
+    <div style="display:flex; justify-content:center; gap:12px; width:100%;">
+      <button class="btn-large" onclick="cancelBuyPloy('${faction}', 'adaptive_tactics')" style="padding: 10px 30px; font-size:0.9rem; background:rgba(100,116,139,0.2); border-color:#475569;">
+        取消 (Cancel)
+      </button>
+      <button class="btn-large" onclick="window.confirmAdaptiveTacticSelection('${faction}')" style="padding: 10px 30px; font-size:0.9rem; background:linear-gradient(135deg, #2563eb, #1e40af); border-color:#3b82f6;">
+        确认应用 (Apply)
+      </button>
+    </div>
+  `;
+};
+
+window.confirmAdaptiveTacticSelection = function(faction) {
+  const dropdown = document.getElementById('adaptive-dropdown');
+  if (!dropdown) return;
+  const selectedValue = dropdown.value;
+  const CT_OPTIONS = [
+    { id: 'aggressive', name: '凶猛(Aggressive)' },
+    { id: 'dueler', name: '决斗(Dueler)' },
+    { id: 'resolute', name: '坚毅(Resolute)' },
+    { id: 'stealthy', name: '隐蔽(Stealthy)' },
+    { id: 'mobile', name: '机动(Mobile)' },
+    { id: 'hardy', name: '坚韧(Hardy)' },
+    { id: 'sharpshooter', name: '神射手(Sharpshooter)' },
+    { id: 'siege_specialist', name: '攻城专家(Siege)' }
+  ];
+
+  gameState.operatives.forEach(op => {
+    if (op.faction === 'Space Marine' && op.chapterTactics) {
+      op.chapterTactics[1] = selectedValue;
+    }
+  });
+
+  addLog(`  - 自适应战术生效：全队副战术临时更改为 ${CT_OPTIONS.find(o=>o.id===selectedValue).name}`);
+  playSound('click');
+  
+  renderOperatives();
+  startStrategyPhase();
+};
+
+window.applyDebugTactics = function(factionType) {
+  if (factionType === 'sm') {
+    const primary = document.getElementById('debug-sm-primary').value;
+    const secondary = document.getElementById('debug-sm-secondary').value;
+    gameState.operatives.forEach(op => {
+      if (op.faction === 'Space Marine') {
+        op.chapterTactics = [primary, secondary];
+        // 也覆盖初始选择以免被 endTurningPoint 刷回去
+        gameState.chapterTacticSelections[op.id] = { primary, secondary };
+      }
+    });
+    addLog(`[TEST MODE] 全体 Space Marine 战术强制替换为: ${primary} / ${secondary}`);
+  } else if (factionType === 'leg') {
+    const moc = document.getElementById('debug-leg-moc').value;
+    gameState.operatives.forEach(op => {
+      if (op.faction === 'Legionary') {
+        op.marksOfChaos = moc;
+        gameState.marksOfChaosSelections[op.id] = moc;
+      }
+    });
+    addLog(`[TEST MODE] 全体 Legionary 印记强制替换为: ${moc}`);
+  }
+  playSound('click');
+  renderOperatives();
+};
+
+export function sandboxEndTurningPoint() {
+  playSound('click');
+  
+  let count = 0;
+  gameState.operatives.forEach(op => {
+    if (!op.isDead && !op.hasActed) {
+      op.hasActed = true;
+      op.apl = 0;
+      count++;
+    }
+  });
+  
+  addLog(`[TEST MODE] 手动结束 Turning Point: 强制 ${count} 个未激活特工进入已激活状态，并开始回合结算。`);
+  
+  gameState.activeAgent = null;
+  gameState.pendingActivation = null;
+  
+  renderOperatives();
+  updateActivePanel();
+  
+  showTurnEndScoringOverlay();
 }

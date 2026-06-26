@@ -138,18 +138,49 @@ export class Operative {
     return this.wounds > 0 && this.wounds < this.maxWounds / 2;
   }
 
-  /** 当前有效 APL（Injured 时按规则集减值：standard -1，lite 无 APL 惩罚） */
+  /** 是否忽略重伤（Injured）减益 */
+  get ignoreInjuredPenalties() {
+    // 1. Angels of Death (Space Marine): "无所畏惧" (and_they_shall_know_no_fear)
+    if (this.faction === 'Space Marine' && isFirefightPloyActive('and_they_shall_know_no_fear', 'Space Marine')) {
+      return true;
+    }
+    // 2. Legionary: "坚定不移" (implacable) 对 NURGLE 标记特工生效
+    if (this.faction === 'Legionary' && this.marksOfChaos === 'NURGLE' && isFirefightPloyActive('implacable', 'Legionary')) {
+      return true;
+    }
+    return false;
+  }
+
+  /** 当前有效 APL（Injured 时按规则集减值：standard -1，lite 无 APL 惩罚，并计入 activeDebuffs 修正） */
   get currentApl() {
     const injuredAplPenalty = activeRuleSet().injuredAplPenalty;
-    return this.maxApl - (this.isInjured ? injuredAplPenalty : 0);
+    const hasPenalty = this.isInjured && !this.ignoreInjuredPenalties;
+    let apl = this.maxApl - (hasPenalty ? injuredAplPenalty : 0);
+    if (this.activeDebuffs) {
+      for (const d of this.activeDebuffs) {
+        if (d.stat === 'apl') {
+          apl += d.modifier;
+        }
+      }
+    }
+    return Math.max(0, apl);
   }
 
   /** 当前有效 Move（Injured 时 -2"，Slaanesh Mark +1"） */
   get currentMove() {
-    let move = this.maxMove - (this.isInjured ? 2 : 0);
+    const hasPenalty = this.isInjured && !this.ignoreInjuredPenalties;
+    let move = this.maxMove - (hasPenalty ? 2 : 0);
     // Slaanesh Mark of Chaos +1" Move（阵营机制，由 factionMechanicsEnabled 开关）
     if (activeRuleSet().factionMechanicsEnabled && this.marksOfChaos === 'SLAANESH') {
       move += 1;
+    }
+    // 计谋/Debuff 数值修正
+    if (this.activeDebuffs) {
+      for (const d of this.activeDebuffs) {
+        if (d.stat === 'move') {
+          move += d.modifier;
+        }
+      }
     }
     return Math.max(0, move);
   }
@@ -375,4 +406,28 @@ export class Operative {
     }
     return actualDamage;
   }
+}
+
+/**
+ * 计算特工装备某武器时的最终命中值 (TS)。
+ * 考虑受伤惩罚以及身上的 activeDebuffs（如计谋施加的命中修正）。
+ * @param {Object} weapon 
+ * @param {Object} operative 
+ * @param {boolean} ignoreInjured 是否忽略受伤惩罚
+ * @returns {number} 最终的 TS 值
+ */
+export function getEffectiveTs(weapon, operative, ignoreInjured = false) {
+  let ts = weapon.ts;
+  const shouldIgnore = ignoreInjured || (operative && operative.ignoreInjuredPenalties);
+  if (operative && operative.isInjured && !shouldIgnore) {
+    ts += 1;
+  }
+  if (operative && operative.activeDebuffs) {
+    operative.activeDebuffs.forEach(d => {
+      if (d.stat === 'hit') {
+        ts += d.modifier;
+      }
+    });
+  }
+  return ts;
 }

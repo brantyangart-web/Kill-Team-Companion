@@ -47,6 +47,32 @@ export const PLOY_DATABASE = {
     },
     usage_limit: 'per_tp',
     is_strategic_gambit: true,
+
+    // 模块化交互与效果注入
+    Trigger: ['before_shoot_roll', 'before_fight_roll'],
+    Conditions: [
+      { type: 'is_friendly', faction: 'Space Marine' }
+    ],
+    Interactions: [
+      {
+        id: 'doctrine_check',
+        question: (agent) => {
+          const choice = getCombatDoctrineChoice('Space Marine');
+          if (choice === 'devastator') {
+            return `🎯 物理沙盘测量：\n你的射击目标目前是否在当前特工的 **6" 以外** (more than 6")？\n*(注：Devastator 战斗教条生效条件)*`;
+          } else if (choice === 'tactical') {
+            return `🎯 物理沙盘测量：\n你的射击目标目前是否在当前特工的 **6" 以内** (within 6")？\n*(注：Tactical 战斗教条生效条件)*`;
+          } else if (choice === 'assault') {
+            return `⚔️ 战斗教条判定：\n当前近战搏斗是否使用 Assault 战斗教条 (近战/反击)？`;
+          }
+          return `当前战斗教条是否生效？`;
+        },
+        type: 'boolean_confirm'
+      }
+    ],
+    Effects: [
+      { target: 'weapon_rule', rule: 'combat_doctrine', extra_rule: 'Balanced' }
+    ]
   },
   'and_they_shall_know_no_fear': {
     id: 'and_they_shall_know_no_fear', name_en: 'And They Shall Know No Fear', name_cn: '无所畏惧',
@@ -74,6 +100,29 @@ export const PLOY_DATABASE = {
     desc: '敌方射击友军时，若投出 2+ 个失败骰，可丢弃 1 个并将另 1 个保留为普通成功。',
     usage_limit: 'per_tp',
     is_strategic_gambit: true,
+    Trigger: ['before_defense_roll'],
+    Conditions: [
+      { type: 'is_friendly', faction: 'Space Marine' }
+    ],
+    Interactions: [
+      {
+        id: 'indomitus_check',
+        question: (agent, wizardState) => {
+          if (!wizardState || !wizardState.attackRolls || wizardState.attackRolls.length === 0) return null;
+          
+          const failCount = wizardState.attackRolls.length - (wizardState.attackCrit || 0) - (wizardState.attackNorm || 0);
+          
+          if (failCount >= 2) {
+             return `✠ 不屈意志 (Indomitus) 判定：\n攻击方投出了 ${failCount} 个失败骰 (需要至少 2 个)。\n是否使用此计谋让 ${agent.name} 保留 1 个失败骰作为普通防御成功？`;
+          }
+          return null;
+        },
+        type: 'boolean_confirm'
+      }
+    ],
+    Effects: [
+      { type: 'set_wizard_flag', flag: 'indomitusBonus', value: true }
+    ]
   },
   // Firefight Ploys
   'adjust_doctrine': {
@@ -127,6 +176,29 @@ export const PLOY_DATABASE = {
     usage_limit: 'per_tp',
     is_strategic_gambit: true,
     free_conditions: ['icon_bearer_in_enemy_territory'],
+    
+    // 模块化配置 (Modular Data Model)
+    Trigger: ['before_move', 'before_shoot', 'before_fight'], 
+    Conditions: [
+      { type: 'is_enemy', faction: 'Plague Marine' } // 对于 PM 来说的敌方
+    ],
+    Interactions: [
+      { 
+        id: 'contagion_check', 
+        question: (agent) => {
+          if (agent.poisonTokens > 0) {
+            return `🎯 物理沙盘测量：\n该特工目前是否在任意瘟疫战士的 **3"** 范围内，且彼此可见？\n*(注：系统检测到其已带有毒素标记)*`;
+          } else {
+            return `🎯 物理沙盘测量：\n该特工目前是否在瘟疫神像使者（Icon Bearer）的 **3"** 范围内，且彼此可见？\n*(注：Icon Bearer 光环可无视毒素标记直接生效)*`;
+          }
+        },
+        type: 'boolean_confirm' 
+      }
+    ],
+    Effects: [
+      { target: 'operative_stat', stat: 'move', modifier: -2, rule: 'contagion' },
+      { target: 'weapon_stat', stat: 'hit', modifier: 1, rule: 'contagion' }
+    ]
   },
   'lumbering_death': {
     id: 'lumbering_death', name_en: 'Lumbering Death', name_cn: '缓慢死神',
@@ -136,15 +208,57 @@ export const PLOY_DATABASE = {
     desc: 'PM 射击/近战时若本 activation 移动不超过 3" (或正在反击)，武器获得 Ceaseless 规则。',
     usage_limit: 'per_tp',
     is_strategic_gambit: true,
+
+    Trigger: ['before_shoot_roll', 'before_fight_roll'],
+    Conditions: [
+      { type: 'is_friendly', faction: 'Plague Marine' }
+    ],
+    Interactions: [
+      {
+        id: 'lumbering_death_check',
+        question: (agent) => {
+          return `🎯 缓慢死神判定：\n该特工在本次激活中的移动距离是否 **小于等于 3"** (或者当前正进行反击行动)？\n*(注：满足此条件即可让武器获得 Ceaseless)*`;
+        },
+        type: 'boolean_confirm'
+      }
+    ],
+    Effects: [
+      { target: 'weapon_rule', rule: 'lumbering_death', extra_rule: 'Ceaseless' }
+    ]
   },
   'cloud_of_flies': {
     id: 'cloud_of_flies', name_en: 'Cloud of Flies', name_cn: '蝇云',
     faction: 'Plague Marine', type: 'strategy', cp: 1,
     timing: 'strategy_phase',
     duration: 'until_next_ready_step',
-    desc: '放置蝇云标记。3" 外射击标记 1" 内的 PM 时，该 PM 视为 obscured。下回合 Ready 步骤移除。',
+    desc: '放置蝇云标记。3" 外射击标记 1" 内的 PM 时，该 PM 视为 obscured（防御骰池 -1，自动获得 1 个普通成功）。下回合 Ready 步骤移除。',
     usage_limit: 'per_tp',
     is_strategic_gambit: true,
+    activation_hint: '请在物理沙盘上放置蝇云标记（Token）。当有射击指向 3" 以外标记周围 1" 内的瘟疫战士时，射击向导将在防守判定阶段弹出判定窗口。',
+
+    // 在射击向导确认判定后对防守方触发 (triggerAgent = defender)
+    Trigger: ['before_shoot_defense'],
+    Conditions: [
+      { type: 'is_friendly', faction: 'Plague Marine' } // 防守方必须是 PM
+    ],
+    Interactions: [
+      {
+        id: 'cloud_of_flies_check',
+        question: (agent) =>
+          `🐝 蝇云 (Cloud of Flies) 判定：\n` +
+          `防守方：${agent.name}\n\n` +
+          `条件确认（请在物理沙盘测量）：\n` +
+          `· 你（射击方）距目标 **3" 以上**\n` +
+          `· 目标处于**蝇云标记 1" 范围内**\n\n` +
+          `若满足以上条件，目标视为 **Obscured（遮蔽）**：\n` +
+          `防御骰池 -1，自动获得 1 个普通防御成功。`,
+        type: 'boolean_confirm'
+      }
+    ],
+    // 使用特殊类型 set_wizard_flag 将结果传递给射击向导
+    Effects: [
+      { target: 'set_wizard_flag', flag: 'cloudOfFliesActive', value: true, rule: 'cloud_of_flies' }
+    ]
   },
   'nurglings': {
     id: 'nurglings', name_en: 'Nurglings', name_cn: '纳格林',
@@ -230,6 +344,23 @@ export const PLOY_DATABASE = {
     desc: 'LEG 射击 ready 敌方时武器获得 Balanced (已有则升级为 Relentless)。TZEENTCH LEG 被射击时保留 critical 后可保留 1 个 fail 为 normal。',
     usage_limit: 'per_tp',
     is_strategic_gambit: true,
+
+    Trigger: ['before_shoot_roll'],
+    Conditions: [
+      { type: 'is_friendly', faction: 'Legionary' }
+    ],
+    Interactions: [
+      {
+        id: 'fickle_fates_check',
+        question: (agent) => {
+          return `🎲 命运无常判定：\n你的射击目标当前是否处于 **Ready** 状态（本回合尚未被激活/未执行过行动）？\n*(注：满足此条件即可让武器获得 Balanced；若已有 Balanced 则升级为 Relentless)*`;
+        },
+        type: 'boolean_confirm'
+      }
+    ],
+    Effects: [
+      { target: 'weapon_rule', rule: 'fickle_fates', extra_rule: 'Balanced' }
+    ]
   },
   // Firefight Ploys
   'unending_bloodshed': {
@@ -362,7 +493,8 @@ export function isFirefightPloyActive(ployId, faction) {
   const slot = getTeamSlot(faction);
   if (slot < 0) return false;
   const key = slot === 0 ? 'smActivePloys' : 'pmActivePloys';
-  return gameState[key].includes(ployId);
+  const persistent = gameState.persistentPloys?.[slot] || [];
+  return gameState[key].includes(ployId) || persistent.includes(ployId);
 }
 
 /**

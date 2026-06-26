@@ -1,6 +1,6 @@
 import { gameState, wizardState } from './state.js';
 import { playSound } from './audio.js';
-import { Operative, Weapon, translateRule } from './models.js';
+import { Operative, Weapon, translateRule, getEffectiveTs } from './models.js';
 import {
   getEnemyFaction, getDiceClass, getCpForFaction, setCpForFaction,
   getFactionDisplayName, getFactionCssSuffix, hasFactionTrait, getFactionThemeVar, getActivePloys, setActivePloys,
@@ -13,11 +13,12 @@ import {
   isPloyActive, isFirefightPloyActive, getCombatDoctrineChoice, isIgnoreInjuredPenalties,
   isContagionActive, isLumberingDeathActive, isBloodForBloodGodActive, isImplacableActive,
   isQuicksilverSpeedActive, isFickleFatesActive, isIndomitusActive, activateFirefightPloy,
-  isPloyActive as isPloyActiveCheck
+  isPloyActive as isPloyActiveCheck, getPloy
 } from '../rules/ploys.js';
 import { getAssetPath } from './paths.js';
 import { showDamageAnimation } from './damageAnimation.js';
 import { activeRuleSet } from '../rules/ruleSets.js';
+import { evaluatePloyInteractions, getOperativeAvatarUrl } from './ui.js';
 import { applyWeaponRules, parseWeaponRule, weaponHasRule, getWeaponRuleParam } from '../rules/weapons.js';
 
 
@@ -68,6 +69,23 @@ function injectedFactionRules(attacker, weapon) {
   const notMoved = attacker && attacker.actionsPerformed.length === 0;
   if (hasChapterTactic(attacker, 'sharpshooter') && isBoltWeapon && notMoved) {
     rules.push('Accurate 1', 'Severe');
+  }
+  // 注入来自 activeDebuffs/buffs (模块化 ploy) 的武器规则
+  if (attacker && attacker.activeDebuffs) {
+    attacker.activeDebuffs.forEach(d => {
+      if (d.target === 'weapon_rule' && d.extra_rule) {
+        if (d.rule === 'combat_doctrine') {
+          const choice = getCombatDoctrineChoice(attacker.faction);
+          if (choice === 'assault' && isMelee) {
+            rules.push(d.extra_rule);
+          } else if ((choice === 'devastator' || choice === 'tactical') && !isMelee) {
+            rules.push(d.extra_rule);
+          }
+        } else {
+          rules.push(d.extra_rule);
+        }
+      }
+    });
   }
   return rules;
 }
@@ -210,6 +228,17 @@ export function openModal() {
 
 export function closeModal() {
   playSound('click');
+  
+  // 通用清理：移除本次向导会话期间注入的所有临时 Buff / Debuffs
+  if (wizardState.addedDebuffs) {
+    wizardState.addedDebuffs.forEach(({ operative, debuff }) => {
+      if (operative.activeDebuffs) {
+        operative.activeDebuffs = operative.activeDebuffs.filter(d => d !== debuff);
+      }
+    });
+    wizardState.addedDebuffs = [];
+  }
+
   document.getElementById('combat-modal').style.display = 'none';
   if (releaseFocusTrap) releaseFocusTrap();
   skipDiceAnimation = false;
@@ -239,12 +268,32 @@ export function nextModalStep() {
         if (showToast) showToast('有敌方特工处于你的控制范围内，无法进行射击行动 (L111)！', 'error');
         return;
       }
-    } else if (wizardState.step === 4 && wizardState.mode === 'manual') {
-      parseManualAttack();
+
+      evaluatePloyInteractions('before_shoot_roll', wizardState.attacker, () => {
+        // 重置蝇云标志，由 before_shoot_defense 计谋系统重新评估
+        wizardState.cloudOfFliesActive = false;
+        // 串联防守方计谋判定（三、蝇云等对防守方的效果）
+        evaluatePloyInteractions('before_shoot_defense', wizardState.defender, () => {
+          wizardState.step++;
+          renderShootStep();
+        });
+      });
+      return;
+    } else if (wizardState.step === 4) {
+      if (wizardState.mode === 'manual') {
+        parseManualAttack();
+      }
       if (wizardState.attackRolls.length === 0) {
-        if (showToast) showToast('请输入有效的攻击骰点数！格式: 6, 4, 3, 2 (1-6逗号隔开)', 'error');
+        if (showToast) showToast('请先完成攻击掷骰！', 'error');
         return;
       }
+      // Step 4→5：攻击骰已知，串联防守方触发（含 Indomitus）
+      wizardState.indomitusBonus = false;
+      evaluatePloyInteractions('before_defense_roll', wizardState.defender, () => {
+        wizardState.step++;
+        renderShootStep();
+      });
+      return;
     } else if (wizardState.step === 5 && wizardState.mode === 'manual') {
       parseManualDefense();
       const inputEl = document.getElementById('manual-def-dice-val');
@@ -272,6 +321,12 @@ export function nextModalStep() {
         if (showToast) showToast('已执行退却的特工，本回合无法执行格斗动作！', 'error');
         return;
       }
+
+      evaluatePloyInteractions('before_fight_roll', wizardState.attacker, () => {
+        wizardState.step++;
+        renderFightStep();
+      });
+      return;
     }
   }
 
@@ -292,13 +347,16 @@ export function openShootWizard() {
   playSound('click');
   const op = gameState.activeAgent;
   if (!op) return;
-  // L15/L111: 隐蔽单位不能射击，除非携带 Silent 武器 (L239)
-  const hasSilentWeapon = op.weapons.some(w => weaponMods(w).canShootWhileConcealed);
-  if (op.hasConceal && !hasSilentWeapon) {
-    playSound('alert');
-    if (showToast) showToast('隐蔽单位不能射击 (需先切为交战，或携带 Silent 武器)！', 'error');
-    return;
-  }
+  
+  evaluatePloyInteractions('before_shoot', op, () => {
+    // L15/L111: 隐蔽单位不能射击，除非携带 Silent 武器 (L239)
+    const hasSilentWeapon = op.weapons.some(w => weaponMods(w).canShootWhileConcealed);
+    if (op.hasConceal && !hasSilentWeapon) {
+      playSound('alert');
+      if (typeof showToast !== 'undefined') showToast('隐蔽单位不能射击 (需先切为交战，或携带 Silent 武器)！', 'error');
+      else alert('隐蔽单位不能射击 (需先切为交战，或携带 Silent 武器)！');
+      return;
+    }
 
   const modalContent = document.querySelector('#combat-modal .modal-content');
   if (modalContent) {
@@ -306,6 +364,8 @@ export function openShootWizard() {
     modalContent.style.backgroundSize = 'cover';
     modalContent.style.backgroundPosition = 'center';
   }
+
+  window.pushStateSnapshot?.(`Start Shoot: ${op.name}`);
 
   Object.assign(wizardState, {
     actionType: 'shoot',
@@ -316,12 +376,17 @@ export function openShootWizard() {
     inRangeAndVisible: true,
     inCoverConcealed: false,
     inCover: false,
+    cloudOfFliesActive: false,
+    indomitusBonus: false,
     enemyInControlRange: false,
     mode: gameState.globalRollMode,
     attRerollIndex: -1,
     defRerollIndex: -1,
     attackRolls: [],
     defenseRolls: [],
+    attackRerolledIndices: [],
+    weaponRerollUsed: false,
+    weaponRerollRule: null,
     stunApplied: false,
     shockTriggered: false,
     drRolls: [],
@@ -382,6 +447,7 @@ export function openShootWizard() {
 
   openModal();
   renderShootStep();
+  });
 }
 
 export function renderShootStep() {
@@ -408,12 +474,20 @@ export function renderShootStep() {
 
     let listHtml = '<div class="weapon-picker-list">';
     targets.forEach(t => {
-      const injuredTag = t.isInjured ? ' <span style="color:var(--red); font-size:0.7rem;">[重伤]</span>' : '';
-      const poisonTag = t.poisonTokens > 0 ? ' <span style="color:#7ab88a; font-size:0.7rem;">[毒素]</span>' : '';
+      const injuredTag = t.isInjured ? ' <span style="color:var(--red); font-size:0.75rem;">[重伤]</span>' : '';
+      const poisonTag = t.poisonTokens > 0 ? ' <span style="color:#7ab88a; font-size:0.75rem;">[毒素]</span>' : '';
+      const avatarUrl = getOperativeAvatarUrl(t.id, t.faction);
       listHtml += `
-        <div class="weapon-pick-item ${wizardState.defender && wizardState.defender.id === t.id ? 'selected' : ''}" role="button" tabindex="0" onclick="selectShootDefender('${t.id}')" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();selectShootDefender('${t.id}')}">
-          <span class="weapon-pick-name">${t.name}${injuredTag}${poisonTag}</span>
-          <span class="weapon-pick-stats">HP: ${t.wounds}/${t.maxWounds} | DF:${t.df} | Move:${t.currentMove}"</span>
+        <div class="weapon-pick-item ${wizardState.defender && wizardState.defender.id === t.id ? 'selected' : ''}" role="button" tabindex="0" onclick="selectShootDefender('${t.id}')" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();selectShootDefender('${t.id}')}" style="flex-direction: row; justify-content: flex-start; align-items: center; gap: 20px;">
+          <img src="${avatarUrl}" style="width: 60px; height: 60px; border-radius: 50%; object-fit: cover; border: 2px solid ${t.teamSlot === 0 ? 'var(--sm-accent)' : 'var(--pm-accent)'}; flex-shrink: 0;" alt="Avatar">
+          <div style="display: flex; flex-direction: column; gap: 8px;">
+            <span class="weapon-pick-name">${t.name}${injuredTag}${poisonTag}</span>
+            <div class="weapon-pick-stats">
+              <span class="stat-badge" style="color: #ff4444;">Wounds: ${t.wounds}/${t.maxWounds}</span> |
+              <span class="stat-badge" style="color: #ffaa00;">Defense: ${t.df}</span> |
+              <span class="stat-badge" style="color: #aaffaa;">Move: ${t.currentMove}"</span>
+            </div>
+          </div>
         </div>
       `;
     });
@@ -448,7 +522,13 @@ export function renderShootStep() {
       listHtml += `
         <div class="weapon-pick-item ${wizardState.weapon.name === w.name ? 'selected' : ''}" role="button" tabindex="0" style="${disabledStyle}" onclick="${heavyBlocked ? '' : `selectShootWeapon(${idx})`}" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();${heavyBlocked ? '' : `selectShootWeapon(${idx})`}}">
           <span class="weapon-pick-name">${w.name}${heavyNote}</span>
-          <span class="weapon-pick-stats">A: ${w.attacks} | BS: ${hitStat} | D: ${w.normalDamage}/${w.criticalDamage}${rangeStr}${rulesStr}</span>
+          <div class="weapon-pick-stats">
+            <span class="stat-badge" style="color: #ffaa00;">Attacks: ${w.attacks}</span>
+            <span class="stat-badge" style="color: #44aaff;">Skill: ${hitStat}</span>
+            <span class="stat-badge" style="color: #ff4444;">Damage: ${w.normalDamage}/${w.criticalDamage}</span>
+            ${rangeStr ? `<span class="stat-badge" style="color: #aaaaff;">${rangeStr.replace(' | ', '').replace('| ', '')}</span>` : ''}
+            ${rulesStr ? `<span class="stat-badge" style="color: #aaffaa;">${rulesStr.replace(' | ', '').replace('| ', '')}</span>` : ''}
+          </div>
         </div>
       `;
     });
@@ -504,7 +584,7 @@ export function renderShootStep() {
       ${coverNote}
 
       <div class="qa-card">
-        <div class="qa-question">1. 目标是否在你的有效视线和射程内？${hasIndirect ? ' <span style="color:#818cf8;">(自动判定为是)</span>' : ''}</div>
+        <div class="qa-question">1. 目标是否在你的有效视线和射程内？${hasIndirect ? ' <span style="color:#818cf8;">（自动判定为是）</span>' : ''}</div>
         <div class="qa-options">
           <button class="qa-btn ${wizardState.inRangeAndVisible ? 'selected' : ''}" onclick="setQA('inRangeAndVisible', true)" ${hasIndirect ? 'style="pointer-events:none; opacity:0.6;"' : ''}>是 (在射程内)</button>
           <button class="qa-btn ${!wizardState.inRangeAndVisible ? 'selected' : ''}" onclick="setQA('inRangeAndVisible', false)" ${hasIndirect ? 'style="pointer-events:none; opacity:0.6;"' : ''}>否 (无法见/超射程)</button>
@@ -545,17 +625,18 @@ export function renderShootStep() {
     const curCp = getCpForFaction(wizardState.attacker.faction);
 
     if (wizardState.attackRolls.length > 0) {
-      const summaryEffTs = wizardState.weapon.ts + (wizardState.attacker.isInjured ? 1 : 0);
+      const summaryEffTs = getEffectiveTs(wizardState.weapon, wizardState.attacker);
       const injNote = wizardState.attacker.isInjured ? ' <span style="color:var(--red); font-size:0.75rem;">(重伤+1)</span>' : '';
+      const promptBanner = getRerollHintHtml(false);
       rerollHint = `
         <div class="roll-summary-block" style="margin-top:10px;">
           🎯 <b>命中统计:</b> 暴击(6点): <span style="color:var(--sm-accent); font-weight:bold;">${wizardState.attackCrit}</span>, 普通命中(${summaryEffTs}+${injNote}): <span style="color:#6a9ad4;">${wizardState.attackNorm}</span>
-          ${curCp >= 1 && wizardState.attRerollIndex === -1 ? '<br><span style="color:var(--sm-accent);">💡 战术重投：你可以消耗 1 CP 点击上方任何一个未命中的灰色骰子重投。</span>' : ''}
         </div>
+        ${promptBanner}
       `;
     }
 
-    const displayEffTs = wizardState.weapon.ts + (wizardState.attacker.isInjured ? 1 : 0);
+    const displayEffTs = getEffectiveTs(wizardState.weapon, wizardState.attacker);
     const injLabel = wizardState.attacker.isInjured ? ` <span style="color:var(--red); font-size:0.75rem;">(重伤+1 → ${displayEffTs}+)</span>` : '';
     body.innerHTML = `
       ${getShootDuelHeaderHtml()}
@@ -605,6 +686,24 @@ export function renderShootStep() {
       coverDesc = `<p style="color:var(--red); margin-bottom: 4px;">🔥 [饱和] 目标在掩体中，但 Saturate 生效：不能保留掩体骰！</p>`;
     }
 
+    // 蝇云遮蔽 (Cloud of Flies Obscured): 效果等同掩体 — 自动+1普通成功，DF池-1
+    if (wizardState.cloudOfFliesActive && !wizardState.inCover) {
+      if (!hasSaturateForDf) {
+        coverDesc += `<p style="color:#7ab88a; margin-bottom: 4px;">🐝 [蝇云遮蔽] 目标处于 Obscured 状态：自动获得 1 个普通成功，且防御投骰池减 1 (DF = ${dfCount} -> ${dfCount - 1})</p>`;
+        dfCount = Math.max(0, dfCount - 1);
+      } else {
+        coverDesc += `<p style="color:var(--red); margin-bottom: 4px;">🔥 [饱和+蝇云] 目标本应获得蝇云遮蔽，但 Saturate 生效：不能保留掩体骰！</p>`;
+      }
+    } else if (wizardState.cloudOfFliesActive && wizardState.inCover) {
+      // 已在掩体中则蝇云效果不叠加（取最优），仅记录日志
+      coverDesc += `<p style="color:#7ab88a; font-size:0.78rem; margin-bottom: 4px;">🐝 蝇云生效，但目标已在掩体中，效果不重复叠加。</p>`;
+    }
+
+    // === Ploy: Indomitus — 2+ 失败攻击骰 → SM 防守方获得额外 1 个普通防御成功 ===
+    if (wizardState.indomitusBonus) {
+      coverDesc += `<p style="color:var(--sm-blue, #4a6a9a); margin-bottom: 4px;">✠ [不屈意志] 攻击方有 2+ 失败骰，${wizardState.defender.name} 保留 1 个失败骰作为普通防御成功。</p>`;
+    }
+
     // Piercing 规则：防御骰池减少 N 点（参数由注册表解析）
     // "Piercing N: defence dice pool reduced by N"
     const piercingParam = getWeaponRuleParam(wizardState.weapon, 'Piercing');
@@ -627,11 +726,12 @@ export function renderShootStep() {
     let rerollHint = '';
     const curCp = getCpForFaction(wizardState.defender.faction);
     if (wizardState.defenseRolls.length > 0 && dfCount > 0) {
+      const promptBanner = getRerollHintHtml(true);
       rerollHint = `
         <div class="roll-summary-block" style="margin-top:10px;">
           🛡️ <b>防守统计:</b> 暴击防守: <span style="color:var(--pm-accent); font-weight:bold;">${wizardState.defCrit}</span>, 普通防守(${wizardState.defender.sv}+): <span style="color:#b0d4ba;">${wizardState.defNorm}</span>
-          ${curCp >= 1 && wizardState.defRerollIndex === -1 ? '<br><span style="color:var(--sm-accent);">💡 战术重投：你可以消耗 1 CP 点击上面任何一个未命中的灰色骰子重投。</span>' : ''}
         </div>
+        ${promptBanner}
       `;
     }
 
@@ -704,10 +804,11 @@ export function renderShootStep() {
     // "The defender cannot retain cover saves."
     // 防御方不能保留掩体骰（掩体提供的自动普通成功被移除）。
     const hasSaturate = weaponMods(effectiveWeapon(wizardState.weapon, wizardState.attacker)).coverSavesDisabled;
-    if (hasSaturate && wizardState.inCover && remainingNormSaves > 0) {
+    if (hasSaturate && (wizardState.inCover || wizardState.cloudOfFliesActive) && remainingNormSaves > 0) {
       const coverSavesRemoved = Math.min(1, remainingNormSaves);
       remainingNormSaves -= coverSavesRemoved;
-      ui.addLog(`[饱和] ${wizardState.weapon.name}：防御方不能保留掩体骰，移除 ${coverSavesRemoved} 个掩体自动成功！`);
+      const saturateSource = wizardState.cloudOfFliesActive && !wizardState.inCover ? '蝇云遮蔽' : '掩体';
+      ui.addLog(`[饱和] ${wizardState.weapon.name}：防御方不能保留${saturateSource}骰，移除 ${coverSavesRemoved} 个自动成功！`);
     }
 
     // Piercing Crits 的效果 (减防御骰池) 已在步骤5 dfCount 计算时处理 (L221)
@@ -770,7 +871,7 @@ export function renderShootStep() {
           <span class="matching-label">攻击命中</span>
           <div class="matching-dice-list">
     `;
-    const matchEffTs = wizardState.weapon.ts + (wizardState.attacker.isInjured ? 1 : 0);
+    const matchEffTs = getEffectiveTs(wizardState.weapon, wizardState.attacker);
     const attDiceCls = getDiceClass(wizardState.attacker.faction);
     const defDiceCls = getDiceClass(wizardState.defender.faction);
     for (let i = 0; i < wizardState.attackCrit; i++) matchingHtml += `<div class="kt-dice-cube ${attDiceCls} crit-dice">6</div>`;
@@ -914,7 +1015,8 @@ export function rollAttackDice() {
     diceAnimationTimeouts = [];
     // Settle all remaining dice immediately
     const diceCubes = pool.getElementsByClassName('kt-dice-cube');
-    const skipEffTs = wizardState.weapon.ts + (wizardState.attacker.isInjured ? 1 : 0);
+    const skipEffTs = getEffectiveTs(wizardState.weapon, wizardState.attacker);
+    let hasHitPenaltyFail = false;
     for (let i = currentSettleIndex; i < totalAttacks; i++) {
       const val = Math.floor(Math.random() * 6) + 1;
       finalRolls.push(val);
@@ -923,12 +1025,25 @@ export function rollAttackDice() {
         cube.classList.remove('rolling');
         cube.textContent = val;
         if (val === 6) cube.classList.add('crit-dice');
-        else if (val < skipEffTs) cube.classList.add('fail-dice');
+        else if (val < skipEffTs) {
+          cube.classList.add('fail-dice');
+          if (val >= wizardState.weapon.ts) {
+            const badge = document.createElement('div');
+            badge.style.cssText = 'position: absolute; bottom: -10px; left: -10px; background: var(--red); border-radius: 50%; width: 22px; height: 22px; font-size: 0.7rem; display: flex; align-items: center; justify-content: center; color: white; font-weight: bold; border: 1.5px solid #fff; box-shadow: 0 2px 5px rgba(0,0,0,0.5); z-index: 5;';
+            badge.textContent = '+1';
+            badge.title = '因命中减益导致失败';
+            cube.appendChild(badge);
+            hasHitPenaltyFail = true;
+          }
+        }
       }
     }
     wizardState.attackRolls = finalRolls;
     recalculateAttackStats();
     renderShootStep();
+    if (hasHitPenaltyFail) {
+      playSound('epic_fail');
+    }
   };
   pool.parentElement.appendChild(skipBtn);
 
@@ -952,13 +1067,21 @@ export function rollAttackDice() {
       cube.classList.remove('rolling');
       cube.textContent = val;
 
-      const stepEffTs = wizardState.weapon.ts + (wizardState.attacker.isInjured ? 1 : 0);
+      const stepEffTs = getEffectiveTs(wizardState.weapon, wizardState.attacker);
       if (val === 6) {
         cube.classList.add('crit-dice');
         playSound('crit');
       } else if (val < stepEffTs) {
         cube.classList.add('fail-dice');
         playSound('dice_drop');
+        if (val >= wizardState.weapon.ts) {
+          const badge = document.createElement('div');
+          badge.style.cssText = 'position: absolute; bottom: -10px; left: -10px; background: var(--red); border-radius: 50%; width: 22px; height: 22px; font-size: 0.7rem; display: flex; align-items: center; justify-content: center; color: white; font-weight: bold; border: 1.5px solid #fff; box-shadow: 0 2px 5px rgba(0,0,0,0.5); z-index: 5;';
+          badge.textContent = '+1';
+          badge.title = '因命中减益导致失败';
+          cube.appendChild(badge);
+          playSound('epic_fail');
+        }
       } else {
         playSound('dice_drop');
       }
@@ -988,6 +1111,48 @@ export function rollAttackDice() {
   scheduleTimeout(settleNextDice, 1200);
 }
 
+export function getRerollHintHtml(isDefense = false) {
+  const faction = isDefense ? wizardState.defender.faction : wizardState.attacker.faction;
+  const curCp = getCpForFaction(faction);
+  const wReroll = isDefense ? null : wizardState.weaponRerollRule;
+  const wRerollAvail = !isDefense && wReroll && !wizardState.weaponRerollUsed;
+
+  const canCp = curCp >= 1 && (isDefense ? wizardState.defRerollIndex === -1 : wizardState.attRerollIndex === -1);
+
+  if (!canCp && !wRerollAvail) return '';
+
+  let html = `
+    <div class="reroll-prompt-banner" style="margin-top:12px; padding:12px; background:rgba(212,175,55,0.06); border:1px solid rgba(212,175,55,0.25); border-radius:8px; text-align:left;">
+      <div style="font-weight:bold; color:var(--gold); margin-bottom:6px; font-size:0.85rem; display:flex; align-items:center; gap:6px;">
+        <span>💡 可用的重投选项提示:</span>
+      </div>
+      <ul style="margin:0; padding-left:18px; font-size:0.8rem; color:var(--text-muted); line-height:1.6;">
+  `;
+
+  if (canCp) {
+    html += `<li><strong style="color:var(--text);">战术重投 (Tactical Reroll)</strong>: 可消耗 1 CP 点击骰子重投 (剩余 CP: ${curCp})。</li>`;
+  }
+
+  if (wRerollAvail) {
+    if (wReroll === 'Balanced') {
+      let source = '武器属性';
+      if (wizardState.hasBalancedFromDoctrine) source = '战术/战斗教条';
+      else if (wizardState.hasBalancedFromFickle) source = '计谋/命运无常';
+      html += `<li><strong style="color:#10b981;">平衡 (Balanced)</strong>: 可<strong>免费</strong>重投 1 个攻击骰 (源自: ${source})。点击带 <span style="background:var(--gold); color:black; padding:1px 4px; border-radius:3px; font-size:0.7rem; font-weight:bold;">B</span> 的骰子并在弹窗中进行选择。</li>`;
+    } else if (wReroll === 'Ceaseless') {
+      html += `<li><strong style="color:#10b981;">不息 (Ceaseless)</strong>: 点数为 1 的攻击骰可<strong>免费</strong>重投。点击带 <span style="background:var(--gold); color:black; padding:1px 4px; border-radius:3px; font-size:0.7rem; font-weight:bold;">C</span> 的骰子并在弹窗中进行确认。</li>`;
+    } else if (wReroll === 'Relentless') {
+      html += `<li><strong style="color:#10b981;">无情 (Relentless)</strong>: 可<strong>免费</strong>重投任意数量的攻击骰。依次点击骰子标记为勾选，然后点击下方的【确认重投选中】按钮。</li>`;
+    }
+  }
+
+  html += `
+      </ul>
+    </div>
+  `;
+  return html;
+}
+
 export function renderAttackDiceView() {
   const pool = document.getElementById('attack-dice-pool');
   if (!pool) return;
@@ -996,12 +1161,12 @@ export function renderAttackDiceView() {
   const faction = wizardState.attacker.faction;
   const curCp = getCpForFaction(faction);
   const attDiceClass = getDiceClass(faction);
-  const renderEffTs = wizardState.weapon.ts + (wizardState.attacker.isInjured ? 1 : 0);
+  const renderEffTs = getEffectiveTs(wizardState.weapon, wizardState.attacker);
 
-  // 武器规则免费重投：基础 Balanced(单骰)/Relentless(任意) 走点击；Ceaseless 走值按钮
+  // 武器规则免费重投：Relentless(任意) 走点击多选；Balanced(单骰) 走 showRerollModal 弹窗进行明确确认；Ceaseless 走值按钮
   const wReroll = wizardState.weaponRerollRule;
   const wRerollAvail = wReroll && !wizardState.weaponRerollUsed;
-  const perDieReroll = wRerollAvail && (wReroll === 'Balanced' || wReroll === 'Relentless');
+  const perDieReroll = wRerollAvail && (wReroll === 'Relentless');
   const sel = wizardState.relenlessSelection || [];
 
   wizardState.attackRolls.forEach((val, idx) => {
@@ -1014,60 +1179,60 @@ export function renderAttackDiceView() {
     d.className = cls;
     d.textContent = val;
 
-    const isFail = val < renderEffTs;
+    // Check if failed specifically because of a Hit penalty (renderEffTs > base TS)
+    if (val < renderEffTs && val >= wizardState.weapon.ts) {
+      const penaltyBadge = document.createElement('div');
+      penaltyBadge.style.cssText = 'position: absolute; bottom: -10px; left: -10px; background: var(--red); border-radius: 50%; width: 22px; height: 22px; font-size: 0.7rem; display: flex; align-items: center; justify-content: center; color: white; font-weight: bold; border: 1.5px solid #fff; box-shadow: 0 2px 5px rgba(0,0,0,0.5); z-index: 5;';
+      penaltyBadge.textContent = '+1';
+      penaltyBadge.title = '因命中减益导致失败';
+      d.appendChild(penaltyBadge);
+    }
 
-    if (perDieReroll) {
-      // 免费武器重投（Balanced 单击即重投；Relentless 单击切换选中）
+    const hasAlreadyRerolled = (wizardState.attackRerolledIndices || []).includes(idx);
+
+    if (hasAlreadyRerolled) {
+      // 已经重投过的骰子，不允许再次重投
+      d.style.cursor = 'not-allowed';
+      const badge = document.createElement('div');
+      badge.className = 'reroll-indicator';
+      const isSuccess = val >= renderEffTs;
+      badge.style.background = isSuccess ? 'var(--green)' : 'var(--red)';
+      badge.textContent = isSuccess ? '✓' : '✖';
+      d.appendChild(badge);
+    } else if (perDieReroll) {
+      // 免费多选重投 (Relentless 单击切换选中)
       d.style.cursor = 'pointer';
       const badge = document.createElement('div');
       badge.className = 'reroll-indicator';
-      if (wReroll === 'Balanced') {
+      badge.textContent = sel.includes(idx) ? '✓' : '○';
+      d.onclick = () => toggleRelentlessSelect(idx);
+      d.appendChild(badge);
+    } else {
+      // 提供战术/自由/规则重投选择弹窗
+      d.style.cursor = 'pointer';
+      const badge = document.createElement('div');
+      badge.className = 'reroll-indicator';
+      
+      // 如果 Balanced 规则可用且尚未被使用，且该骰子可以被重投，显示 'B'
+      if (wRerollAvail && wReroll === 'Balanced') {
         badge.textContent = 'B';
-        d.onclick = () => rerollWeaponRuleDice([idx], 'Balanced');
+        badge.style.background = 'var(--gold)';
+        badge.style.color = 'black';
+      } else if (wRerollAvail && wReroll === 'Ceaseless' && val === 1) {
+        badge.textContent = 'C';
+        badge.style.background = 'var(--gold)';
+        badge.style.color = 'black';
       } else {
-        badge.textContent = sel.includes(idx) ? '✓' : '○';
-        d.onclick = () => toggleRelentlessSelect(idx);
+        badge.textContent = 'R';
       }
+      
       d.appendChild(badge);
-    } else if (isFail && curCp >= 1 && wizardState.attRerollIndex === -1) {
-      const badge = document.createElement('div');
-      badge.className = 'reroll-indicator';
-      badge.textContent = 'R';
-      d.appendChild(badge);
-      d.onclick = () => rerollSingleAttackDice(idx);
-      d.style.cursor = 'pointer';
-    } else if (idx === wizardState.attRerollIndex) {
-      const badge = document.createElement('div');
-      badge.className = 'reroll-indicator';
-      badge.style.background = 'var(--green)';
-      badge.textContent = '✓';
-      d.appendChild(badge);
+      d.onclick = () => showRerollModal(idx, false);
     }
     pool.appendChild(d);
   });
 
-  // Ceaseless：按攻击骰出现的点数提供"重投所有 X"按钮
-  if (wRerollAvail && wReroll === 'Ceaseless') {
-    const values = [...new Set(wizardState.attackRolls)].sort((a, b) => a - b);
-    const hint = document.createElement('p');
-    hint.style.cssText = 'color:var(--sm-accent); font-size:0.75rem; margin:8px 0 4px; text-align:center;';
-    hint.textContent = '💡 Ceaseless：选择一个点数，重投所有该点数的攻击骰';
-    pool.appendChild(hint);
-    const btnRow = document.createElement('div');
-    btnRow.style.cssText = 'display:flex; gap:6px; justify-content:center; flex-wrap:wrap;';
-    values.forEach(v => {
-      const b = document.createElement('button');
-      b.className = 'qa-btn';
-      b.style.cssText = 'padding:4px 12px; font-size:0.8rem;';
-      b.textContent = `重投所有 ${v}`;
-      b.onclick = () => {
-        const idxs = wizardState.attackRolls.map((rv, i) => rv === v ? i : -1).filter(i => i >= 0);
-        rerollWeaponRuleDice(idxs, 'Ceaseless');
-      };
-      btnRow.appendChild(b);
-    });
-    pool.appendChild(btnRow);
-  }
+  // Ceaseless 现在改为了单骰点击确认，移除了旧版的按值批量重投按钮
 
   // Relentless：确认重投选中
   if (wRerollAvail && wReroll === 'Relentless') {
@@ -1091,6 +1256,10 @@ export function rerollSingleAttackDice(idx) {
   ui.updateScoresUI();
 
   wizardState.attRerollIndex = idx;
+  if (!wizardState.attackRerolledIndices) wizardState.attackRerolledIndices = [];
+  if (!wizardState.attackRerolledIndices.includes(idx)) {
+    wizardState.attackRerolledIndices.push(idx);
+  }
 
   // 单骰子摇晃动画
   const pool = document.getElementById('attack-dice-pool');
@@ -1107,7 +1276,176 @@ export function rerollSingleAttackDice(idx) {
 
     recalculateAttackStats();
     renderShootStep();
+
+    const stepEffTs = getEffectiveTs(wizardState.weapon, wizardState.attacker);
+    if (newVal < stepEffTs && newVal >= wizardState.weapon.ts) {
+      playSound('epic_fail');
+    }
   }, 500);
+}
+
+export function showRerollModal(idx, isDefense = false, dfCount = 0) {
+  const isRerolledAlready = isDefense
+    ? (wizardState.defenseRerolledIndices || []).includes(idx)
+    : (wizardState.attackRerolledIndices || []).includes(idx);
+  
+  if (isRerolledAlready) {
+    if (showToast) showToast('该骰子已重投过，根据规则无法再次重投！', 'warning');
+    return;
+  }
+
+  const overlay = document.createElement('div');
+  overlay.className = 'modal-overlay';
+  overlay.style.display = 'flex';
+  overlay.style.zIndex = '3000';
+  
+  const faction = isDefense ? wizardState.defender.faction : wizardState.attacker.faction;
+  const curCp = getCpForFaction(faction);
+  const val = isDefense ? wizardState.defenseRolls[idx] : wizardState.attackRolls[idx];
+  
+  const canCp = curCp >= 1 && (isDefense ? wizardState.defRerollIndex === -1 : wizardState.attRerollIndex === -1);
+  
+  let optionsHtml = '';
+  
+  // CP Reroll option
+  if (canCp) {
+    optionsHtml += `
+      <button id="btn-reroll-cp" class="btn-large" style="padding: 10px; font-size:0.9rem;">
+        战术重投 (消耗 1 CP, 剩 ${curCp} CP)
+      </button>
+    `;
+  }
+  
+  // Rule-based free reroll options (only for attack dice)
+  if (!isDefense) {
+    const wReroll = wizardState.weaponRerollRule;
+    const wRerollAvail = wReroll && !wizardState.weaponRerollUsed;
+    
+    if (wRerollAvail) {
+      if (wReroll === 'Balanced') {
+        const balancedPloys = wizardState.activeBalancedPloys || [];
+        balancedPloys.forEach((bp, bpIdx) => {
+          const ployDef = getPloy(bp.rule);
+          const ployName = ployDef ? ployDef.name_cn : bp.rule;
+          optionsHtml += `
+            <button id="btn-reroll-ploy-${bpIdx}" class="btn-large" style="padding: 10px; font-size:0.9rem; background:linear-gradient(135deg, var(--sm-accent, #60a5fa), #1d4ed8); border-color:#2563eb; color:white; font-weight:bold;">
+              ${ployName}重投 [Balanced] (免费)
+            </button>
+          `;
+        });
+        
+        if (wizardState.hasBalancedBase) {
+          optionsHtml += `
+            <button id="btn-reroll-base-balanced" class="btn-large" style="padding: 10px; font-size:0.9rem; background:linear-gradient(135deg, #10b981, #047857); border-color:#059669; color:white; font-weight:bold;">
+              武器平衡规则重投 [Balanced] (免费)
+            </button>
+          `;
+        }
+      } else if (wReroll === 'Relentless') {
+        optionsHtml += `
+          <button id="btn-reroll-relentless" class="btn-large" style="padding: 10px; font-size:0.9rem; background:linear-gradient(135deg, #10b981, #047857); border-color:#059669; color:white; font-weight:bold;">
+            无情规则重投 [Relentless] (免费)
+          </button>
+        `;
+      } else if (wReroll === 'Ceaseless') {
+        if (val === 1) {
+          optionsHtml += `
+            <button id="btn-reroll-ceaseless" class="btn-large" style="padding: 10px; font-size:0.9rem; background:linear-gradient(135deg, #10b981, #047857); border-color:#059669; color:white; font-weight:bold;">
+              不息规则重投 [Ceaseless] (免费)
+            </button>
+          `;
+        }
+      }
+    }
+  }
+
+  // If no reroll option is available, tell the player
+  if (optionsHtml === '') {
+    optionsHtml = `<p style="color:var(--red); font-size:0.9rem; margin-bottom:10px;">当前无可用的重投选项（CP不足或已使用过该重投规则）</p>`;
+  }
+
+  overlay.innerHTML = `
+    <div class="modal-content" style="max-width: 400px; border: 1px solid var(--gold); box-shadow: 0 0 20px rgba(0,0,0,0.8); background: rgba(10,15,28,0.98);">
+      <div class="modal-header" style="padding: 12px; background: rgba(10,20,35,0.95); border-bottom: 1px solid var(--gold);">
+        <div class="modal-title" style="font-size:1.1rem; color:var(--gold); font-weight:bold;">🎲 选择重投方式</div>
+      </div>
+      <div class="modal-body" style="padding: 20px; text-align: center;">
+        <p style="margin-bottom: 12px; font-size:1rem; color:var(--text-muted);">当前骰值: <strong style="font-size:1.6rem; color:white; font-family:'Pirata One',serif; border: 1px solid rgba(255,255,255,0.15); padding: 4px 12px; border-radius: 4px; background: rgba(255,255,255,0.05); margin-left: 8px;">${val}</strong></p>
+        <p style="font-size:0.8rem; color:var(--text-muted); margin-top:-4px; margin-bottom: 20px; line-height: 1.4;">
+          请选择要应用于该骰子的重投方式。根据 Kill Team 规则，每个骰子最多只能重投一次。
+        </p>
+        <div style="display:flex; flex-direction:column; gap:12px; width:100%;">
+          ${optionsHtml}
+          <button id="btn-reroll-cancel" class="btn-cancel" style="padding: 10px; font-size:0.9rem;">
+            取消 (Cancel)
+          </button>
+        </div>
+      </div>
+    </div>
+  `;
+  
+  document.body.appendChild(overlay);
+  
+  if (canCp) {
+    document.getElementById('btn-reroll-cp').onclick = () => {
+      document.body.removeChild(overlay);
+      if (isDefense) {
+        rerollSingleDefenseDice(idx, dfCount);
+      } else {
+        rerollSingleAttackDice(idx);
+      }
+    };
+  }
+  
+  if (!isDefense) {
+    const wReroll = wizardState.weaponRerollRule;
+    const wRerollAvail = wReroll && !wizardState.weaponRerollUsed;
+    if (wRerollAvail) {
+      if (wReroll === 'Balanced') {
+        const balancedPloys = wizardState.activeBalancedPloys || [];
+        balancedPloys.forEach((bp, bpIdx) => {
+          const btn = document.getElementById(`btn-reroll-ploy-${bpIdx}`);
+          if (btn) {
+            btn.onclick = () => {
+              document.body.removeChild(overlay);
+              const ployDef = getPloy(bp.rule);
+              const label = ployDef ? `${ployDef.name_cn} [Balanced]` : `${bp.rule} [Balanced]`;
+              rerollWeaponRuleDice([idx], label);
+            };
+          }
+        });
+        
+        const btnBaseBalanced = document.getElementById('btn-reroll-base-balanced');
+        if (btnBaseBalanced) {
+          btnBaseBalanced.onclick = () => {
+            document.body.removeChild(overlay);
+            rerollWeaponRuleDice([idx], 'Balanced');
+          };
+        }
+      }
+      
+      const btnRelentless = document.getElementById('btn-reroll-relentless');
+      if (btnRelentless) {
+        btnRelentless.onclick = () => {
+          document.body.removeChild(overlay);
+          rerollWeaponRuleDice([idx], 'Relentless');
+        };
+      }
+      
+      const btnCeaseless = document.getElementById('btn-reroll-ceaseless');
+      if (btnCeaseless) {
+        btnCeaseless.onclick = () => {
+          document.body.removeChild(overlay);
+          rerollWeaponRuleDice([idx], 'Ceaseless');
+        };
+      }
+    }
+  }
+  
+  document.getElementById('btn-reroll-cancel').onclick = () => {
+    playSound('click');
+    document.body.removeChild(overlay);
+  };
 }
 
 /**
@@ -1118,14 +1456,57 @@ export function rerollWeaponRuleDice(indices, ruleType) {
   if (wizardState.weaponRerollUsed) return;
   if (!indices || indices.length === 0) return;
   playSound('dice_roll');
-  wizardState.weaponRerollUsed = true;
-  const oldVals = indices.map(i => wizardState.attackRolls[i]);
-  indices.forEach(i => { wizardState.attackRolls[i] = Math.floor(Math.random() * 6) + 1; });
-  const newVals = indices.map(i => wizardState.attackRolls[i]);
-  ui.addLog(`  - [${ruleType}] 免费重投骰子 [${oldVals.join(',')}] -> [${newVals.join(',')}]`);
-  wizardState.relenlessSelection = [];
-  recalculateAttackStats();
-  renderShootStep();
+  
+  if (ruleType === 'Ceaseless') {
+    const allOnesRerolled = wizardState.attackRolls.every((val, i) => 
+      val !== 1 || (wizardState.attackRerolledIndices && wizardState.attackRerolledIndices.includes(i)) || indices.includes(i)
+    );
+    if (allOnesRerolled) {
+      wizardState.weaponRerollUsed = true;
+    }
+  } else {
+    wizardState.weaponRerollUsed = true;
+  }
+
+  if (!wizardState.attackRerolledIndices) wizardState.attackRerolledIndices = [];
+  indices.forEach(i => {
+    if (!wizardState.attackRerolledIndices.includes(i)) {
+      wizardState.attackRerolledIndices.push(i);
+    }
+  });
+
+  // 播放被重投骰子的滚动摇晃动画
+  const pool = document.getElementById('attack-dice-pool');
+  if (pool) {
+    const diceCubes = pool.getElementsByClassName('kt-dice-cube');
+    indices.forEach(idx => {
+      const cube = diceCubes[idx];
+      if (cube) {
+        const attDiceClass = getDiceClass(wizardState.attacker.faction);
+        cube.className = `kt-dice-cube ${attDiceClass} rolling`;
+        cube.innerHTML = '?';
+      }
+    });
+  }
+
+  setTimeout(() => {
+    const oldVals = indices.map(i => wizardState.attackRolls[i]);
+    indices.forEach(i => { wizardState.attackRolls[i] = Math.floor(Math.random() * 6) + 1; });
+    const newVals = indices.map(i => wizardState.attackRolls[i]);
+    ui.addLog(`  - [${ruleType}] 免费重投骰子 [${oldVals.join(',')}] -> [${newVals.join(',')}]`);
+    wizardState.relenlessSelection = [];
+    
+    // Check if any of the new rolls failed specifically due to hit penalty
+    const stepEffTs = getEffectiveTs(wizardState.weapon, wizardState.attacker);
+    const hasPenaltyFail = newVals.some(v => v < stepEffTs && v >= wizardState.weapon.ts);
+    
+    recalculateAttackStats();
+    renderShootStep();
+
+    if (hasPenaltyFail) {
+      playSound('epic_fail');
+    }
+  }, 500);
 }
 
 /** Relentless 多骰选择：点击骰子切换选中态。 */
@@ -1162,7 +1543,7 @@ export function recalculateAttackStats() {
   if (ignoreInjured && attacker?.isInjured) {
     ui.addLog(`[✠ 无所畏惧] 忽略受伤 Hit +1 惩罚`);
   }
-  const effectiveTs = weapon.ts + injuryPenalty;
+  const effectiveTs = getEffectiveTs(weapon, attacker, ignoreInjured);
 
   // Lethal 规则：N+ 视为暴击（阈值由声明式注册表解析）
   const lethalThreshold = weaponMods(weapon).critThreshold ?? 6;
@@ -1214,63 +1595,38 @@ export function recalculateAttackStats() {
   //     其效果由 step6 (Severe 升级) 与防御阶段 (Saturate 移除掩体骰) 经 weaponMods 统一应用，
   //     不再使用 severeFromAbility / saturateFromAbility 标志。
 
-  // === Ploy: Combat Doctrine — Balanced 规则 ===
-  // Devastator: 射击 6" 外; Tactical: 射击 6" 内; Assault: 近战/反击
-  const doctrineChoice = getCombatDoctrineChoice(attacker?.faction);
-  const hasCombatDoctrine = isPloyActive('combat_doctrine', attacker?.faction);
-  let hasBalancedFromDoctrine = false;
-  if (hasCombatDoctrine && doctrineChoice) {
-    if (doctrineChoice === 'assault' && isMelee) {
-      hasBalancedFromDoctrine = true;
-    }
-    // Devastator/Tactical 需要距离判断 (玩家通过 QA 步骤告知)
-    // 这里先标记，在射击步骤中处理
-    if (doctrineChoice === 'devastator' && !isMelee) {
-      wizardState.doctrineRangeCheck = 'far'; // 6" 外
-    }
-    if (doctrineChoice === 'tactical' && !isMelee) {
-      wizardState.doctrineRangeCheck = 'close'; // 6" 内
-    }
-  }
+  // === 从 activeDebuffs 动态提取赋予武器的重投规则 ===
+  const activeWeaponRulePloys = attacker?.activeDebuffs?.filter(d => d.target === 'weapon_rule') || [];
+  
+  // 查找是否有任何 ploy 属性赋予了 Balanced / Ceaseless / Relentless
+  const hasBalancedFromPloys = activeWeaponRulePloys.some(d => d.extra_rule === 'Balanced');
+  const hasCeaselessFromPloys = activeWeaponRulePloys.some(d => d.extra_rule === 'Ceaseless');
+  const hasRelentlessFromPloys = activeWeaponRulePloys.some(d => d.extra_rule === 'Relentless');
 
-  // === Ploy: Fickle Fates — 射击 ready 敌人获得 Balanced ===
-  const hasFickleFates = isFickleFatesActive(attacker?.faction);
-  let hasBalancedFromFickle = false;
-  if (hasFickleFates && !isMelee && defender && !defender.hasActed) {
-    // Defender is "ready" (hasn't acted yet)
-    hasBalancedFromFickle = true;
-    ui.addLog(`[🎲 命运无常] 射击 ready 敌方，武器获得 Balanced！`);
-  }
+  // 保存这些活跃的重投计谋信息到 wizardState，供重投弹窗动态渲染
+  wizardState.activeBalancedPloys = activeWeaponRulePloys.filter(d => d.extra_rule === 'Balanced');
 
-  // === 重投类武器规则 (Balanced / Ceaseless / Relentless) ===
-  // 基础规则 → 免费交互式重投 (renderAttackDiceView 提供 UI，见 weaponRerollRule)；
-  // ploy 派生的 Balanced (战斗教条/命运无常) 保留自动近似，避免与基础交互重复。
+  // === 判定最终武器重投规则 ===
   const hasBalancedBase = !!retainMods.rerollOneAttackDie;
-  wizardState.weaponRerollRule = retainMods.rerollOneAttackDie ? 'Balanced'
-    : retainMods.rerollSpecificValue ? 'Ceaseless'
-    : retainMods.rerollAnyAttackDice ? 'Relentless'
+  const hasBalanced = hasBalancedBase || hasBalancedFromPloys;
+
+  wizardState.hasBalancedBase = hasBalancedBase;
+
+  // 命运无常 (Fickle Fates) 升级逻辑：若已有 Balanced 基础属性，则升级为 Relentless
+  const hasFickleFatesBalanced = activeWeaponRulePloys.some(d => d.rule === 'fickle_fates' && d.extra_rule === 'Balanced');
+  const hasRelentlessFromUpgrade = hasBalancedBase && hasFickleFatesBalanced;
+
+  const isRelentlessActive = (!!retainMods.rerollAnyAttackDice) || hasRelentlessFromPloys || hasRelentlessFromUpgrade;
+  const isCeaselessActive = (!!retainMods.rerollSpecificValue) || hasCeaselessFromPloys;
+
+  // Relentless 优先于 Balanced
+  wizardState.weaponRerollRule = isRelentlessActive ? 'Relentless'
+    : isCeaselessActive ? 'Ceaseless'
+    : hasBalanced ? 'Balanced'
     : null;
 
-  const hasBalancedFromPloy = hasBalancedFromDoctrine || hasBalancedFromFickle;
-  const hasRelentless = hasFickleFates && !isMelee && defender && !defender.hasActed && hasBalancedBase;
-
-  if (hasBalancedFromPloy && !hasBalancedBase && !hasRelentless) {
-    const fails = wizardState.attackRolls.filter(val => val < effectiveTs && val < lethalThreshold).length;
-    if (fails > 0) {
-      norms += 1;
-      const source = hasBalancedFromDoctrine ? `战斗教条 (${doctrineChoice})` : '命运无常';
-      ui.addLog(`[平衡] ${weapon.name}：重投 1 个失败骰 → 普通成功 (${source})`);
-    }
-  }
-  if (hasRelentless) {
+  if (hasRelentlessFromUpgrade) {
     ui.addLog(`[无情] ${weapon.name}：命运无常 + 已有 Balanced → 升级为 Relentless！`);
-  }
-
-  // === Ploy: Lumbering Death — 移动 ≤3" 时 Ceaseless ===
-  const hasLumberingDeath = isLumberingDeathActive(attacker?.faction);
-  if (hasLumberingDeath) {
-    // 需要判断本 activation 移动距离 (物理沙盘无法自动判断，提示玩家)
-    wizardState.lumberingDeathCheck = true;
   }
 
   // === Ploy: Blood for the Blood God — 第一次 strike +1 伤害 (非 KHORNE); KHORNE 近战 Dmg +1 ===
@@ -1430,9 +1786,7 @@ export function renderDefenseDiceView(dfCount) {
   if (!pool) return;
   pool.innerHTML = '';
 
-  const faction = wizardState.defender.faction;
-  const curCp = getCpForFaction(faction);
-  const defDiceClass = getDiceClass(faction);
+  const defDiceClass = getDiceClass(wizardState.defender.faction);
 
   wizardState.defenseRolls.forEach((val, idx) => {
     const d = document.createElement('div');
@@ -1443,22 +1797,26 @@ export function renderDefenseDiceView(dfCount) {
     d.className = cls;
     d.textContent = val;
 
-    const isFail = val < wizardState.defender.sv;
-    if (isFail && curCp >= 1 && wizardState.defRerollIndex === -1) {
-      const badge = document.createElement('div');
-      badge.className = 'reroll-indicator';
-      badge.textContent = 'R';
-      d.appendChild(badge);
+    const hasAlreadyRerolled = (wizardState.defenseRerolledIndices || []).includes(idx);
 
-      d.onclick = () => rerollSingleDefenseDice(idx, dfCount);
-      d.style.cursor = 'pointer';
-    } else if (idx === wizardState.defRerollIndex) {
+    if (hasAlreadyRerolled) {
+      // 已经重投过的骰子，不允许再次重投，显示绿色勾
+      d.style.cursor = 'not-allowed';
       const badge = document.createElement('div');
       badge.className = 'reroll-indicator';
       badge.style.background = 'var(--green)';
       badge.textContent = '✓';
       d.appendChild(badge);
+    } else {
+      // 所有未重投的防御骰均可点击进行重投（提供战术/自由重投选择弹窗）
+      d.style.cursor = 'pointer';
+      const badge = document.createElement('div');
+      badge.className = 'reroll-indicator';
+      badge.textContent = 'R';
+      d.appendChild(badge);
+      d.onclick = () => showRerollModal(idx, true, dfCount);
     }
+
     pool.appendChild(d);
   });
 }
@@ -1469,6 +1827,10 @@ export function rerollSingleDefenseDice(idx, dfCount) {
   ui.updateScoresUI();
 
   wizardState.defRerollIndex = idx;
+  if (!wizardState.defenseRerolledIndices) wizardState.defenseRerolledIndices = [];
+  if (!wizardState.defenseRerolledIndices.includes(idx)) {
+    wizardState.defenseRerolledIndices.push(idx);
+  }
 
   const pool = document.getElementById('defense-dice-pool');
   const diceCubes = pool.getElementsByClassName('kt-dice-cube');
@@ -1503,7 +1865,14 @@ export function recalculateDefenseStats() {
   }
 
   const saturateEffective = saturateActive && !saturateIgnored;
-  let norms = (wizardState.inCover && !saturateEffective) ? 1 : 0;
+  // 蝇云遮蔽 (cloudOfFliesActive) 与掩体 (inCover) 效果相同，但不叠加
+  const hasObscuredBonus = (wizardState.inCover || (wizardState.cloudOfFliesActive && !wizardState.inCover)) && !saturateEffective;
+  let norms = hasObscuredBonus ? 1 : 0;
+
+  // === Ploy: Indomitus — 保留 1 个失败攻击骰作为额外普通防御成功 ===
+  if (wizardState.indomitusBonus) {
+    norms += 1;
+  }
 
   // Hardy (Chapter Tactic): 防御 5+ 为暴击
   const hasHardy = activeRuleSet().factionMechanicsEnabled &&hasChapterTactic(defender, 'hardy');
@@ -1750,20 +2119,19 @@ export function confirmShootResult(dmgPerAttack) {
  * @param {Object} defender - 次要目标 Operative
  */
 function autoResolveSecondaryAttack(attacker, weapon, defender) {
-  const injuryPenalty = (attacker && attacker.isInjured) ? 1 : 0;
-  const effTs = weapon.ts + injuryPenalty;
+  const effectiveTs = getEffectiveTs(weapon, attacker);
   const lethalThreshold = weaponMods(effectiveWeapon(weapon, attacker)).critThreshold ?? 6;
 
   // 攻击骰
   const rolls = [];
   for (let i = 0; i < weapon.attacks; i++) rolls.push(Math.floor(Math.random() * 6) + 1);
   let aCrit = 0, aNorm = 0;
-  rolls.forEach(v => { if (v >= lethalThreshold) aCrit++; else if (v >= effTs) aNorm++; });
+  rolls.forEach(v => { if (v >= lethalThreshold) aCrit++; else if (v >= effectiveTs) aNorm++; });
 
   // 保留阶段规则 (基础 + 阵营派生经 effectiveWeapon 注入，与主目标同源)
   const retainMods = weaponMods(effectiveWeapon(weapon, attacker), { retainedCrits: aCrit, retainedNorms: aNorm });
   if (retainMods.autoRetainNormal) {
-    const fails = rolls.filter(v => v < effTs && v < lethalThreshold).length;
+    const fails = rolls.filter(v => v < effectiveTs && v < lethalThreshold).length;
     aNorm += Math.min(retainMods.autoRetainNormal, fails);
   }
   if (retainMods.upgradeNormalToCrit && retainMods.source === 'Rending' && aCrit > 0 && aNorm > 0) { aNorm -= 1; aCrit += 1; }
@@ -1977,37 +2345,46 @@ export function openFightWizard() {
   const op = gameState.activeAgent;
   if (!op) return;
 
-  const modalContent = document.querySelector('#combat-modal .modal-content');
-  if (modalContent) {
-    modalContent.style.backgroundImage = `linear-gradient(rgba(11, 17, 32, 0.85), rgba(11, 17, 32, 0.95)), url("${getAssetPath('assets/images/backgrounds/bg_melee_action.jpg')}")`;
-    modalContent.style.backgroundSize = 'cover';
-    modalContent.style.backgroundPosition = 'center';
-  }
+  evaluatePloyInteractions('before_fight', op, () => {
+    const modalContent = document.querySelector('#combat-modal .modal-content');
+    if (modalContent) {
+      modalContent.style.backgroundImage = `linear-gradient(rgba(11, 17, 32, 0.85), rgba(11, 17, 32, 0.95)), url("${getAssetPath('assets/images/backgrounds/bg_melee_action.jpg')}")`;
+      modalContent.style.backgroundSize = 'cover';
+      modalContent.style.backgroundPosition = 'center';
+    }
 
-  Object.assign(wizardState, {
-    actionType: 'fight',
-    step: 1,
-    attacker: op,
-    defender: null,
-    weapon: op.weapons.filter(w => !w.isRanged)[0] || null,
-    meleeDefWeapon: null, // 防守方近战武器 (步骤 2 选择)
-    inMeleeRange: true,
-    hasFallenBack: false,
-    mode: gameState.globalRollMode,
-    activeAttackerDice: [],
-    activeDefenderDice: [],
-    meleeTurn: 'attacker',
-    meleeLogs: '',
-    drRolls: [],
+    window.pushStateSnapshot?.(`Start Fight: ${op.name}`);
+
+    Object.assign(wizardState, {
+      actionType: 'fight',
+      step: 1,
+      attacker: op,
+      defender: null,
+      weapon: op.weapons.filter(w => !w.isRanged)[0] || null,
+      meleeDefWeapon: null, // 防守方近战武器 (步骤 2 选择)
+      inMeleeRange: true,
+      hasFallenBack: false,
+      mode: gameState.globalRollMode,
+      activeAttackerDice: [],
+      activeDefenderDice: [],
+      attackRolls: [],
+      defenseRolls: [],
+      attackRerolledIndices: [],
+      weaponRerollUsed: false,
+      weaponRerollRule: null,
+      meleeTurn: 'attacker',
+      meleeLogs: '',
+      drRolls: [],
+    });
+
+    if (!wizardState.weapon) {
+      if (showToast) showToast('该特工没有配备任何近战武器！', 'warning');
+      return;
+    }
+
+    openModal();
+    renderFightStep();
   });
-
-  if (!wizardState.weapon) {
-    if (showToast) showToast('该特工没有配备任何近战武器！', 'warning');
-    return;
-  }
-
-  openModal();
-  renderFightStep();
 }
 
 // Note: selectFightDefender is the same pattern as the shoot version but calls renderFightStep
@@ -2053,12 +2430,19 @@ export function renderFightStep() {
 
     let listHtml = '<div class="weapon-picker-list">';
     targets.forEach(t => {
-      const injuredTag = t.isInjured ? ' <span style="color:var(--red); font-size:0.7rem;">[重伤]</span>' : '';
-      const poisonTag = t.poisonTokens > 0 ? ' <span style="color:#7ab88a; font-size:0.7rem;">[毒素]</span>' : '';
+      const injuredTag = t.isInjured ? ' <span style="color:var(--red); font-size:0.75rem;">[重伤]</span>' : '';
+      const poisonTag = t.poisonTokens > 0 ? ' <span style="color:#7ab88a; font-size:0.75rem;">[毒素]</span>' : '';
+      const avatarUrl = getOperativeAvatarUrl(t.id, t.faction);
       listHtml += `
-        <div class="weapon-pick-item ${wizardState.defender && wizardState.defender.id === t.id ? 'selected' : ''}" role="button" tabindex="0" onclick="selectFightDefender('${t.id}')" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();selectFightDefender('${t.id}')}">
-          <span class="weapon-pick-name">${t.name}${injuredTag}${poisonTag}</span>
-          <span class="weapon-pick-stats">HP: ${t.wounds}/${t.maxWounds} | DF:${t.df}</span>
+        <div class="weapon-pick-item ${wizardState.defender && wizardState.defender.id === t.id ? 'selected' : ''}" role="button" tabindex="0" onclick="selectFightDefender('${t.id}')" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();selectFightDefender('${t.id}')}" style="flex-direction: row; justify-content: flex-start; align-items: center; gap: 20px;">
+          <img src="${avatarUrl}" style="width: 60px; height: 60px; border-radius: 50%; object-fit: cover; border: 2px solid ${t.teamSlot === 0 ? 'var(--sm-accent)' : 'var(--pm-accent)'}; flex-shrink: 0;" alt="Avatar">
+          <div style="display: flex; flex-direction: column; gap: 8px;">
+            <span class="weapon-pick-name">${t.name}${injuredTag}${poisonTag}</span>
+            <div class="weapon-pick-stats">
+              <span class="stat-badge" style="color: #ff4444;">Wounds: ${t.wounds}/${t.maxWounds}</span> |
+              <span class="stat-badge" style="color: #ffaa00;">Defense: ${t.df}</span>
+            </div>
+          </div>
         </div>
       `;
     });
@@ -2088,7 +2472,12 @@ export function renderFightStep() {
       listHtml += `
         <div class="weapon-pick-item ${wizardState.weapon.name === w.name ? 'selected' : ''}" role="button" tabindex="0" onclick="selectFightWeapon(${idx})" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();selectFightWeapon(${idx})}">
           <span class="weapon-pick-name">${w.name}</span>
-          <span class="weapon-pick-stats">A: ${w.attacks} | WS: ${hitStat} | D: ${w.normalDamage}/${w.criticalDamage}${rulesStr}</span>
+          <div class="weapon-pick-stats">
+            <span class="stat-badge" style="color: #ffaa00;">Attacks: ${w.attacks}</span>
+            <span class="stat-badge" style="color: #44aaff;">Skill: ${hitStat}</span>
+            <span class="stat-badge" style="color: #ff4444;">Damage: ${w.normalDamage}/${w.criticalDamage}</span>
+            ${rulesStr ? `<span class="stat-badge" style="color: #aaffaa;">${rulesStr.replace(' | ', '').replace('| ', '')}</span>` : ''}
+          </div>
         </div>
       `;
     });
@@ -2108,7 +2497,12 @@ export function renderFightStep() {
         defListHtml += `
           <div class="weapon-pick-item ${isSelected ? 'selected' : ''}" role="button" tabindex="0" onclick="selectDefFightWeapon(${idx})" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();selectDefFightWeapon(${idx})}">
             <span class="weapon-pick-name">${w.name}</span>
-            <span class="weapon-pick-stats">A: ${w.attacks} | WS: ${hitStat} | D: ${w.normalDamage}/${w.criticalDamage}${rulesStr}</span>
+            <div class="weapon-pick-stats">
+              <span class="stat-badge" style="color: #ffaa00;">Attacks: ${w.attacks}</span>
+              <span class="stat-badge" style="color: #44aaff;">Skill: ${hitStat}</span>
+              <span class="stat-badge" style="color: #ff4444;">Damage: ${w.normalDamage}/${w.criticalDamage}</span>
+              ${rulesStr ? `<span class="stat-badge" style="color: #aaffaa;">${rulesStr.replace(' | ', '').replace('| ', '')}</span>` : ''}
+            </div>
           </div>
         `;
       });
@@ -2157,7 +2551,7 @@ export function renderFightStep() {
     title.textContent = '近战结算 - 步骤 4: 双方近战掷骰';
 
     body.innerHTML = `
-      <div class="melee-grid" style="margin-bottom: 16px; display:${wizardState.mode === 'manual' ? 'none' : 'flex'};" id="melee-rolling-zone">
+      <div class="melee-grid" style="margin-bottom: 16px; display:${wizardState.mode === 'manual' ? 'none' : 'grid'};" id="melee-rolling-zone">
           <div class="melee-pool-card">
             <div class="melee-pool-title">攻击方 (${wizardState.attacker.name})</div>
             <div class="melee-dice-pool" id="melee-att-pool">
@@ -2419,8 +2813,9 @@ export function rollMeleeDice() {
     diceAnimationTimeouts = [];
     // Settle all remaining attacker dice
     const attCubes = attPool.getElementsByClassName('kt-dice-cube');
-    const skipAttEffTs = wizardState.weapon.ts + (wizardState.attacker.isInjured ? 1 : 0);
-    const skipDefEffTs = defMeleeWeapon.ts + (wizardState.defender.isInjured ? 1 : 0);
+    const skipAttEffTs = getEffectiveTs(wizardState.weapon, wizardState.attacker);
+    const skipDefEffTs = getEffectiveTs(defMeleeWeapon, wizardState.defender);
+    let hasMeleePenaltyFail = false;
     for (let i = attSettleIndex; i < totalAttacks; i++) {
       const val = Math.floor(Math.random() * 6) + 1;
       finalAttRolls.push(val);
@@ -2429,7 +2824,16 @@ export function rollMeleeDice() {
         cube.classList.remove('rolling');
         cube.textContent = val;
         if (val === 6) cube.classList.add('crit-dice');
-        else if (val < skipAttEffTs) cube.classList.add('fail-dice');
+        else if (val < skipAttEffTs) {
+          cube.classList.add('fail-dice');
+          if (val >= wizardState.weapon.ts) {
+            const badge = document.createElement('div');
+            badge.style.cssText = 'position: absolute; bottom: -10px; left: -10px; background: var(--red); border-radius: 50%; width: 22px; height: 22px; font-size: 0.7rem; display: flex; align-items: center; justify-content: center; color: white; font-weight: bold; border: 1.5px solid #fff; box-shadow: 0 2px 5px rgba(0,0,0,0.5); z-index: 5;';
+            badge.textContent = '+1';
+            cube.appendChild(badge);
+            hasMeleePenaltyFail = true;
+          }
+        }
       }
     }
     // Settle all remaining defender dice
@@ -2442,10 +2846,22 @@ export function rollMeleeDice() {
         cube.classList.remove('rolling');
         cube.textContent = val;
         if (val === 6) cube.classList.add('crit-dice');
-        else if (val < skipDefEffTs) cube.classList.add('fail-dice');
+        else if (val < skipDefEffTs) {
+          cube.classList.add('fail-dice');
+          if (val >= defMeleeWeapon.ts) {
+            const badge = document.createElement('div');
+            badge.style.cssText = 'position: absolute; bottom: -10px; left: -10px; background: var(--red); border-radius: 50%; width: 22px; height: 22px; font-size: 0.7rem; display: flex; align-items: center; justify-content: center; color: white; font-weight: bold; border: 1.5px solid #fff; box-shadow: 0 2px 5px rgba(0,0,0,0.5); z-index: 5;';
+            badge.textContent = '+1';
+            cube.appendChild(badge);
+            hasMeleePenaltyFail = true;
+          }
+        }
       }
     }
     finishMeleeRolls();
+    if (hasMeleePenaltyFail) {
+      playSound('epic_fail');
+    }
   };
   // Append to a common parent that holds the button
   const meleeBody = document.getElementById('modal-body');
@@ -2470,13 +2886,20 @@ export function rollMeleeDice() {
       cube.classList.remove('rolling');
       cube.textContent = val;
 
-      const attEffTs = wizardState.weapon.ts + (wizardState.attacker.isInjured ? 1 : 0);
+      const attEffTs = getEffectiveTs(wizardState.weapon, wizardState.attacker);
       if (val === 6) {
         cube.classList.add('crit-dice');
         playSound('crit');
       } else if (val < attEffTs) {
         cube.classList.add('fail-dice');
         playSound('dice_drop');
+        if (val >= wizardState.weapon.ts) {
+          const badge = document.createElement('div');
+          badge.style.cssText = 'position: absolute; bottom: -10px; left: -10px; background: var(--red); border-radius: 50%; width: 22px; height: 22px; font-size: 0.7rem; display: flex; align-items: center; justify-content: center; color: white; font-weight: bold; border: 1.5px solid #fff; box-shadow: 0 2px 5px rgba(0,0,0,0.5); z-index: 5;';
+          badge.textContent = '+1';
+          cube.appendChild(badge);
+          playSound('epic_fail');
+        }
       } else {
         playSound('dice_drop');
       }
@@ -2500,13 +2923,20 @@ export function rollMeleeDice() {
       cube.classList.remove('rolling');
       cube.textContent = val;
 
-      const defEffTs = defMeleeWeapon.ts + (wizardState.defender.isInjured ? 1 : 0);
+      const defEffTs = getEffectiveTs(defMeleeWeapon, wizardState.defender);
       if (val === 6) {
         cube.classList.add('crit-dice');
         playSound('crit');
       } else if (val < defEffTs) {
         cube.classList.add('fail-dice');
         playSound('dice_drop');
+        if (val >= defMeleeWeapon.ts) {
+          const badge = document.createElement('div');
+          badge.style.cssText = 'position: absolute; bottom: -10px; left: -10px; background: var(--red); border-radius: 50%; width: 22px; height: 22px; font-size: 0.7rem; display: flex; align-items: center; justify-content: center; color: white; font-weight: bold; border: 1.5px solid #fff; box-shadow: 0 2px 5px rgba(0,0,0,0.5); z-index: 5;';
+          badge.textContent = '+1';
+          cube.appendChild(badge);
+          playSound('epic_fail');
+        }
       } else {
         playSound('dice_drop');
       }
@@ -2524,8 +2954,8 @@ export function rollMeleeDice() {
     // Injured 命中惩罚: TS/WS +1 (6 永远是暴击)
     const attInjuryPenalty = (wizardState.attacker && wizardState.attacker.isInjured) ? 1 : 0;
     const defInjuryPenalty = (wizardState.defender && wizardState.defender.isInjured) ? 1 : 0;
-    const effectiveAttTs = wizardState.weapon.ts + attInjuryPenalty;
-    const effectiveDefTs = defMeleeWeapon.ts + defInjuryPenalty;
+    const effectiveAttTs = getEffectiveTs(wizardState.weapon, wizardState.attacker);
+    const effectiveDefTs = getEffectiveTs(defMeleeWeapon, wizardState.defender);
     // 暴击阈值 (支持 Lethal x+，默认 6)，存储供重投路径复用
     const attCritThreshold = meleeCritThreshold(wizardState.weapon);
     const defCritThreshold = meleeCritThreshold(defMeleeWeapon);
@@ -2596,7 +3026,7 @@ export function rollMeleeDice() {
 // 黑暗狂热: 重投 1 个失败近战骰
 export function rerollMeleeDice(side) {
   if (wizardState.darkZealotryUsed[side]) {
-    ui.showToast('每方只能使用 1 次黑暗狂热重投！', 'warning');
+    if (showToast) showToast('每方只能使用 1 次黑暗狂热重投！', 'warning');
     return;
   }
 
@@ -2604,7 +3034,7 @@ export function rerollMeleeDice(side) {
   const failedRolls = allRolls.filter(r => !r.isSuccess);
 
   if (failedRolls.length === 0) {
-    ui.showToast('没有可重投的失败骰！', 'warning');
+    if (showToast) showToast('没有可重投的失败骰！', 'warning');
     return;
   }
 

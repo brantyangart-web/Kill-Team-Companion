@@ -9,6 +9,7 @@ import { audioCtx, playSound } from './audio.js';
 import { Weapon, Operative, initModelCallbacks } from './models.js';
 import { SM_TEMPLATES, PM_TEMPLATES, LEG_TEMPLATES, RULE_TEXTS } from './constants.js';
 import { injectTemplates } from '../rules/faction.js';
+import { initDMSystem } from './dm.js';
 
 import {
   addLog, updateScoresUI, adjustScore, confirmReset, updateGuidance,
@@ -21,6 +22,7 @@ import {
   endActivation, startInitiativePhase, showPhaseOverlay, hidePhaseOverlay, hideCounteractOverlay,
   showCounteractOverlay, selectCounteractOperative, skipCounteractAction,
   rollInitiativeOverlay, selectTurnOrder, confirmTurnOrder, startStrategyPhase, buyStrategyPloy, selectDoctrine,
+  selectNurglingsTarget, cancelBuyPloy,
   proceedToFirefight, showRuleHelp, closeHelpModal,
   triggerOperativeDeathOverlay, confirmOperativeDeath, checkVictory, declareVictory,
   showTurnEndScoringOverlay, renderTurnEndScoringContent, toggleScoringChecklist,
@@ -29,7 +31,8 @@ import {
   triggerCombatVisual, triggerAvatarHitEffect, getOperativeAvatarUrl,
   rollDicePool, evaluateAttackRolls, evaluateDefenseRolls,
   showToast, trapFocus, releaseFocusTrap,
-  initCombatCallbacks, queueVisualEvent
+  initCombatCallbacks, queueVisualEvent,
+  setupSandboxTestHarness, toggleTestPloy, sandboxEndTurningPoint
 } from './ui.js';
 
 import { skipCounteract } from './state.js';
@@ -170,6 +173,8 @@ window.selectTurnOrder = selectTurnOrder;
 window.confirmTurnOrder = confirmTurnOrder;
 window.buyStrategyPloy = buyStrategyPloy;
 window.selectDoctrine = selectDoctrine;
+window.selectNurglingsTarget = selectNurglingsTarget;
+window.cancelBuyPloy = cancelBuyPloy;
 window.proceedToFirefight = proceedToFirefight;
 
 // Counteract
@@ -187,6 +192,10 @@ window.toggleScoringChecklist = toggleScoringChecklist;
 window.adjustScoreTemp = adjustScoreTemp;
 window.confirmTurnEndScoring = confirmTurnEndScoring;
 
+// Sandbox Test Mode
+window.setupSandboxTestHarness = setupSandboxTestHarness;
+window.sandboxEndTurningPoint = sandboxEndTurningPoint;
+
 // ==========================================
 //   Initialize app on DOM ready
 // ==========================================
@@ -199,6 +208,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
   renderRosterPickers();
   updateRulesVersion(); // 初始化规则版本（默认 lite，隐藏 Advance）
+  initDMSystem(); // Initialize the Dungeon Master Panel
 });
 
 // ==========================================

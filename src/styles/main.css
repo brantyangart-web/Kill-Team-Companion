@@ -740,9 +740,9 @@
     outline: 1px solid var(--panel-border-outer);
     outline-offset: 3px;
     border-radius: 6px;
-    padding: 20px;
-    max-width: 600px;
-    width: 90%;
+    padding: 24px;
+    max-width: 800px;
+    width: 95%;
     max-height: 85vh;
     overflow-y: auto;
     box-shadow: 0 10px 40px rgba(0,0,0,0.7), inset 0 0 40px rgba(201,168,76,0.02);
@@ -756,8 +756,8 @@
     border-radius: 3px;
     pointer-events: none;
   }
-  .modal-header { border-bottom: 1px solid var(--panel-border); padding-bottom: 12px; }
-  .modal-title { font-family: 'Pirata One', serif; font-size: 1.2rem; font-weight: 400; color: #fff; }
+  .modal-header { border-bottom: 1px solid var(--panel-border); padding-bottom: 16px; margin-bottom: 16px; }
+  .modal-title { font-family: 'Pirata One', serif; font-size: 1.8rem; font-weight: 400; color: #fff; }
   .modal-body { max-height: 450px; overflow-y: auto; font-size: 0.9rem; display: flex; flex-direction: column; gap: 16px; }
   .modal-footer { border-top: 1px solid var(--panel-border); padding-top: 16px; display: flex; justify-content: flex-end; gap: 16px; }
 
@@ -822,12 +822,15 @@
   .ploy-title { font-family: 'Pirata One', serif; font-size: 1rem; font-weight: 400; color: #fff; display: flex; justify-content: space-between; }
   .ploy-desc { font-size: 0.8rem; color: var(--text-muted); margin-top: 8px; line-height: 1.4; }
 
-  .weapon-picker-list { display: flex; flex-direction: column; gap: 8px; }
-  .weapon-pick-item { background: var(--dark-card); border: 1px solid var(--panel-border); border-radius: 8px; padding: 12px; cursor: pointer; display: flex; justify-content: space-between; align-items: center; }
-  .weapon-pick-item:hover { border-color: #5a5d65; }
-  .weapon-pick-item.selected { border-color: var(--sm-accent); background: rgba(201, 168, 76, 0.05); }
-  .weapon-pick-name { font-weight: bold; color: #fff; }
-  .weapon-pick-stats { font-family: 'Pirata One', serif; font-size: 0.75rem; color: var(--text-muted); }
+  .weapon-picker-list { display: flex; flex-direction: column; gap: 14px; }
+  .weapon-pick-item { background: var(--dark-card); border: 2px solid var(--panel-border); border-radius: 12px; padding: 20px; cursor: pointer; display: flex; flex-direction: column; justify-content: center; align-items: flex-start; gap: 10px; }
+  .weapon-pick-item:hover { border-color: #7a7d85; background: rgba(255,255,255,0.05); }
+  .weapon-pick-item.selected { border-color: var(--sm-accent); background: rgba(201, 168, 76, 0.1); }
+  .weapon-pick-name { font-weight: bold; color: #fff; font-size: 1.5rem; }
+  .weapon-pick-stats { font-family: 'Pirata One', serif; font-size: 1.3rem; color: #e0e0e0; letter-spacing: 0.5px; display: flex; flex-wrap: nowrap; gap: 12px; align-items: center; white-space: nowrap; overflow-x: auto; max-width: 100%; padding-bottom: 4px; }
+  .weapon-pick-stats::-webkit-scrollbar { height: 4px; }
+  .weapon-pick-stats::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.2); border-radius: 2px; }
+  .stat-badge { display: flex; gap: 4px; align-items: center; }
 
   /* ==========================================
      持久化高对比拟真 3D 骰子
