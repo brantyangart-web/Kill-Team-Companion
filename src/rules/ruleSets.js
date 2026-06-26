@@ -19,7 +19,8 @@ export const RULE_SETS = {
     maxTurningPoints: 4,
     hasAdvanceAction: false,
     injuredAplPenalty: 0,            // lite: Injured 只减移动，不减 APL
-    injuredMovePenalty: 2,
+    injuredMovePenalty: 0,           // lite: 暂时移除移动减益
+    injuredTsPenalty: 0,             // lite: 暂时移除命中/防守减益
     hasKillCallbacks: false,         // 击杀回调系统 (Standard 专属)
     hasObjectiveMarkers: false,      // 控制标记系统 (Standard 专属)
     factionMechanicsEnabled: false,  // ⚠️临时伞标志，见上文注释
@@ -29,7 +30,8 @@ export const RULE_SETS = {
     maxTurningPoints: 5,
     hasAdvanceAction: true,
     injuredAplPenalty: 1,            // standard: Injured 时 APL -1
-    injuredMovePenalty: 2,
+    injuredMovePenalty: 2,           // standard: Injured 时 Move -2
+    injuredTsPenalty: 1,             // standard: Injured 时 TS/WS +1
     hasKillCallbacks: true,
     hasObjectiveMarkers: true,
     factionMechanicsEnabled: true,

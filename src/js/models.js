@@ -169,7 +169,7 @@ export class Operative {
   /** 当前有效 Move（Injured 时 -2"，Slaanesh Mark +1"） */
   get currentMove() {
     const hasPenalty = this.isInjured && !this.ignoreInjuredPenalties;
-    let move = this.maxMove - (hasPenalty ? 2 : 0);
+    let move = this.maxMove - (hasPenalty ? activeRuleSet().injuredMovePenalty : 0);
     // Slaanesh Mark of Chaos +1" Move（阵营机制，由 factionMechanicsEnabled 开关）
     if (activeRuleSet().factionMechanicsEnabled && this.marksOfChaos === 'SLAANESH') {
       move += 1;
@@ -420,7 +420,7 @@ export function getEffectiveTs(weapon, operative, ignoreInjured = false) {
   let ts = weapon.ts;
   const shouldIgnore = ignoreInjured || (operative && operative.ignoreInjuredPenalties);
   if (operative && operative.isInjured && !shouldIgnore) {
-    ts += 1;
+    ts += activeRuleSet().injuredTsPenalty;
   }
   if (operative && operative.activeDebuffs) {
     operative.activeDebuffs.forEach(d => {

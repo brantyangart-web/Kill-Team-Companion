@@ -303,11 +303,22 @@ export function nextModalStep() {
       }
     }
   } else if (wizardState.actionType === 'fight') {
-      if (wizardState.step === 4 && wizardState.mode === 'manual') {
-        parseManualMelee();
+      if (wizardState.step === 4) {
+        if (wizardState.mode === 'manual') {
+          parseManualMelee();
+        } else {
+          // 在进入伤害分配阶段前，根据经过重投阶段修正的 allRolls 重构 activeDice
+          wizardState.activeAttackerDice = wizardState.allAttackerRolls
+            .filter(d => d.isSuccess)
+            .map(d => ({ val: d.val, isCrit: d.isCrit, used: false }));
+            
+          wizardState.activeDefenderDice = wizardState.allDefenderRolls
+            .filter(d => d.isSuccess)
+            .map(d => ({ val: d.val, isCrit: d.isCrit, used: false }));
+        }
+        
         if (wizardState.activeAttackerDice.length === 0 && wizardState.activeDefenderDice.length === 0) {
-          if (showToast) showToast('请录入近战掷骰结果', 'error');
-          return;
+          // Allow transitioning to Step 5 even if both missed, so the UI can show "双方未命中"
         }
       }
     if (wizardState.step === 3) {
@@ -2589,6 +2600,13 @@ export function renderFightStep() {
   else if (wizardState.step === 5) {
     title.textContent = '近战结算 - 步骤 5: 伤害与格挡交替分配';
 
+    // 如果当前行动方已经没有任何可用的成功骰，自动将结算权移交给对方
+    if (wizardState.meleeTurn === 'attacker' && wizardState.activeAttackerDice.every(d => d.used)) {
+      wizardState.meleeTurn = 'defender';
+    } else if (wizardState.meleeTurn === 'defender' && wizardState.activeDefenderDice.every(d => d.used)) {
+      wizardState.meleeTurn = 'attacker';
+    }
+
     const attackerAlive = wizardState.attacker.wounds > 0;
     const defenderAlive = wizardState.defender.wounds > 0;
     const hasAttDice = wizardState.activeAttackerDice.some(d => !d.used);
@@ -3017,6 +3035,9 @@ export function rollMeleeDice() {
       body.appendChild(rerollDiv);
     }
 
+    // 动画结束后，重新渲染为可点击交互的骰子视图（包含重投角标等）
+    renderMeleeRollsView();
+
     nextBtn.disabled = false;
   }
 
@@ -3091,17 +3112,55 @@ export function renderMeleeRollsView() {
 
   const attDiceClass = getDiceClass(wizardState.attacker.faction);
   const defDiceClass = getDiceClass(wizardState.defender.faction);
+  
+  // 获取武器规则
+  const activeAttPloys = wizardState.attacker?.activeDebuffs?.filter(d => d.target === 'weapon_rule') || [];
+  const hasAttCeaseless = (wizardState.weapon?.hasRule && wizardState.weapon.hasRule('Ceaseless')) || activeAttPloys.some(p => p.rule === 'lumbering_death' && p.extra_rule === 'Ceaseless' && wizardState.attacker.faction === 'Plague Marine');
+  const wAttReroll = hasAttCeaseless ? 'Ceaseless' : 'none';
+
+  // 防守方检测 innate Ceaseless
+  const hasDefCeaseless = wizardState.meleeDefWeapon?.hasRule && wizardState.meleeDefWeapon.hasRule('Ceaseless');
+  const wDefReroll = hasDefCeaseless ? 'Ceaseless' : 'none';
 
   attPool.innerHTML = '';
-  wizardState.activeAttackerDice.forEach(d => {
+  wizardState.allAttackerRolls.forEach((d, idx) => {
     let cls = `kt-dice-cube ${attDiceClass}`;
     if (d.isCrit) cls += ' crit-dice';
+    else if (!d.isSuccess) cls += ' fail-dice';
+    
     const dice = document.createElement('div');
     dice.className = cls;
     dice.textContent = d.val;
+    
+    // 渲染红叉或绿勾
+    const hasAlreadyRerolled = (wizardState.attMeleeRerolledIndices || []).includes(idx);
+    if (hasAlreadyRerolled) {
+      dice.style.cursor = 'not-allowed';
+      const badge = document.createElement('div');
+      badge.className = 'reroll-indicator';
+      badge.style.background = d.isSuccess ? 'var(--green)' : 'var(--red)';
+      badge.textContent = d.isSuccess ? '✓' : '✖';
+      dice.appendChild(badge);
+    } else {
+      dice.style.cursor = 'pointer';
+      const badge = document.createElement('div');
+      badge.className = 'reroll-indicator';
+      
+      // 检测 Ceaseless
+      if (wAttReroll === 'Ceaseless' && d.val === 1) {
+        badge.textContent = 'C';
+        badge.style.background = 'var(--gold)';
+        badge.style.color = 'black';
+      } else {
+        badge.textContent = 'R';
+      }
+      dice.appendChild(badge);
+      dice.onclick = () => showMeleeRerollModal('attacker', idx, wAttReroll);
+    }
+    
     attPool.appendChild(dice);
   });
-  if (wizardState.activeAttackerDice.length === 0) {
+  if (wizardState.allAttackerRolls.length === 0) {
     const span = document.createElement('span');
     span.style.cssText = 'color:var(--text-muted);font-size:0.85rem;';
     span.textContent = '全部未命中';
@@ -3109,20 +3168,191 @@ export function renderMeleeRollsView() {
   }
 
   defPool.innerHTML = '';
-  wizardState.activeDefenderDice.forEach(d => {
+  wizardState.allDefenderRolls.forEach((d, idx) => {
     let cls = `kt-dice-cube ${defDiceClass}`;
     if (d.isCrit) cls += ' crit-dice';
+    else if (!d.isSuccess) cls += ' fail-dice';
+    
     const dice = document.createElement('div');
     dice.className = cls;
     dice.textContent = d.val;
+    
+    // 渲染红叉或绿勾
+    const hasAlreadyRerolled = (wizardState.defMeleeRerolledIndices || []).includes(idx);
+    if (hasAlreadyRerolled) {
+      dice.style.cursor = 'not-allowed';
+      const badge = document.createElement('div');
+      badge.className = 'reroll-indicator';
+      badge.style.background = d.isSuccess ? 'var(--green)' : 'var(--red)';
+      badge.textContent = d.isSuccess ? '✓' : '✖';
+      dice.appendChild(badge);
+    } else {
+      dice.style.cursor = 'pointer';
+      const badge = document.createElement('div');
+      badge.className = 'reroll-indicator';
+      
+      if (wDefReroll === 'Ceaseless' && d.val === 1) {
+        badge.textContent = 'C';
+        badge.style.background = 'var(--gold)';
+        badge.style.color = 'black';
+      } else {
+        badge.textContent = 'R';
+      }
+      dice.appendChild(badge);
+      dice.onclick = () => showMeleeRerollModal('defender', idx, wDefReroll);
+    }
+    
     defPool.appendChild(dice);
   });
-  if (wizardState.activeDefenderDice.length === 0) {
+  if (wizardState.allDefenderRolls.length === 0) {
     const span = document.createElement('span');
     span.style.cssText = 'color:var(--text-muted);font-size:0.85rem;';
     span.textContent = '全部未命中';
     defPool.appendChild(span);
   }
+}
+
+export function showMeleeRerollModal(side, idx, wReroll) {
+  const isDefense = side === 'defender';
+  const isRerolledAlready = isDefense
+    ? (wizardState.defMeleeRerolledIndices || []).includes(idx)
+    : (wizardState.attMeleeRerolledIndices || []).includes(idx);
+    
+  if (isRerolledAlready) {
+    if (showToast) showToast('该骰子已重投过，根据规则无法再次重投！', 'warning');
+    return;
+  }
+
+  const overlay = document.createElement('div');
+  overlay.className = 'modal-overlay';
+  overlay.style.display = 'flex';
+  overlay.style.zIndex = '3000';
+  
+  const faction = isDefense ? wizardState.defender.faction : wizardState.attacker.faction;
+  const curCp = getCpForFaction(faction);
+  const val = isDefense ? wizardState.allDefenderRolls[idx].val : wizardState.allAttackerRolls[idx].val;
+  
+  const canCp = curCp >= 1 && (isDefense ? !wizardState.defMeleeCpUsed : !wizardState.attMeleeCpUsed);
+  
+  let optionsHtml = '';
+  
+  // CP Reroll option
+  if (canCp) {
+    optionsHtml += `
+      <button id="btn-melee-reroll-cp" class="btn-large" style="padding: 10px; font-size:0.9rem;">
+        战术重投 (消耗 1 CP, 剩 ${curCp} CP)
+      </button>
+    `;
+  }
+  
+  // Rule-based free reroll options
+  if (wReroll === 'Ceaseless' && val === 1) {
+    optionsHtml += `
+      <button id="btn-melee-reroll-ceaseless" class="btn-large" style="padding: 10px; font-size:0.9rem; background:linear-gradient(135deg, #10b981, #047857); border-color:#059669; color:white; font-weight:bold;">
+        不息规则重投 [Ceaseless] (免费)
+      </button>
+    `;
+  }
+
+  if (optionsHtml === '') {
+    optionsHtml = `<p style="color:var(--red); font-size:0.9rem; margin-bottom:10px;">当前无可用的重投选项（CP不足或不符合条件）</p>`;
+  }
+
+  overlay.innerHTML = `
+    <div class="modal-content" style="max-width: 400px; border: 1px solid var(--gold); box-shadow: 0 0 20px rgba(0,0,0,0.8); background: rgba(10,15,28,0.98);">
+      <div class="modal-header" style="padding: 12px; background: rgba(10,20,35,0.95); border-bottom: 1px solid var(--gold);">
+        <div class="modal-title" style="font-size:1.1rem; color:var(--gold); font-weight:bold;">🎲 选择近战重投方式</div>
+      </div>
+      <div class="modal-body" style="padding: 20px; text-align: center;">
+        <p style="margin-bottom: 12px; font-size:1rem; color:var(--text-muted);">当前骰值: <strong style="font-size:1.6rem; color:white; font-family:'Pirata One',serif; border: 1px solid rgba(255,255,255,0.15); padding: 4px 12px; border-radius: 4px; background: rgba(255,255,255,0.05); margin-left: 8px;">${val}</strong></p>
+        <p style="font-size:0.8rem; color:var(--text-muted); margin-top:-4px; margin-bottom: 20px; line-height: 1.4;">
+          请选择要应用于该骰子的重投方式。
+        </p>
+        <div style="display:flex; flex-direction:column; gap:12px; width:100%;">
+          ${optionsHtml}
+          <button id="btn-melee-reroll-cancel" class="btn-cancel" style="padding: 10px; font-size:0.9rem;">
+            取消 (Cancel)
+          </button>
+        </div>
+      </div>
+    </div>
+  `;
+  
+  document.body.appendChild(overlay);
+  
+  if (canCp) {
+    document.getElementById('btn-melee-reroll-cp').onclick = () => {
+      document.body.removeChild(overlay);
+      executeMeleeReroll(side, idx, 'cp');
+    };
+  }
+  
+  if (wReroll === 'Ceaseless' && val === 1) {
+    const btnCeaseless = document.getElementById('btn-melee-reroll-ceaseless');
+    if (btnCeaseless) {
+      btnCeaseless.onclick = () => {
+        document.body.removeChild(overlay);
+        executeMeleeReroll(side, idx, 'ceaseless');
+      };
+    }
+  }
+  
+  document.getElementById('btn-melee-reroll-cancel').onclick = () => {
+    playSound('click');
+    document.body.removeChild(overlay);
+  };
+}
+
+export function executeMeleeReroll(side, idx, reason) {
+  playSound('dice_roll');
+  const faction = side === 'attacker' ? wizardState.attacker.faction : wizardState.defender.faction;
+  
+  if (reason === 'cp') {
+    setCpForFaction(faction, getCpForFaction(faction) - 1);
+    if (side === 'attacker') wizardState.attMeleeCpUsed = true;
+    else wizardState.defMeleeCpUsed = true;
+  }
+  
+  ui.updateScoresUI();
+
+  if (side === 'attacker') {
+    if (!wizardState.attMeleeRerolledIndices) wizardState.attMeleeRerolledIndices = [];
+    wizardState.attMeleeRerolledIndices.push(idx);
+  } else {
+    if (!wizardState.defMeleeRerolledIndices) wizardState.defMeleeRerolledIndices = [];
+    wizardState.defMeleeRerolledIndices.push(idx);
+  }
+
+  const poolId = side === 'attacker' ? 'melee-att-pool' : 'melee-def-pool';
+  const pool = document.getElementById(poolId);
+  const diceCubes = pool.getElementsByClassName('kt-dice-cube');
+  const cube = diceCubes[idx];
+  const diceClass = getDiceClass(faction);
+  cube.className = `kt-dice-cube ${diceClass} rolling`;
+  cube.innerHTML = '?';
+
+  setTimeout(() => {
+    const newVal = Math.floor(Math.random() * 6) + 1;
+    const oldRoll = side === 'attacker' ? wizardState.allAttackerRolls[idx] : wizardState.allDefenderRolls[idx];
+    const oldVal = oldRoll.val;
+    
+    // Update the record
+    oldRoll.val = newVal;
+    const effTs = side === 'attacker' ? wizardState.meleeEffectiveAttTs : wizardState.meleeEffectiveDefTs;
+    const critThreshold = side === 'attacker' ? wizardState.meleeAttCritThreshold : wizardState.meleeDefCritThreshold;
+    oldRoll.isSuccess = newVal >= effTs || newVal >= critThreshold;
+    oldRoll.isCrit = newVal >= critThreshold;
+
+    const label = reason === 'cp' ? 'CP重投' : (reason === 'ceaseless' ? 'Ceaseless' : '重投');
+    ui.addLog(`  - [近战${label}] ${side === 'attacker' ? '攻击方' : '防守方'} D6: [${oldVal}] -> [${newVal}]`);
+    
+    // 重新渲染视图
+    renderMeleeRollsView();
+
+    if (!oldRoll.isSuccess) {
+      playSound('epic_fail');
+    }
+  }, 500);
 }
 
 // ==========================================

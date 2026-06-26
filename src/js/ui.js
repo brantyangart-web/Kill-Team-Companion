@@ -1622,6 +1622,7 @@ export function renderOperatives() {
 // ==========================================
 
 export function toggleConceal(opId) {
+  window.pushStateSnapshot?.(`Toggle Conceal`);
   playSound('click');
   const op = gameState.operatives.find(o => o.id === opId);
   if (!op || op.isDead) return;
@@ -2030,6 +2031,7 @@ function showMoveWarningDialog(op, actionLabel, maxMoveText, onConfirm) {
 export function performMove() {
   const op = gameState.activeAgent;
   if (!op || op.apl < 1) return;
+  window.pushStateSnapshot?.(`Action: Move (${op.name})`);
 
   const isMoveReduced = (op.activeDebuffs?.some(d => d.stat === 'move' && d.modifier < 0)) || (op.isInjured && !op.ignoreInjuredPenalties);
 
@@ -2060,6 +2062,7 @@ export function performMove() {
 export function performCharge() {
   const op = gameState.activeAgent;
   if (!op || op.apl < 1) return;
+  window.pushStateSnapshot?.(`Action: Charge (${op.name})`);
 
   const isMoveReduced = (op.activeDebuffs?.some(d => d.stat === 'move' && d.modifier < 0)) || (op.isInjured && !op.ignoreInjuredPenalties);
 
@@ -2086,6 +2089,7 @@ export function performCharge() {
 export function performAdvance() {
   const op = gameState.activeAgent;
   if (!op || op.apl < 1) return;
+  window.pushStateSnapshot?.(`Action: Advance (${op.name})`);
 
   const isMoveReduced = (op.activeDebuffs?.some(d => d.stat === 'move' && d.modifier < 0)) || (op.isInjured && !op.ignoreInjuredPenalties);
 
@@ -2112,6 +2116,7 @@ export function performAdvance() {
 export function performDash() {
   const op = gameState.activeAgent;
   if (!op || op.apl < 1) return;
+  window.pushStateSnapshot?.(`Action: Dash (${op.name})`);
   playSound('click');
   op.apl -= 1;
   op.actionsPerformed.push('Dash');
@@ -2126,6 +2131,7 @@ export function performFallBack() {
     if (op) addLog(`  - ❌ ${op.name} APL 不足 (${op.apl}/2)，无法执行撤退 (Fall Back)。`);
     return;
   }
+  window.pushStateSnapshot?.(`Action: Fall Back (${op.name})`);
 
   const isMoveReduced = (op.activeDebuffs?.some(d => d.stat === 'move' && d.modifier < 0)) || (op.isInjured && !op.ignoreInjuredPenalties);
 
@@ -2153,6 +2159,7 @@ export function endActivation() {
   playSound('click');
   const op = gameState.activeAgent;
   if (!op) return;
+  window.pushStateSnapshot?.(`End Activation: ${op.name}`);
 
   // 清除 "until_next_activation_end" 类型的 debuff (例如：纳格林引起的 APL -1)
   if (op.activeDebuffs) {

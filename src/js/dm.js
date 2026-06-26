@@ -1,5 +1,6 @@
 import { gameState } from './state.js';
 import { renderOperatives, updateActivePanel, updateScoresUI, rollInitiativeOverlay, startStrategyPhase, hidePhaseOverlay } from './ui.js';
+import { Operative, Weapon } from './models.js';
 
 // ==========================================
 //          State Snapshot Engine
@@ -7,6 +8,22 @@ import { renderOperatives, updateActivePanel, updateScoresUI, rollInitiativeOver
 
 const MAX_HISTORY = 20;
 export const gameStateHistory = [];
+export const gameStateFuture = [];
+
+function restorePrototypes(state) {
+  if (state.operatives) {
+    state.operatives.forEach(op => {
+      Object.setPrototypeOf(op, Operative.prototype);
+      if (op.weapons) {
+        op.weapons.forEach(w => Object.setPrototypeOf(w, Weapon.prototype));
+      }
+    });
+  }
+  if (state.activeAgent) {
+    const ref = state.operatives.find(o => o.id === state.activeAgent.id);
+    if (ref) state.activeAgent = ref;
+  }
+}
 
 export function pushStateSnapshot(label = 'Auto Snapshot') {
   try {
@@ -21,7 +38,10 @@ export function pushStateSnapshot(label = 'Auto Snapshot') {
       gameStateHistory.shift();
     }
     
+    gameStateFuture.length = 0; // Clear redo history on new action
+    
     console.log(`[DM System] Snapshot taken: ${label}`);
+    updateFloatingButtons();
   } catch (e) {
     console.error('[DM System] Failed to take snapshot:', e);
   }
@@ -29,9 +49,16 @@ export function pushStateSnapshot(label = 'Auto Snapshot') {
 
 export function popStateSnapshot() {
   if (gameStateHistory.length === 0) {
-    alert("No history available to undo.");
+    alert("没有可撤销的历史记录了 (No history available).");
     return;
   }
+  
+  // Save current state to future for Redo
+  gameStateFuture.push({
+    label: 'Redo Snapshot',
+    timestamp: new Date().toLocaleTimeString(),
+    state: structuredClone(gameState)
+  });
   
   const lastSnapshot = gameStateHistory.pop();
   try {
@@ -39,6 +66,7 @@ export function popStateSnapshot() {
     const keys = Object.keys(gameState);
     keys.forEach(k => delete gameState[k]);
     Object.assign(gameState, structuredClone(lastSnapshot.state));
+    restorePrototypes(gameState);
     
     console.log(`[DM System] Reverted to snapshot: ${lastSnapshot.label}`);
     
@@ -54,13 +82,53 @@ export function popStateSnapshot() {
     if (document.getElementById('dm-modal')) {
       renderDMHistoryTab();
     }
+    updateFloatingButtons();
   } catch (e) {
     console.error('[DM System] Failed to pop snapshot:', e);
   }
 }
 
+export function redoStateSnapshot() {
+  if (gameStateFuture.length === 0) return;
+  
+  // Save current state to history for Undo
+  gameStateHistory.push({
+    label: 'Undo Snapshot',
+    timestamp: new Date().toLocaleTimeString(),
+    state: structuredClone(gameState)
+  });
+
+  const nextSnapshot = gameStateFuture.pop();
+  
+  try {
+    const keys = Object.keys(gameState);
+    keys.forEach(k => delete gameState[k]);
+    Object.assign(gameState, structuredClone(nextSnapshot.state));
+    restorePrototypes(gameState);
+    
+    console.log(`[DM System] Redid snapshot: ${nextSnapshot.label}`);
+    
+    // Force UI Refresh
+    if (typeof updateScoresUI === 'function') updateScoresUI();
+    if (typeof renderOperatives === 'function') renderOperatives();
+    if (typeof updateActivePanel === 'function') updateActivePanel();
+    
+    if (gameState.phase === 'Initiative' && typeof rollInitiativeOverlay === 'function') rollInitiativeOverlay();
+    else if (gameState.phase === 'Strategy' && typeof startStrategyPhase === 'function') startStrategyPhase();
+    else if (gameState.phase === 'Firefight' && typeof hidePhaseOverlay === 'function') hidePhaseOverlay();
+    
+    if (document.getElementById('dm-modal')) {
+      renderDMHistoryTab();
+    }
+    updateFloatingButtons();
+  } catch (e) {
+    console.error('[DM System] Failed to redo snapshot:', e);
+  }
+}
+
 window.pushStateSnapshot = pushStateSnapshot;
 window.popStateSnapshot = popStateSnapshot;
+window.redoStateSnapshot = redoStateSnapshot;
 
 // ==========================================
 //               DM UI System
@@ -69,22 +137,56 @@ window.popStateSnapshot = popStateSnapshot;
 let activeTab = 'global';
 
 export function initDMSystem() {
-  const btn = document.createElement('button');
-  btn.id = 'dm-floating-btn';
-  btn.innerHTML = '⚙️ DM';
-  btn.style.cssText = `
+  const container = document.createElement('div');
+  container.id = 'dm-floating-container';
+  container.style.cssText = `
     position: fixed; bottom: 20px; right: 20px;
+    display: flex; gap: 10px; align-items: center;
+    z-index: 9999;
+  `;
+  
+  const btnStyle = `
     background: linear-gradient(135deg, #7c3aed, #4c1d95);
     color: white; border: 2px solid #a78bfa; border-radius: 50%;
-    width: 50px; height: 50px; font-size: 0.9rem; font-weight: bold;
+    width: 50px; height: 50px; font-size: 1.2rem; font-weight: bold;
     cursor: pointer; box-shadow: 0 4px 15px rgba(0,0,0,0.5);
-    z-index: 9999; display: flex; align-items: center; justify-content: center;
-    transition: transform 0.2s;
+    display: flex; align-items: center; justify-content: center;
+    transition: transform 0.2s, opacity 0.2s;
   `;
-  btn.onmouseover = () => btn.style.transform = 'scale(1.1)';
-  btn.onmouseout = () => btn.style.transform = 'scale(1)';
-  btn.onclick = openDMPanel;
-  document.body.appendChild(btn);
+  
+  const undoBtn = document.createElement('button');
+  undoBtn.id = 'dm-undo-btn';
+  undoBtn.innerHTML = '⏪';
+  undoBtn.title = '撤销 (Undo)';
+  undoBtn.style.cssText = btnStyle;
+  undoBtn.onmouseover = () => undoBtn.style.transform = 'scale(1.1)';
+  undoBtn.onmouseout = () => undoBtn.style.transform = 'scale(1)';
+  undoBtn.onclick = popStateSnapshot;
+  
+  const redoBtn = document.createElement('button');
+  redoBtn.id = 'dm-redo-btn';
+  redoBtn.innerHTML = '⏩';
+  redoBtn.title = '重做 (Redo)';
+  redoBtn.style.cssText = btnStyle;
+  redoBtn.onmouseover = () => redoBtn.style.transform = 'scale(1.1)';
+  redoBtn.onmouseout = () => redoBtn.style.transform = 'scale(1)';
+  redoBtn.onclick = redoStateSnapshot;
+  
+  const dmBtn = document.createElement('button');
+  dmBtn.id = 'dm-floating-btn';
+  dmBtn.innerHTML = '⚙️';
+  dmBtn.title = 'DM 面板';
+  dmBtn.style.cssText = btnStyle + ' font-size: 1.5rem; width: 60px; height: 60px;';
+  dmBtn.onmouseover = () => dmBtn.style.transform = 'scale(1.1)';
+  dmBtn.onmouseout = () => dmBtn.style.transform = 'scale(1)';
+  dmBtn.onclick = openDMPanel;
+  
+  container.appendChild(undoBtn);
+  container.appendChild(redoBtn);
+  container.appendChild(dmBtn);
+  document.body.appendChild(container);
+  
+  updateFloatingButtons();
   
   const style = document.createElement('style');
   style.textContent = `
@@ -100,6 +202,19 @@ export function initDMSystem() {
     .dm-op-card.expanded .dm-op-body { display: flex; }
   `;
   document.head.appendChild(style);
+}
+
+function updateFloatingButtons() {
+  const undoBtn = document.getElementById('dm-undo-btn');
+  const redoBtn = document.getElementById('dm-redo-btn');
+  if (undoBtn) {
+    undoBtn.style.opacity = gameStateHistory.length > 0 ? '1' : '0.5';
+    undoBtn.style.pointerEvents = gameStateHistory.length > 0 ? 'auto' : 'none';
+  }
+  if (redoBtn) {
+    redoBtn.style.opacity = gameStateFuture.length > 0 ? '1' : '0.5';
+    redoBtn.style.pointerEvents = gameStateFuture.length > 0 ? 'auto' : 'none';
+  }
 }
 
 function openDMPanel() {
