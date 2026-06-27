@@ -23,7 +23,7 @@ export const RULE_SETS = {
     injuredTsPenalty: 0,             // lite: 暂时移除命中/防守减益
     hasKillCallbacks: false,         // 击杀回调系统 (Standard 专属)
     hasObjectiveMarkers: false,      // 控制标记系统 (Standard 专属)
-    factionMechanicsEnabled: false,  // ⚠️临时伞标志，见上文注释
+    factionMechanicsEnabled: true,   // 开启阵营专属机制（如恶心无视、光环等），即使是 Lite 版本也允许测试阵营能力
   },
   standard: {
     id: 'standard',

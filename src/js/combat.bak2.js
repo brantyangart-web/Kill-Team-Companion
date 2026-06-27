@@ -1,5 +1,4 @@
 import { gameState, wizardState } from './state.js';
-import * as effects from './effects.js';
 import { playSound } from './audio.js';
 import { Operative, Weapon, translateRule, getEffectiveTs } from './models.js';
 import {
@@ -22,12 +21,6 @@ import { activeRuleSet } from '../rules/ruleSets.js';
 import { evaluatePloyInteractions, getOperativeAvatarUrl } from './ui.js';
 import { applyWeaponRules, parseWeaponRule, weaponHasRule, getWeaponRuleParam } from '../rules/weapons.js';
 import { resolveRuleQueue } from './ruleEngine.js';
-
-export function logCombatFlow(phase, text) {
-  if (!wizardState.combatFlow) wizardState.combatFlow = [];
-  wizardState.combatFlow.push({ phase, text });
-  ui.addLog(`[${phase}] ${text}`);
-}
 
 
 /**
@@ -295,22 +288,6 @@ export function nextModalStep() {
         if (showToast) showToast('请先完成攻击掷骰！', 'error');
         return;
       }
-      
-      const weapon = wizardState.weapon;
-      // We can't easily resolve weaponMods here due to missing imports if not careful, 
-      // but we have weapon mods injected inside recalculateAttackStats. We can just check the raw rule.
-      let lethalStr = '';
-      const lethalRule = weapon.rules?.find(r => r.startsWith('Lethal '));
-      if (lethalRule) {
-        const match = lethalRule.match(/Lethal\s+(\d+)\+/i);
-        if (match) {
-          const threshold = parseInt(match[1]);
-          const upgrades = wizardState.attackRolls.filter(v => v >= threshold && v < 6).length;
-          if (upgrades > 0) lethalStr = ` (含 ${upgrades} 个因[致命 ${threshold}+]升为暴击)`;
-        }
-      }
-      
-      logCombatFlow('Attack', `攻击方最终投出 [${wizardState.attackRolls.join(', ')}]，命中: 暴击 ${wizardState.attackCrit} / 普通 ${wizardState.attackNorm}${lethalStr}`);
       // Step 4→5：攻击骰已知，串联防守方触发（含 Indomitus）
       wizardState.indomitusBonus = false;
       evaluatePloyInteractions('before_defense_roll', wizardState.defender, () => {
@@ -318,17 +295,12 @@ export function nextModalStep() {
         renderShootStep();
       });
       return;
-    } else if (wizardState.step === 5) {
-      if (wizardState.mode === 'manual') {
-        parseManualDefense();
-        const inputEl = document.getElementById('manual-def-dice-val');
-        if (inputEl && inputEl.value.trim() !== '' && wizardState.defenseRolls.length === 0) {
-          if (showToast) showToast('请输入有效的防御骰点数！格式: 5, 2 (1-6逗号隔开)', 'error');
-          return;
-        }
-      }
-      if (wizardState.defenseRolls && wizardState.defenseRolls.length > 0) {
-        logCombatFlow('Defense', `防守方投出 [${wizardState.defenseRolls.join(', ')}]，成功: 暴击 ${wizardState.defCrit} / 普通 ${wizardState.defNorm}`);
+    } else if (wizardState.step === 5 && wizardState.mode === 'manual') {
+      parseManualDefense();
+      const inputEl = document.getElementById('manual-def-dice-val');
+      if (inputEl && inputEl.value.trim() !== '' && wizardState.defenseRolls.length === 0) {
+        if (showToast) showToast('请输入有效的防御骰点数！格式: 5, 2 (1-6逗号隔开)', 'error');
+        return;
       }
     }
   } else if (wizardState.actionType === 'fight') {
@@ -345,10 +317,6 @@ export function nextModalStep() {
             .filter(d => d.isSuccess)
             .map(d => ({ val: d.val, isCrit: d.isCrit, used: false }));
         }
-        
-        const aRolls = wizardState.allAttackerRolls || [];
-        const dRolls = wizardState.allDefenderRolls || [];
-        logCombatFlow('Fight', `攻击方投掷: [${aRolls.map(d=>d.val).join(', ')}] | 防守方投掷: [${dRolls.map(d=>d.val).join(', ')}]`);
         
         if (wizardState.activeAttackerDice.length === 0 && wizardState.activeDefenderDice.length === 0) {
           // Allow transitioning to Step 5 even if both missed, so the UI can show "双方未命中"
@@ -411,33 +379,30 @@ export function openShootWizard() {
 
   window.pushStateSnapshot?.(`Start Shoot: ${op.name}`);
 
-    Object.assign(wizardState, {
-      actionType: 'shoot',
-      step: 1,
-      attacker: op,
-      defender: null,
-      weapon: op.weapons.filter(w => w.isRanged)[0] || null,
-      inRangeAndVisible: true,
-      inCoverConcealed: false,
-      inCover: false,
-      cloudOfFliesActive: false,
-      indomitusBonus: false,
-      enemyInControlRange: false,
-      mode: gameState.globalRollMode,
-      attRerollIndex: -1,
-      defRerollIndex: -1,
-      attackRolls: [],
-      defenseRolls: [],
-      attackRerolledIndices: [],
-      combatFlow: [],
-      weaponRerollUsed: false,
-      weaponRerollRule: null,
-      stunApplied: false,
-      shockTriggered: false,
-      drRolls: [],
-      isSecondaryTarget: false,
-      secondaryQueue: [],
-    });
+  Object.assign(wizardState, {
+    actionType: 'shoot',
+    step: 1,
+    attacker: op,
+    defender: null,
+    weapon: op.weapons.filter(w => w.isRanged)[0] || null,
+    inRangeAndVisible: true,
+    inCoverConcealed: false,
+    inCover: false,
+    cloudOfFliesActive: false,
+    indomitusBonus: false,
+    enemyInControlRange: false,
+    mode: gameState.globalRollMode,
+    attRerollIndex: -1,
+    defRerollIndex: -1,
+    attackRolls: [],
+    defenseRolls: [],
+    attackRerolledIndices: [],
+    weaponRerollUsed: false,
+    weaponRerollRule: null,
+    stunApplied: false,
+    shockTriggered: false,
+    drRolls: [],
+  });
 
   if (!wizardState.weapon) {
     if (showToast) showToast('该特工没有配备任何远程武器！', 'warning');
@@ -956,6 +921,12 @@ export function renderShootStep() {
     nextBtn.textContent = '确认射击结果';
     nextBtn.disabled = false;
     nextBtn.onclick = () => confirmShootResult(dmgPerAttack);
+
+    if (rawDmg > 0) {
+      setTimeout(() => {
+        ui.triggerAvatarHitEffect(wizardState.defender.id, 'shoot');
+      }, 150);
+    }
   }
 }
 
@@ -1284,7 +1255,6 @@ export function rerollSingleAttackDice(idx) {
   setTimeout(() => {
     const newVal = Math.floor(Math.random() * 6) + 1;
     ui.addLog(`  - [重投] 攻击方消耗 1 CP重投 D6: [${wizardState.attackRolls[idx]}] -> [${newVal}]`);
-    logCombatFlow('Reroll', `[战术重投] 攻击方消耗 1 CP，将骰子 [${wizardState.attackRolls[idx]}] 重新投掷为 [${newVal}]`);
     wizardState.attackRolls[idx] = newVal;
 
     recalculateAttackStats();
@@ -1507,7 +1477,6 @@ export function rerollWeaponRuleDice(indices, ruleType) {
     indices.forEach(i => { wizardState.attackRolls[i] = Math.floor(Math.random() * 6) + 1; });
     const newVals = indices.map(i => wizardState.attackRolls[i]);
     ui.addLog(`  - [${ruleType}] 免费重投骰子 [${oldVals.join(',')}] -> [${newVals.join(',')}]`);
-    logCombatFlow('Reroll', `[武器规则重投: ${ruleType}] 免费将骰子 [${oldVals.join(', ')}] 重新投掷为 [${newVals.join(', ')}]`);
     wizardState.relenlessSelection = [];
     
     // Check if any of the new rolls failed specifically due to hit penalty
@@ -1997,14 +1966,13 @@ export function confirmShootResult(dmgPerAttack) {
   const attacker = wizardState.attacker;
   const defender = wizardState.defender;
 
-  const originalTotalDmg = dmgPerAttack.reduce((a, b) => a + b, 0);
+  const attacksRequiringDr = dmgPerAttack.filter(d => d >= 3).length;
 
   // 1. Pre-Damage Rules Queue (e.g. Disgusting Resilience)
   const preDamageQueue = [];
-  const attacksRequiringDr = dmgPerAttack.filter(dmg => dmg >= 3).length;
   if (hasFactionTrait(defender.faction, 'disgustingResilience') && attacksRequiringDr > 0) {
     preDamageQueue.push({
-      title: '🦠 恶心无视 (Disgustingly Resilient)',
+      title: '🦠 恶心无视 (Disgusting Resilience)',
       description: `防守方 <strong>${defender.name}</strong> 具有【恶心无视】特性。<br>本次受到的攻击中包含了 <strong>${attacksRequiringDr}</strong> 次大于等于 3 点的伤害。<br>请投掷 <strong>${attacksRequiringDr}</strong> 个减伤判定骰，每个 4+ 的结果将减免 1 点伤害！`,
       requiresDice: true,
       diceCount: attacksRequiringDr,
@@ -2017,9 +1985,7 @@ export function confirmShootResult(dmgPerAttack) {
             drSuccesses--;
           }
         }
-        const logMsg = `[恶心无视] ${defender.name} 投掷了 ${attacksRequiringDr} 个减免骰，成功 ${successes} 个，共减免 ${successes} 点伤害！`;
-        ui.addLog(logMsg);
-        logCombatFlow('Rule', logMsg);
+        ui.addLog(`[恶心无视] ${defender.name} 投掷了 ${attacksRequiringDr} 个减免骰，成功 ${successes} 个，共减免 ${successes} 点伤害！`);
       }
     });
   }
@@ -2029,35 +1995,18 @@ export function confirmShootResult(dmgPerAttack) {
     ui.addLog(`[攻击方] ${attacker.name} 使用 ${wizardState.weapon.name} 射击`);
     ui.addLog(`[防守方] ${defender.name}`);
 
-    // === 2. Calculate Pending Wounds ===
+    // === 2. Apply Wounds ===
+    const originalTotalDmg = dmgPerAttack.reduce((a, b) => a + b, 0);
     const oldWounds = defender.wounds;
-    
-    // 我们不直接调用 applyWounds 造成真实扣血，而是计算预期扣血
-    let actualDamage = 0;
-    dmgPerAttack.forEach(dmg => {
-      let actualHitDmg = dmg;
-      if (defender.isInjured && isIgnoreInjuredPenalties(defender)) {
-        // ... (省略复杂的计算，简化为仅累加)
-      }
-      actualDamage += dmg; 
-    });
-    // 恶心无视的回调（若有）已经直接修改了 dmgPerAttack 数组，所以重新 reduce 即可得到最终伤害
-    actualDamage = dmgPerAttack.reduce((a, b) => a + b, 0);
+    const actualDamage = defender.applyWounds(dmgPerAttack, 0, '射击攻击');
     const drReduced = originalTotalDmg - actualDamage;
 
-    let newDefenderWounds = defender.wounds - actualDamage;
-    if (newDefenderWounds < 0) newDefenderWounds = 0;
-    
-    wizardState.pendingResults.defenderWounds = newDefenderWounds;
-    wizardState.pendingResults.defenderDead = newDefenderWounds <= 0;
-    wizardState.pendingResults.attackerWounds = attacker.wounds;
-    wizardState.pendingResults.attackerDead = attacker.isDead;
-    wizardState.pendingResults.defenderTokens = [...(defender.tokens || [])];
-    wizardState.pendingResults.attackerTokens = [...(attacker.tokens || [])];
-    wizardState.pendingResults.defenderPoisonTokens = defender.poisonTokens || 0;
-    wizardState.pendingResults.attackerPoisonTokens = attacker.poisonTokens || 0;
-
-    logCombatFlow('Damage', `预计对 ${defender.name} 造成 ${actualDamage} 点伤害 (剩余 HP: ${newDefenderWounds}/${defender.maxWounds})`);
+    if (actualDamage > 0 || drReduced > 0) {
+      playSound('shoot');
+    } else {
+      playSound('save');
+      ui.triggerCombatVisual("SAVED", "parry");
+    }
 
     // === 3. Post-Damage Rules Queue ===
     const rulesQueue = [];
@@ -2072,9 +2021,8 @@ export function confirmShootResult(dmgPerAttack) {
                         在进攻投骰中出现了 <strong>${perilCount}</strong> 个【1】。<br>
                         施法特工 <strong>${attacker.name}</strong> 受到 <strong>${perilCount}</strong> 点致命伤害！`,
           onResolve: () => {
-            wizardState.pendingResults.attackerWounds -= perilCount;
-            if(wizardState.pendingResults.attackerWounds < 0) wizardState.pendingResults.attackerWounds = 0;
-            logCombatFlow('PSYCHIC', `${attacker.name} 预计受到 ${perilCount} 点反噬伤害`);
+            attacker.applyWounds(perilCount, null, 'auto', '亚空间反噬');
+            ui.addLog(`[亚空间反噬] ${attacker.name} 受到 ${perilCount} 点致命伤害！`);
           }
         });
       }
@@ -2094,11 +2042,10 @@ export function confirmShootResult(dmgPerAttack) {
           const hotRoll = rolls[0];
           if (hotRoll < hitStat) {
             const hotDamage = hotRoll * 2;
-            wizardState.pendingResults.attackerWounds -= hotDamage;
-            if(wizardState.pendingResults.attackerWounds < 0) wizardState.pendingResults.attackerWounds = 0;
-            logCombatFlow('Hot', `过热判定 [${hotRoll}] 失败，预计受到 ${hotDamage} 点伤害`);
+            attacker.applyWounds(hotDamage, null, 'auto', '武器过热自伤');
+            ui.addLog(`[过热] 判定骰出 [${hotRoll}]，小于 ${hitStat}。${attacker.name} 受到 ${hotDamage} 点伤害！`);
           } else {
-            logCombatFlow('Hot', `过热判定 [${hotRoll}] 安全`);
+            ui.addLog(`[过热] 判定骰出 [${hotRoll}]，安全！`);
           }
         }
       });
@@ -2112,9 +2059,9 @@ export function confirmShootResult(dmgPerAttack) {
                       目标 <strong>${defender.name}</strong> 获得了 1 个毒素标记。<br>
                       在其次激活开始时将自动受到 1 点伤害。`,
         onResolve: () => {
-            wizardState.pendingResults.defenderPoisonTokens = (wizardState.pendingResults.defenderPoisonTokens || 0) + 1;
-            logCombatFlow('Poison', `${defender.name} 预计获得毒素标记`);
-          }
+          defender.poisonTokens = 1;
+          ui.addLog(`[毒素] ${defender.name} 获得了 1 个毒素标记！`);
+        }
       });
     }
 
@@ -2130,148 +2077,32 @@ export function confirmShootResult(dmgPerAttack) {
 
     // Run Post-Damage Queue
     resolveRuleQueue(rulesQueue, () => {
-      // 交由 UI 渲染弹窗
-      if (typeof ui.showCombatSummaryModal === 'function') {
-        ui.showCombatSummaryModal(actualDamage);
-      } else {
-        // Fallback if not implemented
-        applyFinalCombatResults();
+      attacker.apl -= 1;
+      attacker.actionsPerformed.push('Shoot');
+      ui.addLog(`[行动点] ${attacker.name} 消耗 1 APL，当前 APL: ${attacker.apl}`);
+
+      closeModal();
+
+      if (actualDamage > 0) {
+        setTimeout(() => {
+          ui.triggerAvatarHitEffect(defender.id, 'shoot');
+        }, 100);
       }
-    }); // End of post-damage resolveRuleQueue
-  }); // End of pre-damage resolveRuleQueue
-}
 
-export function applyFinalCombatResults(extraCallback) {
-  const attacker = wizardState.attacker;
-  const defender = wizardState.defender;
-  const p = wizardState.pendingResults;
-
-  const initialAttackerWounds = attacker.wounds;
-  const initialDefenderWounds = defender.wounds;
-
-  const attackerTookDamage = p.attackerWounds < attacker.wounds;
-  const defenderTookDamage = p.defenderWounds < defender.wounds;
-  const attackerDied = p.attackerWounds <= 0 && attacker.wounds > 0;
-  const defenderDied = p.defenderWounds <= 0 && defender.wounds > 0;
-
-  attacker.wounds = p.attackerWounds;
-  attacker.isDead = p.attackerWounds <= 0;
-  attacker.tokens = p.attackerTokens;
-  if (p.attackerPoisonTokens !== undefined) attacker.poisonTokens = p.attackerPoisonTokens;
-
-  defender.wounds = p.defenderWounds;
-  defender.isDead = p.defenderWounds <= 0;
-  defender.tokens = p.defenderTokens;
-  if (p.defenderPoisonTokens !== undefined) defender.poisonTokens = p.defenderPoisonTokens;
-
-  const isSecondary = wizardState.isSecondaryTarget;
-
-  if (!isSecondary) {
-    attacker.apl -= 1;
-    attacker.actionsPerformed.push(wizardState.actionType === 'shoot' ? 'Shoot' : 'Fight');
-    ui.addLog(`[行动点] ${attacker.name} 消耗 1 APL，当前 APL: ${attacker.apl}`);
-  }
-
-  closeModal();
-
-  // Sequence visual events in the queue
-  const attackerDamageTaken = initialAttackerWounds - p.attackerWounds;
-  const defenderDamageTaken = initialDefenderWounds - p.defenderWounds;
-  
-  if (wizardState.actionType === 'shoot' && attackerTookDamage && typeof ui.queueVisualEvent === 'function') {
-    ui.queueVisualEvent({
-      type: 'callback',
-      data: {
-        fn: () => {
-          effects.playFullCombatEffect(attacker.id, wizardState.actionType, "-" + attackerDamageTaken + " Wounds", wizardState.actionType);
-          return new Promise(r => setTimeout(r, 900));
-        }
-      }
-    });
-  }
-
-  if (wizardState.actionType === 'shoot' && defenderTookDamage && typeof ui.queueVisualEvent === 'function') {
-    ui.queueVisualEvent({
-      type: 'callback',
-      data: {
-        fn: () => {
-          effects.playFullCombatEffect(defender.id, wizardState.actionType, "-" + defenderDamageTaken + " Wounds", wizardState.actionType);
-          return new Promise(r => setTimeout(r, 900));
-        }
-      }
-    });
-  } else if (!defenderTookDamage && wizardState.actionType === 'shoot' && typeof ui.queueVisualEvent === 'function') {
-    ui.queueVisualEvent({
-      type: 'callback',
-      data: {
-        fn: () => {
-          effects.playFullCombatEffect(defender.id, 'parry', "SAVED", "parry");
-          return new Promise(r => setTimeout(r, 900));
-        }
-      }
-    });
-  }
-
-  if (attackerDied && typeof ui.queueVisualEvent === 'function') {
-    ui.queueVisualEvent({
-      type: 'death',
-      data: { operative: attacker }
-    });
-  }
-
-  if (defenderDied && typeof ui.queueVisualEvent === 'function') {
-    ui.queueVisualEvent({
-      type: 'death',
-      data: { operative: defender }
-    });
-  }
-
-  // Next steps callback
-  if (typeof ui.queueVisualEvent === 'function') {
-    ui.queueVisualEvent({
-      type: 'callback',
-      data: {
-        fn: () => {
-          if (ui.renderOperatives) ui.renderOperatives();
-          if (ui.updateActivePanel) ui.updateActivePanel();
-          
-          if (wizardState.actionType === 'shoot' && !isSecondary) {
-            const triggerMods = weaponMods(wizardState.weapon);
-            const hasBlastRule = !!triggerMods.aoePrimarySecondary;
-            const hasTorrentRule = !!triggerMods.aoeRadius;
-            if (hasBlastRule || hasTorrentRule) {
-              handleBlastTorrentSecondaries(attacker, defender, wizardState.weapon, hasBlastRule, hasTorrentRule);
-              return; 
-            }
-          }
-          if (wizardState.actionType === 'shoot' && isSecondary) {
-            processNextSecondaryTarget();
-            return;
-          }
-          if (extraCallback) extraCallback();
-        }
-      }
-    });
-  } else {
-    // Fallback if visual queue is broken
-    if (ui.renderOperatives) ui.renderOperatives();
-    if (ui.updateActivePanel) ui.updateActivePanel();
-    
-    if (wizardState.actionType === 'shoot' && !isSecondary) {
       const triggerMods = weaponMods(wizardState.weapon);
       const hasBlastRule = !!triggerMods.aoePrimarySecondary;
       const hasTorrentRule = !!triggerMods.aoeRadius;
       if (hasBlastRule || hasTorrentRule) {
         handleBlastTorrentSecondaries(attacker, defender, wizardState.weapon, hasBlastRule, hasTorrentRule);
-        return; 
       }
-    }
-    if (wizardState.actionType === 'shoot' && isSecondary) {
-      processNextSecondaryTarget();
-      return;
-    }
-    if (extraCallback) extraCallback();
-  }
+
+      const devAoeDist = triggerMods.aoeDistance;
+      const devVal = triggerMods.immediateCritDmg || 0;
+      if (!hasBlastRule && !hasTorrentRule && devAoeDist && devVal > 0 && wizardState.attackCrit > 0) {
+        handleDevastatingAoe(attacker, defender, wizardState.weapon, devVal, devAoeDist, wizardState.attackCrit);
+      }
+    }); // End of post-damage resolveRuleQueue
+  }); // End of pre-damage resolveRuleQueue
 }
 
 /**
@@ -2279,7 +2110,72 @@ export function applyFinalCombatResults(extraCallback) {
  * Blast: 主目标后，对 3" 内每个次要目标射击 (使用相同武器数据)
  * Torrent: 主目标后，选择任意数量额外目标射击
  */
+/**
+ * 自动结算一次"次要目标"攻击（用于 Blast/Torrent 多目标）。
+ * 自包含：独立投攻击骰 + 保留阶段规则 + 防御骰 + 对消级联 + 伤害（暴击/普通分算）。
+ * 不走向导 UI，结果直接写入日志并扣血。
+ * @param {Object} attacker - 攻击方 Operative
+ * @param {Object} weapon - 武器
+ * @param {Object} defender - 次要目标 Operative
+ */
+function autoResolveSecondaryAttack(attacker, weapon, defender) {
+  const effectiveTs = getEffectiveTs(weapon, attacker);
+  const lethalThreshold = weaponMods(effectiveWeapon(weapon, attacker)).critThreshold ?? 6;
 
+  // 攻击骰
+  const rolls = [];
+  for (let i = 0; i < weapon.attacks; i++) rolls.push(Math.floor(Math.random() * 6) + 1);
+  let aCrit = 0, aNorm = 0;
+  rolls.forEach(v => { if (v >= lethalThreshold) aCrit++; else if (v >= effectiveTs) aNorm++; });
+
+  // 保留阶段规则 (基础 + 阵营派生经 effectiveWeapon 注入，与主目标同源)
+  const retainMods = weaponMods(effectiveWeapon(weapon, attacker), { retainedCrits: aCrit, retainedNorms: aNorm });
+  if (retainMods.autoRetainNormal) {
+    const fails = rolls.filter(v => v < effectiveTs && v < lethalThreshold).length;
+    aNorm += Math.min(retainMods.autoRetainNormal, fails);
+  }
+  if (retainMods.upgradeNormalToCrit && retainMods.source === 'Rending' && aCrit > 0 && aNorm > 0) { aNorm -= 1; aCrit += 1; }
+  if (retainMods.retainOneFailAsNormal && aCrit > 0) {
+    const fails = rolls.filter(v => v < effTs && v !== 6 && v < lethalThreshold).length;
+    if (fails > 0) aNorm += 1;
+  }
+  if (retainMods.upgradeNormalToCrit && retainMods.source === 'Severe' && aCrit === 0 && aNorm >= 1) { aNorm -= 1; aCrit += 1; }
+
+  ui.addLog(`  攻击骰 [${rolls.join(', ')}] → ${aCrit} 暴击, ${aNorm} 普通`);
+  if (aCrit + aNorm === 0) { ui.addLog(`  无命中，跳过。`); return; }
+
+  // 防御骰
+  const defRolls = [];
+  for (let i = 0; i < defender.df; i++) defRolls.push(Math.floor(Math.random() * 6) + 1);
+  let dCrit = 0, dNorm = 0;
+  defRolls.forEach(v => { if (v === 6) dCrit++; else if (v >= defender.sv) dNorm++; });
+  ui.addLog(`  防御骰 [${defRolls.join(', ')}] → ${dCrit} 暴击, ${dNorm} 普通`);
+
+  // 对消级联（与主目标 step6 一致）：暴击攻 vs 暴击防；剩余暴击攻用 2 普通防；普通攻 vs 普通防；剩余普通攻用暴击防
+  let remACrit = aCrit, remANorm = aNorm, remDCrit = dCrit, remDNorm = dNorm;
+  const cwc = Math.min(remACrit, remDCrit); remACrit -= cwc; remDCrit -= cwc;
+  if (remACrit > 0 && remDNorm >= 2) {
+    const cwnp = Math.min(remACrit, Math.floor(remDNorm / 2)); remACrit -= cwnp; remDNorm -= cwnp * 2;
+  }
+  const nwn = Math.min(remANorm, remDNorm); remANorm -= nwn; remDNorm -= nwn;
+  const nwc = Math.min(remANorm, remDCrit); remANorm -= nwc; remDCrit -= nwc;
+
+  // 伤害（暴击=criticalDamage，普通=normalDamage；Devastating 每个剩余暴击 +x）
+  const devVal = weaponMods(effectiveWeapon(weapon, attacker)).immediateCritDmg || 0;
+  const dmgPerAttack = [];
+  for (let i = 0; i < remACrit; i++) dmgPerAttack.push(weapon.criticalDamage + devVal);
+  for (let i = 0; i < remANorm; i++) dmgPerAttack.push(weapon.normalDamage);
+  const totalDmg = dmgPerAttack.reduce((s, v) => s + v, 0);
+
+  if (totalDmg > 0) {
+    const oldW = defender.wounds;
+    const actual = defender.applyWounds(dmgPerAttack, null, 'auto', '次要目标溅射');
+    ui.addLog(`  穿透 ${remACrit}暴击+${remANorm}普通 → ${actual} 伤害 (${oldW}→${defender.wounds} HP)`);
+    if (defender.isDead) ui.addLog(`  💀 ${defender.name} 被击杀！`);
+  } else {
+    ui.addLog(`  全部被格挡！`);
+  }
+}
 
 function handleBlastTorrentSecondaries(attacker, primaryDefender, weapon, hasBlast, hasTorrent) {
   const allEnemies = gameState.operatives.filter(
@@ -2342,49 +2238,32 @@ export function resolveSecondaries(confirmed) {
 
   closeModal();
 
-  if (!confirmed || selectedIds.length === 0) {
-    ui.addLog(`[多目标] 未选择任何次要目标或跳过。`);
+  if (!confirmed) {
+    ui.addLog(`[多目标] 跳过次要目标射击。`);
     return;
   }
 
-  wizardState.secondaryQueue = selectedIds;
-  processNextSecondaryTarget();
-}
-
-export function processNextSecondaryTarget() {
-  if (wizardState.secondaryQueue && wizardState.secondaryQueue.length > 0) {
-    const nextTargetId = wizardState.secondaryQueue.shift();
-    const target = gameState.operatives.find(op => op.id === nextTargetId);
-    
-    if (target && !target.isDead) {
-      wizardState.isSecondaryTarget = true;
-      wizardState.defender = target;
-      wizardState.step = 3;
-      wizardState.attackRolls = [];
-      wizardState.defenseRolls = [];
-      wizardState.attackRerolledIndices = [];
-      wizardState.combatFlow = [];
-      wizardState.weaponRerollUsed = false;
-      wizardState.weaponRerollRule = null;
-      wizardState.stunApplied = false;
-      
-      const ruleLabel = weaponHasRule(wizardState.weapon, 'Blast') ? 'Blast' : 'Torrent';
-      ui.addLog(`\n--- [多目标] ${ruleLabel} 开始次要目标结算: ${target.name} ---`);
-      
-      renderShootStep();
-      const combatModal = document.getElementById('combat-modal');
-      if (combatModal) combatModal.style.display = 'flex';
-      return;
-    } else {
-      processNextSecondaryTarget();
-    }
-  } else {
-    ui.addLog(`[多目标] 所有次要目标射击结算完毕。`);
-    wizardState.isSecondaryTarget = false;
-    closeModal();
-    if (ui.renderOperatives) ui.renderOperatives();
-    if (ui.updateActivePanel) ui.updateActivePanel();
+  if (selectedIds.length === 0) {
+    ui.addLog(`[多目标] 未选择任何次要目标。`);
+    return;
   }
+
+  const attacker = wizardState.attacker;
+  const weapon = wizardState.weapon;
+
+  selectedIds.forEach(targetId => {
+    const target = gameState.operatives.find(op => op.id === targetId);
+    if (!target || target.isDead) return;
+
+    const ruleLabel = weaponHasRule(weapon, 'Blast') ? 'Blast' : 'Torrent';
+    ui.addLog(`\n--- ${ruleLabel} 次要目标: ${target.name} ---`);
+
+    // 每个次要目标独立完整结算（投攻击骰/防御骰/对消/伤害，暴击与普通分算）
+    autoResolveSecondaryAttack(attacker, weapon, target);
+  });
+
+  ui.renderOperatives?.();
+  ui.updateActivePanel?.();
 }
 
 /**
@@ -2496,7 +2375,6 @@ export function openFightWizard() {
       meleeTurn: 'attacker',
       meleeLogs: '',
       drRolls: [],
-      combatFlow: [],
     });
 
     if (!wizardState.weapon) {
@@ -3593,8 +3471,6 @@ export function getShootDuelHeaderHtml() {
 // ==========================================
 
 export function chooseMeleeDice(side, idx) {
-  if (wizardState.isMeleeAnimating) return;
-  playSound('click');
   if (side !== wizardState.meleeTurn) {
     playSound('alert');
     if (showToast) showToast('现在不属于你的近战分配回合！', 'warning');
@@ -3609,10 +3485,8 @@ export function chooseMeleeDice(side, idx) {
   renderFightStep();
 }
 
-export async function resolveMeleeChoice(action) {
-  if (!wizardState.selectedMeleeDice || wizardState.isMeleeAnimating) return;
-  wizardState.isMeleeAnimating = true;
-
+export function resolveMeleeChoice(action) {
+  if (!wizardState.selectedMeleeDice) return;
   const { side, idx } = wizardState.selectedMeleeDice;
 
   const diceList = side === 'attacker' ? wizardState.activeAttackerDice : wizardState.activeDefenderDice;
@@ -3654,22 +3528,7 @@ export async function resolveMeleeChoice(action) {
     //     结算，无聚合保留阶段。阵营派生规则已改为经 effectiveWeapon 注入，后续补全近战 Severe 时
     //     可统一走 weaponMods(effectiveWeapon(...)).upgradeNormalToCrit。
 
-    let dmg = dice.isCrit ? strikeCritDmg : strikeNormDmg;
-
-    if (hasFactionTrait(targetOpponent.faction, 'disgustingResilience') && dmg >= 3) {
-      const drRollStr = prompt(`🦠 恶心无视 (Disgustingly Resilient)\n\n${targetOpponent.name} 即将受到 ${dmg} 点伤害。\n该特工具有【恶心无视】特性，请投掷 1 个减伤判定骰：\n若结果为 4+，本次伤害减 1。\n\n请输入投掷出的骰子点数 (1-6)，如果未投掷或失败直接点取消或留空：`);
-      if (drRollStr) {
-        const drRoll = parseInt(drRollStr, 10);
-        if (!isNaN(drRoll) && drRoll >= 4) {
-          dmg -= 1;
-          ui.addLog(`[恶心无视] ${targetOpponent.name} 投掷了 ${drRoll} (成功)，伤害减免 1 点，最终伤害为 ${dmg}！`);
-          if (typeof ui.showToast !== 'undefined') ui.showToast(`🦠 恶心无视生效！伤害 -1！`, 'success');
-        } else if (!isNaN(drRoll)) {
-          ui.addLog(`[恶心无视] ${targetOpponent.name} 投掷了 ${drRoll} (失败)，未减免伤害。`);
-        }
-      }
-    }
-
+    const dmg = dice.isCrit ? strikeCritDmg : strikeNormDmg;
     const msg = `> ${side === 'attacker' ? '攻击方' : '防守方'} 执行打击 (Strike)，分配了 ${dmg} 伤害！<br>`;
     wizardState.meleeLogs += msg;
 
@@ -3731,16 +3590,8 @@ export async function resolveMeleeChoice(action) {
       ui.updateActivePanel();
     }
 
-    // Update UI HP before animation plays
-    wizardState.selectedMeleeDice = null;
-    renderFightStep();
-
-    // Wait for the full combat effect
-    await effects.playFullCombatEffect(targetOpponent.id, 'strike', "-" + dmg + " Wounds", "strike");
-
-    if (targetOpponent.isDead && typeof ui.triggerOperativeDeathOverlay === 'function') {
-      ui.triggerOperativeDeathOverlay(targetOpponent);
-    }
+    playSound('heavy_strike');
+    ui.triggerCombatVisual("-" + dmg + " Wounds", "strike");
   } else {
     // ---- Brutal 规则 ----
     // "Your opponent can only block with critical successes"
@@ -3776,13 +3627,8 @@ export async function resolveMeleeChoice(action) {
     opponentDiceList[targetIdx].used = true;
     const msg = `> ${side === 'attacker' ? '攻击方' : '防守方'} 执行格挡 (Parry)，消去对方一个骰子 [${opponentDiceList[targetIdx].val}]！<br>`;
     wizardState.meleeLogs += msg;
-    const currentOp = side === 'attacker' ? wizardState.attacker : wizardState.defender;
-    
-    // Update UI before animation
-    wizardState.selectedMeleeDice = null;
-    renderFightStep();
-
-    await effects.playFullCombatEffect(currentOp.id, 'parry', 'PARRY', 'parry');
+    playSound('metal_clash');
+    ui.triggerCombatVisual("PARRY", "parry");
   }
 
   const opponentSide = side === 'attacker' ? 'defender' : 'attacker';
@@ -3802,13 +3648,15 @@ export async function resolveMeleeChoice(action) {
     wizardState.meleeTurn = side;
   }
 
-  wizardState.isMeleeAnimating = false;
   wizardState.selectedMeleeDice = null;
   renderFightStep();
+
+  if (action === 'strike') {
+    ui.triggerAvatarHitEffect(targetOpponent.id, 'melee');
+  }
 }
 
 export function cancelMeleeChoice() {
-  if (wizardState.isMeleeAnimating) return;
   playSound('click');
   wizardState.selectedMeleeDice = null;
   renderFightStep();
@@ -3819,20 +3667,16 @@ export function confirmFightResult() {
   const attacker = wizardState.attacker;
   const defender = wizardState.defender;
 
-  wizardState.pendingResults.attackerWounds = attacker.wounds;
-  wizardState.pendingResults.defenderWounds = defender.wounds;
-  wizardState.pendingResults.attackerTokens = [...(attacker.tokens || [])];
-  wizardState.pendingResults.defenderTokens = [...(defender.tokens || [])];
-  wizardState.pendingResults.attackerPoisonTokens = attacker.poisonTokens || 0;
-  wizardState.pendingResults.defenderPoisonTokens = defender.poisonTokens || 0;
+  ui.addLog(`\n--- 近战搏斗结果 ---`);
+  ui.addLog(`[双核交锋] ${attacker.name} vs ${defender.name}`);
+  ui.addLog(`  - ${attacker.name} 生命值: ${attacker.wounds}/${attacker.maxWounds}`);
+  ui.addLog(`  - ${defender.name} 生命值: ${defender.wounds}/${defender.maxWounds}`);
 
-  logCombatFlow('End', '近战搏斗结束。');
+  attacker.apl -= 1;
+  attacker.actionsPerformed.push('Fight');
+  ui.addLog(`[行动点] ${attacker.name} 消耗 1 APL，当前 APL: ${attacker.apl}`);
 
-  if (typeof ui.showCombatSummaryModal === 'function') {
-    ui.showCombatSummaryModal(0);
-  } else {
-    applyFinalCombatResults();
-  }
+  closeModal();
 }
 
 

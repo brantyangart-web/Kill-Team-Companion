@@ -200,6 +200,16 @@ export function initDMSystem() {
     .dm-op-header { display: flex; justify-content: space-between; font-weight: bold; color: #e2e8f0; cursor: pointer; }
     .dm-op-body { margin-top: 10px; display: none; gap: 10px; flex-direction: column; }
     .dm-op-card.expanded .dm-op-body { display: flex; }
+    .dm-math-btn { background: #334155; color: white; border: none; border-radius: 8px; width: 40px; height: 40px; font-size: 1.5rem; cursor: pointer; transition: 0.1s; display: flex; align-items: center; justify-content: center; }
+    .dm-math-btn:hover { background: #475569; }
+    .dm-math-btn:active { background: #1e293b; }
+    .dm-toggle-btn { flex: 1; padding: 10px; border: none; border-radius: 6px; color: white; font-weight: bold; cursor: pointer; transition: 0.2s; }
+    .dm-toggle-btn.engage { background: #ef4444; }
+    .dm-toggle-btn.conceal { background: #3b82f6; }
+    .dm-toggle-btn.alive { background: #10b981; }
+    .dm-toggle-btn.dead { background: #64748b; }
+    .dm-tag-btn { background: #1e293b; color: #64748b; border: 1px solid #334155; border-radius: 20px; padding: 6px 14px; font-size: 0.8rem; cursor: pointer; transition: 0.2s; }
+    .dm-tag-btn.active { background: rgba(124, 58, 237, 0.2); color: #a78bfa; border-color: #7c3aed; }
   `;
   document.head.appendChild(style);
 }
@@ -364,61 +374,151 @@ function renderDMOperativesTab(container) {
     return;
   }
   
-  let html = '';
+  let html = '<div style="display:grid; grid-template-columns:1fr 1fr; gap:10px;">';
   gameState.operatives.forEach((op, idx) => {
-    const isDead = op.isDead ? '<span style="color:#ef4444;">[阵亡]</span>' : '';
+    const isDead = op.isDead ? '<span style="color:#ef4444; font-size:0.8em; display:block;">[阵亡]</span>' : '';
     html += `
-      <div class="dm-op-card" id="dm-op-card-${idx}">
-        <div class="dm-op-header" onclick="document.getElementById('dm-op-card-${idx}').classList.toggle('expanded')">
-          <span>${op.name} ${isDead}</span>
-          <span style="color:#64748b;">HP: ${op.wounds}/${op.maxWounds} ▼</span>
-        </div>
-        <div class="dm-op-body">
-          <div class="dm-row">
-            <span>生命值 (Wounds)</span>
-            <input type="number" class="dm-input" id="dm-op-hp-${idx}" value="${op.wounds}">
-          </div>
-          <div class="dm-row">
-            <span>行动力 (APL)</span>
-            <input type="number" class="dm-input" id="dm-op-apl-${idx}" value="${op.apl}">
-          </div>
-          <div class="dm-row">
-            <span>接战状态 (Order)</span>
-            <select class="dm-select" id="dm-op-order-${idx}">
-              <option value="engage" ${!op.hasConceal?'selected':''}>交战 (Engage)</option>
-              <option value="conceal" ${op.hasConceal?'selected':''}>隐蔽 (Conceal)</option>
-            </select>
-          </div>
-          <div class="dm-row">
-            <span>存活状态</span>
-            <select class="dm-select" id="dm-op-dead-${idx}">
-              <option value="false" ${!op.isDead?'selected':''}>存活 (Alive)</option>
-              <option value="true" ${op.isDead?'selected':''}>阵亡 (Dead)</option>
-            </select>
-          </div>
-          <button class="dm-tab-btn" style="background:#10b981; color:white; width: 100%; margin-top:5px;" onclick="window.applyDMOperative(${idx})">保存特工数据</button>
-        </div>
+      <div class="dm-op-card" style="cursor:pointer; display:flex; flex-direction:column; align-items:center; padding:10px; background:#1e293b; border:1px solid #334155; border-radius:6px; margin:0;" onclick="window.openFocusedEditView(${idx})">
+        <img src="${op.defaultAvatar}" style="width:50px; height:50px; border-radius:50%; object-fit:cover; margin-bottom:5px; border:2px solid ${op.teamSlot === 0 ? '#3b82f6' : '#ef4444'};">
+        <div style="font-weight:bold; font-size:0.85rem; text-align:center; color:#e2e8f0; line-height:1.2;">${op.name}</div>
+        <div style="color:#94a3b8; font-size:0.75rem; text-align:center; margin-top:4px;">HP: ${op.wounds}/${op.maxWounds} ${isDead}</div>
       </div>
     `;
   });
+  html += '</div>';
   container.innerHTML = html;
 }
 
-window.applyDMOperative = function(idx) {
+window.openFocusedEditView = function(idx) {
   const op = gameState.operatives[idx];
   if (!op) return;
-  pushStateSnapshot(`DM Edit: Operative (${op.name})`);
+  const container = document.getElementById('dm-body');
   
-  op.wounds = parseInt(document.getElementById(`dm-op-hp-${idx}`).value, 10);
-  op.apl = parseInt(document.getElementById(`dm-op-apl-${idx}`).value, 10);
-  op.hasConceal = document.getElementById(`dm-op-order-${idx}`).value === 'conceal';
-  op.isDead = document.getElementById(`dm-op-dead-${idx}`).value === 'true';
-  
-  if (op.wounds <= 0) op.isDead = true;
-  
+  const TAG_TYPES = [
+    { id: 'Poisoned', label: '☠️ 毒素标记 (Poison)' },
+    { id: 'Injured', label: '🩸 受伤 (Injured)' },
+    { id: 'Stunned', label: '💫 眩晕 (Stunned)' },
+    { id: 'Burning', label: '🔥 燃烧 (Burning)' }
+  ];
+
+  const tagsHtml = TAG_TYPES.map(tag => {
+    let active = false;
+    if (tag.id === 'Poisoned') {
+      active = op.poisonTokens > 0;
+    } else {
+      active = op.tokens && op.tokens.includes(tag.id);
+    }
+    return `<button class="dm-tag-btn ${active ? 'active' : ''}" onclick="window.toggleDMOpTag(${idx}, '${tag.id}')">${tag.label}${tag.id === 'Poisoned' && op.poisonTokens > 1 ? ' x' + op.poisonTokens : ''}</button>`;
+  }).join('');
+
+  container.innerHTML = `
+    <div style="display:flex; justify-content:space-between; margin-bottom:15px; align-items:center;">
+      <button class="dm-tab-btn" onclick="renderDMTabContent()">⬅ 返回列表</button>
+      <div style="font-weight:bold; color:#e2e8f0; font-size:1.1rem;">编辑特工数据</div>
+    </div>
+    <div style="display:flex; flex-direction:column; align-items:center; background:#1e293b; padding:20px; border-radius:8px; border:1px solid #334155;">
+      <img src="${op.defaultAvatar}" style="width:100px; height:100px; border-radius:50%; object-fit:cover; margin-bottom:10px; border:3px solid ${op.teamSlot === 0 ? '#3b82f6' : '#ef4444'};">
+      <div style="font-weight:bold; font-size:1.2rem; color:white; margin-bottom:5px; text-align:center;">${op.name}</div>
+      <div style="color:#94a3b8; font-size:0.9rem; margin-bottom:20px;">${op.faction}</div>
+      
+      <div style="display:flex; gap:30px; width:100%; justify-content:center; margin-bottom:20px;">
+        <!-- Wounds -->
+        <div style="display:flex; flex-direction:column; align-items:center;">
+          <div style="color:#94a3b8; font-size:0.8rem; margin-bottom:5px;">生命值 (Wounds)</div>
+          <div style="display:flex; align-items:center; gap:10px;">
+            <button class="dm-math-btn" onclick="window.adjustDMOpStat(${idx}, 'wounds', -1)">-</button>
+            <div style="font-size:1.5rem; font-weight:bold; color:white; min-width:40px; text-align:center;">${op.wounds}</div>
+            <button class="dm-math-btn" onclick="window.adjustDMOpStat(${idx}, 'wounds', 1)">+</button>
+          </div>
+        </div>
+        <!-- APL -->
+        <div style="display:flex; flex-direction:column; align-items:center;">
+          <div style="color:#94a3b8; font-size:0.8rem; margin-bottom:5px;">行动力 (APL)</div>
+          <div style="display:flex; align-items:center; gap:10px;">
+            <button class="dm-math-btn" onclick="window.adjustDMOpStat(${idx}, 'apl', -1)">-</button>
+            <div style="font-size:1.5rem; font-weight:bold; color:white; min-width:30px; text-align:center;">${op.apl}</div>
+            <button class="dm-math-btn" onclick="window.adjustDMOpStat(${idx}, 'apl', 1)">+</button>
+          </div>
+        </div>
+      </div>
+      
+      <div style="width:100%; display:flex; justify-content:space-between; gap:10px; margin-bottom:20px;">
+        <button class="dm-toggle-btn ${op.hasConceal ? 'conceal' : 'engage'}" onclick="window.toggleDMOpOrder(${idx})">
+          ${op.hasConceal ? '🛡️ 隐蔽 (Conceal)' : '⚔️ 交战 (Engage)'}
+        </button>
+        <button class="dm-toggle-btn ${op.isDead ? 'dead' : 'alive'}" onclick="window.toggleDMOpDead(${idx})">
+          ${op.isDead ? '💀 阵亡 (Dead)' : '💖 存活 (Alive)'}
+        </button>
+      </div>
+      
+      <div style="width:100%; border-top:1px solid #334155; padding-top:15px;">
+        <div style="color:#94a3b8; font-size:0.9rem; margin-bottom:10px; text-align:center;">状态标签池 (Status Tags)</div>
+        <div style="display:flex; flex-wrap:wrap; gap:8px; justify-content:center;">
+          ${tagsHtml}
+        </div>
+      </div>
+    </div>
+  `;
+};
+
+window.adjustDMOpStat = function(idx, stat, delta) {
+  const op = gameState.operatives[idx];
+  if (!op) return;
+  pushStateSnapshot(`DM Edit: Adjust ${stat}`);
+  op[stat] += delta;
+  if (stat === 'wounds') {
+    if (op.wounds < 0) op.wounds = 0;
+    if (op.wounds > op.maxWounds) op.wounds = op.maxWounds;
+    if (op.wounds === 0) op.isDead = true;
+    else if (op.isDead && op.wounds > 0) op.isDead = false;
+  }
   if (typeof renderOperatives === 'function') renderOperatives();
-  alert(`${op.name} updated!`);
-  renderDMTabContent();
+  if (typeof updateActivePanel === 'function') updateActivePanel();
+  window.openFocusedEditView(idx);
+};
+
+window.toggleDMOpOrder = function(idx) {
+  const op = gameState.operatives[idx];
+  if (!op) return;
+  pushStateSnapshot(`DM Edit: Toggle Order`);
+  op.hasConceal = !op.hasConceal;
+  if (typeof renderOperatives === 'function') renderOperatives();
+  window.openFocusedEditView(idx);
+};
+
+window.toggleDMOpDead = function(idx) {
+  const op = gameState.operatives[idx];
+  if (!op) return;
+  pushStateSnapshot(`DM Edit: Toggle Alive`);
+  op.isDead = !op.isDead;
+  if (op.isDead) op.wounds = 0;
+  if (typeof renderOperatives === 'function') renderOperatives();
+  window.openFocusedEditView(idx);
+};
+
+window.toggleDMOpTag = function(idx, tag) {
+  const op = gameState.operatives[idx];
+  if (!op) return;
+  pushStateSnapshot(`DM Edit: Toggle Tag ${tag}`);
+  if (tag === 'Poisoned') {
+    if (!op.poisonTokens) op.poisonTokens = 0;
+    if (op.poisonTokens > 0) {
+      op.poisonTokens = 0;
+    } else {
+      op.poisonTokens = 1;
+    }
+  } else {
+    if (!op.tokens) op.tokens = [];
+    const tagIdx = op.tokens.indexOf(tag);
+    if (tagIdx > -1) {
+      op.tokens.splice(tagIdx, 1);
+    } else {
+      op.tokens.push(tag);
+    }
+  }
+  if (typeof renderOperatives === 'function') renderOperatives();
+  if (typeof updateActivePanel === 'function') updateActivePanel();
+  window.openFocusedEditView(idx);
 };
 
 function renderDMHistoryTab(container = document.getElementById('dm-body')) {

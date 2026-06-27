@@ -33,6 +33,7 @@ export const FACTION_TRAITS = {
     astartesDoubleAction: true,
   },
   'Plague Marine': {
+    astartesDoubleAction: true,
     // Disgusting Resilience: 受到 3+ 伤害时 DR 4+ 减免
     // — 具体实现在 models.js Operative.applyWounds 中
     disgustingResilience: true,

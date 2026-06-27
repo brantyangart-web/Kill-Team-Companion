@@ -1,5 +1,4 @@
 import { gameState, wizardState } from './state.js';
-import * as effects from './effects.js';
 import { playSound } from './audio.js';
 import { Operative, Weapon, translateRule, getEffectiveTs } from './models.js';
 import {
@@ -14,20 +13,13 @@ import {
   isPloyActive, isFirefightPloyActive, getCombatDoctrineChoice, isIgnoreInjuredPenalties,
   isContagionActive, isLumberingDeathActive, isBloodForBloodGodActive, isImplacableActive,
   isQuicksilverSpeedActive, isFickleFatesActive, isIndomitusActive, activateFirefightPloy,
-  isPloyActive as isPloyActiveCheck, getPloy
+  isPloyActive as isPloyActiveCheck
 } from '../rules/ploys.js';
 import { getAssetPath } from './paths.js';
 import { showDamageAnimation } from './damageAnimation.js';
 import { activeRuleSet } from '../rules/ruleSets.js';
 import { evaluatePloyInteractions, getOperativeAvatarUrl } from './ui.js';
 import { applyWeaponRules, parseWeaponRule, weaponHasRule, getWeaponRuleParam } from '../rules/weapons.js';
-import { resolveRuleQueue } from './ruleEngine.js';
-
-export function logCombatFlow(phase, text) {
-  if (!wizardState.combatFlow) wizardState.combatFlow = [];
-  wizardState.combatFlow.push({ phase, text });
-  ui.addLog(`[${phase}] ${text}`);
-}
 
 
 /**
@@ -237,14 +229,14 @@ export function openModal() {
 export function closeModal() {
   playSound('click');
   
-  // 通用清理：移除本次向导会话期间注入的所有临时 Buff / Debuffs
-  if (wizardState.addedDebuffs) {
-    wizardState.addedDebuffs.forEach(({ operative, debuff }) => {
-      if (operative.activeDebuffs) {
-        operative.activeDebuffs = operative.activeDebuffs.filter(d => d !== debuff);
-      }
-    });
-    wizardState.addedDebuffs = [];
+  // 清理仅在单次行动（射击/近战）中生效的临时 Buff
+  const attacker = wizardState.attacker;
+  if (attacker && attacker.activeDebuffs) {
+    attacker.activeDebuffs = attacker.activeDebuffs.filter(d => d.rule !== 'combat_doctrine');
+  }
+  const defender = wizardState.defender;
+  if (defender && defender.activeDebuffs) {
+    defender.activeDebuffs = defender.activeDebuffs.filter(d => d.rule !== 'combat_doctrine');
   }
 
   document.getElementById('combat-modal').style.display = 'none';
@@ -278,80 +270,30 @@ export function nextModalStep() {
       }
 
       evaluatePloyInteractions('before_shoot_roll', wizardState.attacker, () => {
-        // 重置蝇云标志，由 before_shoot_defense 计谋系统重新评估
-        wizardState.cloudOfFliesActive = false;
-        // 串联防守方计谋判定（三、蝇云等对防守方的效果）
-        evaluatePloyInteractions('before_shoot_defense', wizardState.defender, () => {
-          wizardState.step++;
-          renderShootStep();
-        });
-      });
-      return;
-    } else if (wizardState.step === 4) {
-      if (wizardState.mode === 'manual') {
-        parseManualAttack();
-      }
-      if (wizardState.attackRolls.length === 0) {
-        if (showToast) showToast('请先完成攻击掷骰！', 'error');
-        return;
-      }
-      
-      const weapon = wizardState.weapon;
-      // We can't easily resolve weaponMods here due to missing imports if not careful, 
-      // but we have weapon mods injected inside recalculateAttackStats. We can just check the raw rule.
-      let lethalStr = '';
-      const lethalRule = weapon.rules?.find(r => r.startsWith('Lethal '));
-      if (lethalRule) {
-        const match = lethalRule.match(/Lethal\s+(\d+)\+/i);
-        if (match) {
-          const threshold = parseInt(match[1]);
-          const upgrades = wizardState.attackRolls.filter(v => v >= threshold && v < 6).length;
-          if (upgrades > 0) lethalStr = ` (含 ${upgrades} 个因[致命 ${threshold}+]升为暴击)`;
-        }
-      }
-      
-      logCombatFlow('Attack', `攻击方最终投出 [${wizardState.attackRolls.join(', ')}]，命中: 暴击 ${wizardState.attackCrit} / 普通 ${wizardState.attackNorm}${lethalStr}`);
-      // Step 4→5：攻击骰已知，串联防守方触发（含 Indomitus）
-      wizardState.indomitusBonus = false;
-      evaluatePloyInteractions('before_defense_roll', wizardState.defender, () => {
         wizardState.step++;
         renderShootStep();
       });
       return;
-    } else if (wizardState.step === 5) {
-      if (wizardState.mode === 'manual') {
-        parseManualDefense();
-        const inputEl = document.getElementById('manual-def-dice-val');
-        if (inputEl && inputEl.value.trim() !== '' && wizardState.defenseRolls.length === 0) {
-          if (showToast) showToast('请输入有效的防御骰点数！格式: 5, 2 (1-6逗号隔开)', 'error');
-          return;
-        }
+    } else if (wizardState.step === 4 && wizardState.mode === 'manual') {
+      parseManualAttack();
+      if (wizardState.attackRolls.length === 0) {
+        if (showToast) showToast('请输入有效的攻击骰点数！格式: 6, 4, 3, 2 (1-6逗号隔开)', 'error');
+        return;
       }
-      if (wizardState.defenseRolls && wizardState.defenseRolls.length > 0) {
-        logCombatFlow('Defense', `防守方投出 [${wizardState.defenseRolls.join(', ')}]，成功: 暴击 ${wizardState.defCrit} / 普通 ${wizardState.defNorm}`);
+    } else if (wizardState.step === 5 && wizardState.mode === 'manual') {
+      parseManualDefense();
+      const inputEl = document.getElementById('manual-def-dice-val');
+      if (inputEl && inputEl.value.trim() !== '' && wizardState.defenseRolls.length === 0) {
+        if (showToast) showToast('请输入有效的防御骰点数！格式: 5, 2 (1-6逗号隔开)', 'error');
+        return;
       }
     }
   } else if (wizardState.actionType === 'fight') {
-      if (wizardState.step === 4) {
-        if (wizardState.mode === 'manual') {
-          parseManualMelee();
-        } else {
-          // 在进入伤害分配阶段前，根据经过重投阶段修正的 allRolls 重构 activeDice
-          wizardState.activeAttackerDice = wizardState.allAttackerRolls
-            .filter(d => d.isSuccess)
-            .map(d => ({ val: d.val, isCrit: d.isCrit, used: false }));
-            
-          wizardState.activeDefenderDice = wizardState.allDefenderRolls
-            .filter(d => d.isSuccess)
-            .map(d => ({ val: d.val, isCrit: d.isCrit, used: false }));
-        }
-        
-        const aRolls = wizardState.allAttackerRolls || [];
-        const dRolls = wizardState.allDefenderRolls || [];
-        logCombatFlow('Fight', `攻击方投掷: [${aRolls.map(d=>d.val).join(', ')}] | 防守方投掷: [${dRolls.map(d=>d.val).join(', ')}]`);
-        
+      if (wizardState.step === 4 && wizardState.mode === 'manual') {
+        parseManualMelee();
         if (wizardState.activeAttackerDice.length === 0 && wizardState.activeDefenderDice.length === 0) {
-          // Allow transitioning to Step 5 even if both missed, so the UI can show "双方未命中"
+          if (showToast) showToast('请录入近战掷骰结果', 'error');
+          return;
         }
       }
     if (wizardState.step === 3) {
@@ -409,35 +351,25 @@ export function openShootWizard() {
     modalContent.style.backgroundPosition = 'center';
   }
 
-  window.pushStateSnapshot?.(`Start Shoot: ${op.name}`);
-
-    Object.assign(wizardState, {
-      actionType: 'shoot',
-      step: 1,
-      attacker: op,
-      defender: null,
-      weapon: op.weapons.filter(w => w.isRanged)[0] || null,
-      inRangeAndVisible: true,
-      inCoverConcealed: false,
-      inCover: false,
-      cloudOfFliesActive: false,
-      indomitusBonus: false,
-      enemyInControlRange: false,
-      mode: gameState.globalRollMode,
-      attRerollIndex: -1,
-      defRerollIndex: -1,
-      attackRolls: [],
-      defenseRolls: [],
-      attackRerolledIndices: [],
-      combatFlow: [],
-      weaponRerollUsed: false,
-      weaponRerollRule: null,
-      stunApplied: false,
-      shockTriggered: false,
-      drRolls: [],
-      isSecondaryTarget: false,
-      secondaryQueue: [],
-    });
+  Object.assign(wizardState, {
+    actionType: 'shoot',
+    step: 1,
+    attacker: op,
+    defender: null,
+    weapon: op.weapons.filter(w => w.isRanged)[0] || null,
+    inRangeAndVisible: true,
+    inCoverConcealed: false,
+    inCover: false,
+    enemyInControlRange: false,
+    mode: gameState.globalRollMode,
+    attRerollIndex: -1,
+    defRerollIndex: -1,
+    attackRolls: [],
+    defenseRolls: [],
+    stunApplied: false,
+    shockTriggered: false,
+    drRolls: [],
+  });
 
   if (!wizardState.weapon) {
     if (showToast) showToast('该特工没有配备任何远程武器！', 'warning');
@@ -631,7 +563,7 @@ export function renderShootStep() {
       ${coverNote}
 
       <div class="qa-card">
-        <div class="qa-question">1. 目标是否在你的有效视线和射程内？${hasIndirect ? ' <span style="color:#818cf8;">（自动判定为是）</span>' : ''}</div>
+        <div class="qa-question">1. 目标是否在你的有效视线和射程内？${hasIndirect ? ' <span style="color:#818cf8;">(自动判定为是)</span>' : ''}</div>
         <div class="qa-options">
           <button class="qa-btn ${wizardState.inRangeAndVisible ? 'selected' : ''}" onclick="setQA('inRangeAndVisible', true)" ${hasIndirect ? 'style="pointer-events:none; opacity:0.6;"' : ''}>是 (在射程内)</button>
           <button class="qa-btn ${!wizardState.inRangeAndVisible ? 'selected' : ''}" onclick="setQA('inRangeAndVisible', false)" ${hasIndirect ? 'style="pointer-events:none; opacity:0.6;"' : ''}>否 (无法见/超射程)</button>
@@ -731,24 +663,6 @@ export function renderShootStep() {
       dfCount = Math.max(0, dfCount - 1);
     } else if (wizardState.inCover && hasSaturateForDf) {
       coverDesc = `<p style="color:var(--red); margin-bottom: 4px;">🔥 [饱和] 目标在掩体中，但 Saturate 生效：不能保留掩体骰！</p>`;
-    }
-
-    // 蝇云遮蔽 (Cloud of Flies Obscured): 效果等同掩体 — 自动+1普通成功，DF池-1
-    if (wizardState.cloudOfFliesActive && !wizardState.inCover) {
-      if (!hasSaturateForDf) {
-        coverDesc += `<p style="color:#7ab88a; margin-bottom: 4px;">🐝 [蝇云遮蔽] 目标处于 Obscured 状态：自动获得 1 个普通成功，且防御投骰池减 1 (DF = ${dfCount} -> ${dfCount - 1})</p>`;
-        dfCount = Math.max(0, dfCount - 1);
-      } else {
-        coverDesc += `<p style="color:var(--red); margin-bottom: 4px;">🔥 [饱和+蝇云] 目标本应获得蝇云遮蔽，但 Saturate 生效：不能保留掩体骰！</p>`;
-      }
-    } else if (wizardState.cloudOfFliesActive && wizardState.inCover) {
-      // 已在掩体中则蝇云效果不叠加（取最优），仅记录日志
-      coverDesc += `<p style="color:#7ab88a; font-size:0.78rem; margin-bottom: 4px;">🐝 蝇云生效，但目标已在掩体中，效果不重复叠加。</p>`;
-    }
-
-    // === Ploy: Indomitus — 2+ 失败攻击骰 → SM 防守方获得额外 1 个普通防御成功 ===
-    if (wizardState.indomitusBonus) {
-      coverDesc += `<p style="color:var(--sm-blue, #4a6a9a); margin-bottom: 4px;">✠ [不屈意志] 攻击方有 2+ 失败骰，${wizardState.defender.name} 保留 1 个失败骰作为普通防御成功。</p>`;
     }
 
     // Piercing 规则：防御骰池减少 N 点（参数由注册表解析）
@@ -851,11 +765,10 @@ export function renderShootStep() {
     // "The defender cannot retain cover saves."
     // 防御方不能保留掩体骰（掩体提供的自动普通成功被移除）。
     const hasSaturate = weaponMods(effectiveWeapon(wizardState.weapon, wizardState.attacker)).coverSavesDisabled;
-    if (hasSaturate && (wizardState.inCover || wizardState.cloudOfFliesActive) && remainingNormSaves > 0) {
+    if (hasSaturate && wizardState.inCover && remainingNormSaves > 0) {
       const coverSavesRemoved = Math.min(1, remainingNormSaves);
       remainingNormSaves -= coverSavesRemoved;
-      const saturateSource = wizardState.cloudOfFliesActive && !wizardState.inCover ? '蝇云遮蔽' : '掩体';
-      ui.addLog(`[饱和] ${wizardState.weapon.name}：防御方不能保留${saturateSource}骰，移除 ${coverSavesRemoved} 个自动成功！`);
+      ui.addLog(`[饱和] ${wizardState.weapon.name}：防御方不能保留掩体骰，移除 ${coverSavesRemoved} 个掩体自动成功！`);
     }
 
     // Piercing Crits 的效果 (减防御骰池) 已在步骤5 dfCount 计算时处理 (L221)
@@ -940,6 +853,29 @@ export function renderShootStep() {
       </div>
     `;
 
+          let drInputHtml = '';
+      if (hasFactionTrait(wizardState.defender.faction, 'disgustingResilience') && attacksRequiringDr > 0) {
+        if (wizardState.mode === 'manual') {
+          drInputHtml = `
+            <div id="manual-dr-container" style="display:block; background:var(--dark-card); padding:10px; border-radius:8px; margin-top:8px; border:1px solid var(--panel-border);">
+              ${buildDiceKeypadHtml('manual-dr-dice-val', `防守方有减伤规则（如恶心无视），请依次录入减伤骰子（共 ${attacksRequiringDr} 组伤害）`, attacksRequiringDr)}
+            </div>
+          `;
+        } else {
+          drInputHtml = `
+            <div id="auto-dr-container" style="display:block; background:var(--dark-card); padding:10px; border-radius:8px; margin-top:8px; border:1px solid var(--panel-border);">
+              <p style="margin-bottom:8px; font-size:0.85rem; color:#fff;">触发【恶心无视】减伤规则 (需投 ${attacksRequiringDr} 颗骰子)</p>
+              <div class="dice-rolling-area" id="dr-rolling-zone" style="display:flex;">
+                <div class="dice-pool-view" id="dr-dice-pool">
+                  <span style="color:var(--text-muted); font-size:0.85rem;">等待掷骰...</span>
+                </div>
+                <button class="modal-btn primary" id="btn-roll-dr" onclick="rollDrDice(${attacksRequiringDr})">点击 掷骰减伤</button>
+              </div>
+            </div>
+          `;
+        }
+      }
+
     body.innerHTML = `
       ${getShootDuelHeaderHtml()}
 
@@ -951,11 +887,23 @@ export function renderShootStep() {
         <p>- 普通命中残留: <b>${remainingNorms}</b> 个 (每个伤害: ${normDmg}${hasToxic && wizardState.defender.poisonTokens > 0 ? ' <span style="color:#a78bfa;">[剧毒+1]</span>' : ''})</p>
         <p style="color:var(--sm-accent); font-weight:bold; margin-top:8px; font-size:1rem;">分配伤害总计: ${rawDmg} 点</p>
       </div>
+
+      ${drInputHtml}
     `;
 
     nextBtn.textContent = '确认射击结果';
-    nextBtn.disabled = false;
-    nextBtn.onclick = () => confirmShootResult(dmgPerAttack);
+      if (hasFactionTrait(wizardState.defender.faction, 'disgustingResilience') && attacksRequiringDr > 0) {
+          nextBtn.disabled = false;
+        } else {
+          nextBtn.disabled = false;
+        }
+      nextBtn.onclick = () => confirmShootResult(dmgPerAttack);
+
+    if (rawDmg > 0) {
+      setTimeout(() => {
+        ui.triggerAvatarHitEffect(wizardState.defender.id, 'shoot');
+      }, 150);
+    }
   }
 }
 
@@ -1028,7 +976,6 @@ export function rollAttackDice() {
     // Settle all remaining dice immediately
     const diceCubes = pool.getElementsByClassName('kt-dice-cube');
     const skipEffTs = getEffectiveTs(wizardState.weapon, wizardState.attacker);
-    let hasHitPenaltyFail = false;
     for (let i = currentSettleIndex; i < totalAttacks; i++) {
       const val = Math.floor(Math.random() * 6) + 1;
       finalRolls.push(val);
@@ -1037,25 +984,12 @@ export function rollAttackDice() {
         cube.classList.remove('rolling');
         cube.textContent = val;
         if (val === 6) cube.classList.add('crit-dice');
-        else if (val < skipEffTs) {
-          cube.classList.add('fail-dice');
-          if (val >= wizardState.weapon.ts) {
-            const badge = document.createElement('div');
-            badge.style.cssText = 'position: absolute; bottom: -10px; left: -10px; background: var(--red); border-radius: 50%; width: 22px; height: 22px; font-size: 0.7rem; display: flex; align-items: center; justify-content: center; color: white; font-weight: bold; border: 1.5px solid #fff; box-shadow: 0 2px 5px rgba(0,0,0,0.5); z-index: 5;';
-            badge.textContent = '+1';
-            badge.title = '因命中减益导致失败';
-            cube.appendChild(badge);
-            hasHitPenaltyFail = true;
-          }
-        }
+        else if (val < skipEffTs) cube.classList.add('fail-dice');
       }
     }
     wizardState.attackRolls = finalRolls;
     recalculateAttackStats();
     renderShootStep();
-    if (hasHitPenaltyFail) {
-      playSound('epic_fail');
-    }
   };
   pool.parentElement.appendChild(skipBtn);
 
@@ -1086,14 +1020,6 @@ export function rollAttackDice() {
       } else if (val < stepEffTs) {
         cube.classList.add('fail-dice');
         playSound('dice_drop');
-        if (val >= wizardState.weapon.ts) {
-          const badge = document.createElement('div');
-          badge.style.cssText = 'position: absolute; bottom: -10px; left: -10px; background: var(--red); border-radius: 50%; width: 22px; height: 22px; font-size: 0.7rem; display: flex; align-items: center; justify-content: center; color: white; font-weight: bold; border: 1.5px solid #fff; box-shadow: 0 2px 5px rgba(0,0,0,0.5); z-index: 5;';
-          badge.textContent = '+1';
-          badge.title = '因命中减益导致失败';
-          cube.appendChild(badge);
-          playSound('epic_fail');
-        }
       } else {
         playSound('dice_drop');
       }
@@ -1152,7 +1078,7 @@ export function getRerollHintHtml(isDefense = false) {
       else if (wizardState.hasBalancedFromFickle) source = '计谋/命运无常';
       html += `<li><strong style="color:#10b981;">平衡 (Balanced)</strong>: 可<strong>免费</strong>重投 1 个攻击骰 (源自: ${source})。点击带 <span style="background:var(--gold); color:black; padding:1px 4px; border-radius:3px; font-size:0.7rem; font-weight:bold;">B</span> 的骰子并在弹窗中进行选择。</li>`;
     } else if (wReroll === 'Ceaseless') {
-      html += `<li><strong style="color:#10b981;">不息 (Ceaseless)</strong>: 点数为 1 的攻击骰可<strong>免费</strong>重投。点击带 <span style="background:var(--gold); color:black; padding:1px 4px; border-radius:3px; font-size:0.7rem; font-weight:bold;">C</span> 的骰子并在弹窗中进行确认。</li>`;
+      html += `<li><strong style="color:#10b981;">不息 (Ceaseless)</strong>: 点数为 1 的所有攻击骰均可<strong>免费</strong>重投。使用下方的快捷按钮或点击对应骰子。</li>`;
     } else if (wReroll === 'Relentless') {
       html += `<li><strong style="color:#10b981;">无情 (Relentless)</strong>: 可<strong>免费</strong>重投任意数量的攻击骰。依次点击骰子标记为勾选，然后点击下方的【确认重投选中】按钮。</li>`;
     }
@@ -1191,25 +1117,15 @@ export function renderAttackDiceView() {
     d.className = cls;
     d.textContent = val;
 
-    // Check if failed specifically because of a Hit penalty (renderEffTs > base TS)
-    if (val < renderEffTs && val >= wizardState.weapon.ts) {
-      const penaltyBadge = document.createElement('div');
-      penaltyBadge.style.cssText = 'position: absolute; bottom: -10px; left: -10px; background: var(--red); border-radius: 50%; width: 22px; height: 22px; font-size: 0.7rem; display: flex; align-items: center; justify-content: center; color: white; font-weight: bold; border: 1.5px solid #fff; box-shadow: 0 2px 5px rgba(0,0,0,0.5); z-index: 5;';
-      penaltyBadge.textContent = '+1';
-      penaltyBadge.title = '因命中减益导致失败';
-      d.appendChild(penaltyBadge);
-    }
-
     const hasAlreadyRerolled = (wizardState.attackRerolledIndices || []).includes(idx);
 
     if (hasAlreadyRerolled) {
-      // 已经重投过的骰子，不允许再次重投
+      // 已经重投过的骰子，不允许再次重投，显示绿色勾
       d.style.cursor = 'not-allowed';
       const badge = document.createElement('div');
       badge.className = 'reroll-indicator';
-      const isSuccess = val >= renderEffTs;
-      badge.style.background = isSuccess ? 'var(--green)' : 'var(--red)';
-      badge.textContent = isSuccess ? '✓' : '✖';
+      badge.style.background = 'var(--green)';
+      badge.textContent = '✓';
       d.appendChild(badge);
     } else if (perDieReroll) {
       // 免费多选重投 (Relentless 单击切换选中)
@@ -1230,10 +1146,6 @@ export function renderAttackDiceView() {
         badge.textContent = 'B';
         badge.style.background = 'var(--gold)';
         badge.style.color = 'black';
-      } else if (wRerollAvail && wReroll === 'Ceaseless' && val === 1) {
-        badge.textContent = 'C';
-        badge.style.background = 'var(--gold)';
-        badge.style.color = 'black';
       } else {
         badge.textContent = 'R';
       }
@@ -1244,7 +1156,28 @@ export function renderAttackDiceView() {
     pool.appendChild(d);
   });
 
-  // Ceaseless 现在改为了单骰点击确认，移除了旧版的按值批量重投按钮
+  // Ceaseless：按攻击骰出现的点数提供"重投所有 X"按钮
+  if (wRerollAvail && wReroll === 'Ceaseless') {
+    const values = [...new Set(wizardState.attackRolls)].sort((a, b) => a - b);
+    const hint = document.createElement('p');
+    hint.style.cssText = 'color:var(--sm-accent); font-size:0.75rem; margin:8px 0 4px; text-align:center;';
+    hint.textContent = '💡 Ceaseless：选择一个点数，重投所有该点数的攻击骰';
+    pool.appendChild(hint);
+    const btnRow = document.createElement('div');
+    btnRow.style.cssText = 'display:flex; gap:6px; justify-content:center; flex-wrap:wrap;';
+    values.forEach(v => {
+      const b = document.createElement('button');
+      b.className = 'qa-btn';
+      b.style.cssText = 'padding:4px 12px; font-size:0.8rem;';
+      b.textContent = `重投所有 ${v}`;
+      b.onclick = () => {
+        const idxs = wizardState.attackRolls.map((rv, i) => rv === v ? i : -1).filter(i => i >= 0);
+        rerollWeaponRuleDice(idxs, 'Ceaseless');
+      };
+      btnRow.appendChild(b);
+    });
+    pool.appendChild(btnRow);
+  }
 
   // Relentless：确认重投选中
   if (wRerollAvail && wReroll === 'Relentless') {
@@ -1284,16 +1217,10 @@ export function rerollSingleAttackDice(idx) {
   setTimeout(() => {
     const newVal = Math.floor(Math.random() * 6) + 1;
     ui.addLog(`  - [重投] 攻击方消耗 1 CP重投 D6: [${wizardState.attackRolls[idx]}] -> [${newVal}]`);
-    logCombatFlow('Reroll', `[战术重投] 攻击方消耗 1 CP，将骰子 [${wizardState.attackRolls[idx]}] 重新投掷为 [${newVal}]`);
     wizardState.attackRolls[idx] = newVal;
 
     recalculateAttackStats();
     renderShootStep();
-
-    const stepEffTs = getEffectiveTs(wizardState.weapon, wizardState.attacker);
-    if (newVal < stepEffTs && newVal >= wizardState.weapon.ts) {
-      playSound('epic_fail');
-    }
   }, 500);
 }
 
@@ -1303,7 +1230,7 @@ export function showRerollModal(idx, isDefense = false, dfCount = 0) {
     : (wizardState.attackRerolledIndices || []).includes(idx);
   
   if (isRerolledAlready) {
-    if (showToast) showToast('该骰子已重投过，根据规则无法再次重投！', 'warning');
+    ui.showToast('该骰子已重投过，根据规则无法再次重投！', 'warning');
     return;
   }
 
@@ -1335,25 +1262,24 @@ export function showRerollModal(idx, isDefense = false, dfCount = 0) {
     const wRerollAvail = wReroll && !wizardState.weaponRerollUsed;
     
     if (wRerollAvail) {
-      if (wReroll === 'Balanced') {
-        const balancedPloys = wizardState.activeBalancedPloys || [];
-        balancedPloys.forEach((bp, bpIdx) => {
-          const ployDef = getPloy(bp.rule);
-          const ployName = ployDef ? ployDef.name_cn : bp.rule;
-          optionsHtml += `
-            <button id="btn-reroll-ploy-${bpIdx}" class="btn-large" style="padding: 10px; font-size:0.9rem; background:linear-gradient(135deg, var(--sm-accent, #60a5fa), #1d4ed8); border-color:#2563eb; color:white; font-weight:bold;">
-              ${ployName}重投 [Balanced] (免费)
-            </button>
-          `;
-        });
-        
-        if (wizardState.hasBalancedBase) {
-          optionsHtml += `
-            <button id="btn-reroll-base-balanced" class="btn-large" style="padding: 10px; font-size:0.9rem; background:linear-gradient(135deg, #10b981, #047857); border-color:#059669; color:white; font-weight:bold;">
-              武器平衡规则重投 [Balanced] (免费)
-            </button>
-          `;
-        }
+      if (wizardState.hasBalancedFromDoctrine) {
+        optionsHtml += `
+          <button id="btn-reroll-doctrine" class="btn-large" style="padding: 10px; font-size:0.9rem; background:linear-gradient(135deg, var(--sm-accent, #60a5fa), #1d4ed8); border-color:#2563eb; color:white; font-weight:bold;">
+            战斗教条重投 [Balanced] (免费)
+          </button>
+        `;
+      } else if (wizardState.hasBalancedFromFickle) {
+        optionsHtml += `
+          <button id="btn-reroll-fickle" class="btn-large" style="padding: 10px; font-size:0.9rem; background:linear-gradient(135deg, #a78bfa, #6d28d9); border-color:#5b21b6; color:white; font-weight:bold;">
+            命运无常重投 [Balanced] (免费)
+          </button>
+        `;
+      } else if (wizardState.hasBalancedBase) {
+        optionsHtml += `
+          <button id="btn-reroll-base-balanced" class="btn-large" style="padding: 10px; font-size:0.9rem; background:linear-gradient(135deg, #10b981, #047857); border-color:#059669; color:white; font-weight:bold;">
+            武器平衡规则重投 [Balanced] (免费)
+          </button>
+        `;
       } else if (wReroll === 'Relentless') {
         optionsHtml += `
           <button id="btn-reroll-relentless" class="btn-large" style="padding: 10px; font-size:0.9rem; background:linear-gradient(135deg, #10b981, #047857); border-color:#059669; color:white; font-weight:bold;">
@@ -1361,13 +1287,11 @@ export function showRerollModal(idx, isDefense = false, dfCount = 0) {
           </button>
         `;
       } else if (wReroll === 'Ceaseless') {
-        if (val === 1) {
-          optionsHtml += `
-            <button id="btn-reroll-ceaseless" class="btn-large" style="padding: 10px; font-size:0.9rem; background:linear-gradient(135deg, #10b981, #047857); border-color:#059669; color:white; font-weight:bold;">
-              不息规则重投 [Ceaseless] (免费)
-            </button>
-          `;
-        }
+        optionsHtml += `
+          <button id="btn-reroll-ceaseless" class="btn-large" style="padding: 10px; font-size:0.9rem; background:linear-gradient(135deg, #10b981, #047857); border-color:#059669; color:white; font-weight:bold;">
+            不息规则重投 [Ceaseless] (免费)
+          </button>
+        `;
       }
     }
   }
@@ -1414,42 +1338,42 @@ export function showRerollModal(idx, isDefense = false, dfCount = 0) {
     const wReroll = wizardState.weaponRerollRule;
     const wRerollAvail = wReroll && !wizardState.weaponRerollUsed;
     if (wRerollAvail) {
-      if (wReroll === 'Balanced') {
-        const balancedPloys = wizardState.activeBalancedPloys || [];
-        balancedPloys.forEach((bp, bpIdx) => {
-          const btn = document.getElementById(`btn-reroll-ploy-${bpIdx}`);
-          if (btn) {
-            btn.onclick = () => {
-              document.body.removeChild(overlay);
-              const ployDef = getPloy(bp.rule);
-              const label = ployDef ? `${ployDef.name_cn} [Balanced]` : `${bp.rule} [Balanced]`;
-              rerollWeaponRuleDice([idx], label);
-            };
-          }
-        });
-        
-        const btnBaseBalanced = document.getElementById('btn-reroll-base-balanced');
-        if (btnBaseBalanced) {
-          btnBaseBalanced.onclick = () => {
-            document.body.removeChild(overlay);
-            rerollWeaponRuleDice([idx], 'Balanced');
-          };
-        }
-      }
-      
+      const btnDoctrine = document.getElementById('btn-reroll-doctrine');
+      const btnFickle = document.getElementById('btn-reroll-fickle');
+      const btnBaseBalanced = document.getElementById('btn-reroll-base-balanced');
       const btnRelentless = document.getElementById('btn-reroll-relentless');
+      const btnCeaseless = document.getElementById('btn-reroll-ceaseless');
+      
+      if (btnDoctrine) {
+        btnDoctrine.onclick = () => {
+          document.body.removeChild(overlay);
+          rerollWeaponRuleDice([idx], '战斗教条 [Balanced]');
+        };
+      }
+      if (btnFickle) {
+        btnFickle.onclick = () => {
+          document.body.removeChild(overlay);
+          rerollWeaponRuleDice([idx], '命运无常 [Balanced]');
+        };
+      }
+      if (btnBaseBalanced) {
+        btnBaseBalanced.onclick = () => {
+          document.body.removeChild(overlay);
+          rerollWeaponRuleDice([idx], 'Balanced');
+        };
+      }
       if (btnRelentless) {
         btnRelentless.onclick = () => {
           document.body.removeChild(overlay);
           rerollWeaponRuleDice([idx], 'Relentless');
         };
       }
-      
-      const btnCeaseless = document.getElementById('btn-reroll-ceaseless');
       if (btnCeaseless) {
         btnCeaseless.onclick = () => {
           document.body.removeChild(overlay);
-          rerollWeaponRuleDice([idx], 'Ceaseless');
+          const targetVal = wizardState.attackRolls[idx];
+          const indices = wizardState.attackRolls.map((v, i) => v === targetVal ? i : -1).filter(i => i >= 0);
+          rerollWeaponRuleDice(indices, 'Ceaseless');
         };
       }
     }
@@ -1469,18 +1393,7 @@ export function rerollWeaponRuleDice(indices, ruleType) {
   if (wizardState.weaponRerollUsed) return;
   if (!indices || indices.length === 0) return;
   playSound('dice_roll');
-  
-  if (ruleType === 'Ceaseless') {
-    const allOnesRerolled = wizardState.attackRolls.every((val, i) => 
-      val !== 1 || (wizardState.attackRerolledIndices && wizardState.attackRerolledIndices.includes(i)) || indices.includes(i)
-    );
-    if (allOnesRerolled) {
-      wizardState.weaponRerollUsed = true;
-    }
-  } else {
-    wizardState.weaponRerollUsed = true;
-  }
-
+  wizardState.weaponRerollUsed = true;
   if (!wizardState.attackRerolledIndices) wizardState.attackRerolledIndices = [];
   indices.forEach(i => {
     if (!wizardState.attackRerolledIndices.includes(i)) {
@@ -1507,19 +1420,9 @@ export function rerollWeaponRuleDice(indices, ruleType) {
     indices.forEach(i => { wizardState.attackRolls[i] = Math.floor(Math.random() * 6) + 1; });
     const newVals = indices.map(i => wizardState.attackRolls[i]);
     ui.addLog(`  - [${ruleType}] 免费重投骰子 [${oldVals.join(',')}] -> [${newVals.join(',')}]`);
-    logCombatFlow('Reroll', `[武器规则重投: ${ruleType}] 免费将骰子 [${oldVals.join(', ')}] 重新投掷为 [${newVals.join(', ')}]`);
     wizardState.relenlessSelection = [];
-    
-    // Check if any of the new rolls failed specifically due to hit penalty
-    const stepEffTs = getEffectiveTs(wizardState.weapon, wizardState.attacker);
-    const hasPenaltyFail = newVals.some(v => v < stepEffTs && v >= wizardState.weapon.ts);
-    
     recalculateAttackStats();
     renderShootStep();
-
-    if (hasPenaltyFail) {
-      playSound('epic_fail');
-    }
   }, 500);
 }
 
@@ -1609,38 +1512,44 @@ export function recalculateAttackStats() {
   //     其效果由 step6 (Severe 升级) 与防御阶段 (Saturate 移除掩体骰) 经 weaponMods 统一应用，
   //     不再使用 severeFromAbility / saturateFromAbility 标志。
 
-  // === 从 activeDebuffs 动态提取赋予武器的重投规则 ===
-  const activeWeaponRulePloys = attacker?.activeDebuffs?.filter(d => d.target === 'weapon_rule') || [];
-  
-  // 查找是否有任何 ploy 属性赋予了 Balanced / Ceaseless / Relentless
-  const hasBalancedFromPloys = activeWeaponRulePloys.some(d => d.extra_rule === 'Balanced');
-  const hasCeaselessFromPloys = activeWeaponRulePloys.some(d => d.extra_rule === 'Ceaseless');
-  const hasRelentlessFromPloys = activeWeaponRulePloys.some(d => d.extra_rule === 'Relentless');
+  // === Ploy: Combat Doctrine — Balanced 规则 ===
+  const hasBalancedFromDoctrine = attacker?.activeDebuffs?.some(d => d.rule === 'combat_doctrine') || false;
+  const doctrineChoice = getCombatDoctrineChoice(attacker?.faction);
 
-  // 保存这些活跃的重投计谋信息到 wizardState，供重投弹窗动态渲染
-  wizardState.activeBalancedPloys = activeWeaponRulePloys.filter(d => d.extra_rule === 'Balanced');
+  // === Ploy: Fickle Fates — 射击 ready 敌人获得 Balanced ===
+  const hasFickleFates = isFickleFatesActive(attacker?.faction);
+  let hasBalancedFromFickle = false;
+  if (hasFickleFates && !isMelee && defender && !defender.hasActed) {
+    // Defender is "ready" (hasn't acted yet)
+    hasBalancedFromFickle = true;
+    ui.addLog(`[🎲 命运无常] 射击 ready 敌方，武器获得 Balanced！`);
+  }
 
-  // === 判定最终武器重投规则 ===
+  // === 重投类武器规则 (Balanced / Ceaseless / Relentless) ===
   const hasBalancedBase = !!retainMods.rerollOneAttackDie;
-  const hasBalanced = hasBalancedBase || hasBalancedFromPloys;
+  const hasBalancedFromPloy = hasBalancedFromDoctrine || hasBalancedFromFickle;
+  const hasBalanced = hasBalancedBase || hasBalancedFromPloy;
 
+  wizardState.hasBalancedFromDoctrine = hasBalancedFromDoctrine;
+  wizardState.hasBalancedFromFickle = hasBalancedFromFickle;
   wizardState.hasBalancedBase = hasBalancedBase;
 
-  // 命运无常 (Fickle Fates) 升级逻辑：若已有 Balanced 基础属性，则升级为 Relentless
-  const hasFickleFatesBalanced = activeWeaponRulePloys.some(d => d.rule === 'fickle_fates' && d.extra_rule === 'Balanced');
-  const hasRelentlessFromUpgrade = hasBalancedBase && hasFickleFatesBalanced;
+  const hasRelentless = hasFickleFates && !isMelee && defender && !defender.hasActed && hasBalancedBase;
 
-  const isRelentlessActive = (!!retainMods.rerollAnyAttackDice) || hasRelentlessFromPloys || hasRelentlessFromUpgrade;
-  const isCeaselessActive = (!!retainMods.rerollSpecificValue) || hasCeaselessFromPloys;
-
-  // Relentless 优先于 Balanced
-  wizardState.weaponRerollRule = isRelentlessActive ? 'Relentless'
-    : isCeaselessActive ? 'Ceaseless'
-    : hasBalanced ? 'Balanced'
+  wizardState.weaponRerollRule = hasBalanced ? 'Balanced'
+    : retainMods.rerollSpecificValue ? 'Ceaseless'
+    : retainMods.rerollAnyAttackDice ? 'Relentless'
     : null;
 
-  if (hasRelentlessFromUpgrade) {
+  if (hasRelentless) {
     ui.addLog(`[无情] ${weapon.name}：命运无常 + 已有 Balanced → 升级为 Relentless！`);
+  }
+
+  // === Ploy: Lumbering Death — 移动 ≤3" 时 Ceaseless ===
+  const hasLumberingDeath = isLumberingDeathActive(attacker?.faction);
+  if (hasLumberingDeath) {
+    // 需要判断本 activation 移动距离 (物理沙盘无法自动判断，提示玩家)
+    wizardState.lumberingDeathCheck = true;
   }
 
   // === Ploy: Blood for the Blood God — 第一次 strike +1 伤害 (非 KHORNE); KHORNE 近战 Dmg +1 ===
@@ -1879,14 +1788,7 @@ export function recalculateDefenseStats() {
   }
 
   const saturateEffective = saturateActive && !saturateIgnored;
-  // 蝇云遮蔽 (cloudOfFliesActive) 与掩体 (inCover) 效果相同，但不叠加
-  const hasObscuredBonus = (wizardState.inCover || (wizardState.cloudOfFliesActive && !wizardState.inCover)) && !saturateEffective;
-  let norms = hasObscuredBonus ? 1 : 0;
-
-  // === Ploy: Indomitus — 保留 1 个失败攻击骰作为额外普通防御成功 ===
-  if (wizardState.indomitusBonus) {
-    norms += 1;
-  }
+  let norms = (wizardState.inCover && !saturateEffective) ? 1 : 0;
 
   // Hardy (Chapter Tactic): 防御 5+ 为暴击
   const hasHardy = activeRuleSet().factionMechanicsEnabled &&hasChapterTactic(defender, 'hardy');
@@ -1997,280 +1899,125 @@ export function confirmShootResult(dmgPerAttack) {
   const attacker = wizardState.attacker;
   const defender = wizardState.defender;
 
-  const originalTotalDmg = dmgPerAttack.reduce((a, b) => a + b, 0);
+  const attacksRequiringDr = dmgPerAttack.filter(d => d >= 3).length;
 
-  // 1. Pre-Damage Rules Queue (e.g. Disgusting Resilience)
-  const preDamageQueue = [];
-  const attacksRequiringDr = dmgPerAttack.filter(dmg => dmg >= 3).length;
+  let manualDrRolls = null;
+  const drInput = document.getElementById('manual-dr-dice-val');
+  if (drInput && drInput.value.trim() !== '') {
+    manualDrRolls = drInput.value.split(',').map(s => parseInt(s.trim(), 10)).filter(n => !isNaN(n) && n >= 1 && n <= 6);
+  }
+
+  // Validate DR rolls
   if (hasFactionTrait(defender.faction, 'disgustingResilience') && attacksRequiringDr > 0) {
-    preDamageQueue.push({
-      title: '🦠 恶心无视 (Disgustingly Resilient)',
-      description: `防守方 <strong>${defender.name}</strong> 具有【恶心无视】特性。<br>本次受到的攻击中包含了 <strong>${attacksRequiringDr}</strong> 次大于等于 3 点的伤害。<br>请投掷 <strong>${attacksRequiringDr}</strong> 个减伤判定骰，每个 4+ 的结果将减免 1 点伤害！`,
-      requiresDice: true,
-      diceCount: attacksRequiringDr,
-      diceThreshold: 4,
-      onDiceRolled: (rolls, successes) => {
-        let drSuccesses = successes;
-        for (let i = 0; i < dmgPerAttack.length && drSuccesses > 0; i++) {
-          if (dmgPerAttack[i] >= 3) {
-            dmgPerAttack[i] -= 1;
-            drSuccesses--;
-          }
-        }
-        const logMsg = `[恶心无视] ${defender.name} 投掷了 ${attacksRequiringDr} 个减免骰，成功 ${successes} 个，共减免 ${successes} 点伤害！`;
-        ui.addLog(logMsg);
-        logCombatFlow('Rule', logMsg);
+    if (wizardState.mode === 'manual') {
+      if (!manualDrRolls || manualDrRolls.length === 0) {
+        playSound('alert');
+        if (typeof showToast !== 'undefined') showToast('请先填写并确认恶心无视 (DR) 的投掷结果再结算伤害！', 'warning');
+        return;
       }
-    });
+    } else {
+      if (!wizardState.drRolls || wizardState.drRolls.length === 0) {
+        playSound('alert');
+        if (typeof showToast !== 'undefined') showToast('请先点击投掷“恶心无视”骰子再结算伤害！', 'warning');
+        return;
+      }
+    }
+  }
+  ui.addLog(`
+--- 射击结算阶段 ---`);
+  ui.addLog(`[攻击方] ${attacker.name} 使用 ${wizardState.weapon.name} 射击`);
+  ui.addLog(`[防守方] ${defender.name}`);
+
+  const oldWounds = defender.wounds;
+  const actualDamage = defender.applyWounds(
+    dmgPerAttack,
+    wizardState.mode === 'manual' ? manualDrRolls : wizardState.drRolls,
+    wizardState.mode === 'manual' ? 'manual' : 'auto'
+  );
+  const drReduced = dmgPerAttack - actualDamage;
+
+  if (actualDamage > 0 || drReduced > 0) {
+    playSound('shoot');
+  } else {
+    playSound('save');
+    ui.triggerCombatVisual("SAVED", "parry");
   }
 
-  resolveRuleQueue(preDamageQueue, () => {
-    ui.addLog(`\n--- 射击结算阶段 ---`);
-    ui.addLog(`[攻击方] ${attacker.name} 使用 ${wizardState.weapon.name} 射击`);
-    ui.addLog(`[防守方] ${defender.name}`);
-
-    // === 2. Calculate Pending Wounds ===
-    const oldWounds = defender.wounds;
-    
-    // 我们不直接调用 applyWounds 造成真实扣血，而是计算预期扣血
-    let actualDamage = 0;
-    dmgPerAttack.forEach(dmg => {
-      let actualHitDmg = dmg;
-      if (defender.isInjured && isIgnoreInjuredPenalties(defender)) {
-        // ... (省略复杂的计算，简化为仅累加)
-      }
-      actualDamage += dmg; 
-    });
-    // 恶心无视的回调（若有）已经直接修改了 dmgPerAttack 数组，所以重新 reduce 即可得到最终伤害
-    actualDamage = dmgPerAttack.reduce((a, b) => a + b, 0);
-    const drReduced = originalTotalDmg - actualDamage;
-
-    let newDefenderWounds = defender.wounds - actualDamage;
-    if (newDefenderWounds < 0) newDefenderWounds = 0;
-    
-    wizardState.pendingResults.defenderWounds = newDefenderWounds;
-    wizardState.pendingResults.defenderDead = newDefenderWounds <= 0;
-    wizardState.pendingResults.attackerWounds = attacker.wounds;
-    wizardState.pendingResults.attackerDead = attacker.isDead;
-    wizardState.pendingResults.defenderTokens = [...(defender.tokens || [])];
-    wizardState.pendingResults.attackerTokens = [...(attacker.tokens || [])];
-    wizardState.pendingResults.defenderPoisonTokens = defender.poisonTokens || 0;
-    wizardState.pendingResults.attackerPoisonTokens = attacker.poisonTokens || 0;
-
-    logCombatFlow('Damage', `预计对 ${defender.name} 造成 ${actualDamage} 点伤害 (剩余 HP: ${newDefenderWounds}/${defender.maxWounds})`);
-
-    // === 3. Post-Damage Rules Queue ===
-    const rulesQueue = [];
-
-    const hasPsychic = !!weaponMods(wizardState.weapon).perilOnFailValue;
-    if (hasPsychic) {
-      const perilCount = wizardState.attackRolls.filter(r => r === 1).length;
-      if (perilCount > 0) {
-        rulesQueue.push({
-          title: '⚠️ 亚空间反噬 (PSYCHIC)',
-          description: `灵能武器 <strong>${wizardState.weapon.name}</strong> 引导发生反噬！<br>
-                        在进攻投骰中出现了 <strong>${perilCount}</strong> 个【1】。<br>
-                        施法特工 <strong>${attacker.name}</strong> 受到 <strong>${perilCount}</strong> 点致命伤害！`,
-          onResolve: () => {
-            wizardState.pendingResults.attackerWounds -= perilCount;
-            if(wizardState.pendingResults.attackerWounds < 0) wizardState.pendingResults.attackerWounds = 0;
-            logCombatFlow('PSYCHIC', `${attacker.name} 预计受到 ${perilCount} 点反噬伤害`);
-          }
-        });
-      }
-    }
-
-    const hasHot = !!weaponMods(wizardState.weapon).selfDamageOnLowRoll;
-    if (hasHot) {
-      const hitStat = wizardState.weapon.ts;
-      rulesQueue.push({
-        title: '⚠️ 武器过热 (Hot)',
-        description: `武器 <strong>${wizardState.weapon.name}</strong> 具有过热风险。<br>
-                      请投掷 1 个判定骰。若结果小于该武器命中阈值 (${hitStat})，射手将受到结果 × 2 的致命伤害！`,
-        requiresDice: true,
-        diceCount: 1,
-        diceIsUnder: hitStat,
-        onDiceRolled: (rolls, successes) => {
-          const hotRoll = rolls[0];
-          if (hotRoll < hitStat) {
-            const hotDamage = hotRoll * 2;
-            wizardState.pendingResults.attackerWounds -= hotDamage;
-            if(wizardState.pendingResults.attackerWounds < 0) wizardState.pendingResults.attackerWounds = 0;
-            logCombatFlow('Hot', `过热判定 [${hotRoll}] 失败，预计受到 ${hotDamage} 点伤害`);
-          } else {
-            logCombatFlow('Hot', `过热判定 [${hotRoll}] 安全`);
-          }
-        }
-      });
-    }
-
-    const hasPoison = !!weaponMods(wizardState.weapon).applyPoisonTokenOnDamage;
-    if (hasPoison && actualDamage > 0 && defender.poisonTokens < 1) {
-      rulesQueue.push({
-        title: '☠️ 毒素感染 (Poison)',
-        description: `本次攻击造成了伤害，武器的【毒素】特性生效！<br>
-                      目标 <strong>${defender.name}</strong> 获得了 1 个毒素标记。<br>
-                      在其次激活开始时将自动受到 1 点伤害。`,
-        onResolve: () => {
-            wizardState.pendingResults.defenderPoisonTokens = (wizardState.pendingResults.defenderPoisonTokens || 0) + 1;
-            logCombatFlow('Poison', `${defender.name} 预计获得毒素标记`);
-          }
-      });
-    }
-
-    if (defender.isDead && activeRuleSet().hasKillCallbacks) {
-      rulesQueue.push({
-        title: '💀 击杀确认 (Kill)',
-        description: `本次攻击击杀了 <strong>${defender.name}</strong>。<br>正在结算相关的特工战术目标或特性收益...`,
-        onResolve: () => {
-          triggerKillAbilities(attacker, defender, 'shoot', actualDamage);
-        }
-      });
-    }
-
-    // Run Post-Damage Queue
-    resolveRuleQueue(rulesQueue, () => {
-      // 交由 UI 渲染弹窗
-      if (typeof ui.showCombatSummaryModal === 'function') {
-        ui.showCombatSummaryModal(actualDamage);
-      } else {
-        // Fallback if not implemented
-        applyFinalCombatResults();
-      }
-    }); // End of post-damage resolveRuleQueue
-  }); // End of pre-damage resolveRuleQueue
-}
-
-export function applyFinalCombatResults(extraCallback) {
-  const attacker = wizardState.attacker;
-  const defender = wizardState.defender;
-  const p = wizardState.pendingResults;
-
-  const initialAttackerWounds = attacker.wounds;
-  const initialDefenderWounds = defender.wounds;
-
-  const attackerTookDamage = p.attackerWounds < attacker.wounds;
-  const defenderTookDamage = p.defenderWounds < defender.wounds;
-  const attackerDied = p.attackerWounds <= 0 && attacker.wounds > 0;
-  const defenderDied = p.defenderWounds <= 0 && defender.wounds > 0;
-
-  attacker.wounds = p.attackerWounds;
-  attacker.isDead = p.attackerWounds <= 0;
-  attacker.tokens = p.attackerTokens;
-  if (p.attackerPoisonTokens !== undefined) attacker.poisonTokens = p.attackerPoisonTokens;
-
-  defender.wounds = p.defenderWounds;
-  defender.isDead = p.defenderWounds <= 0;
-  defender.tokens = p.defenderTokens;
-  if (p.defenderPoisonTokens !== undefined) defender.poisonTokens = p.defenderPoisonTokens;
-
-  const isSecondary = wizardState.isSecondaryTarget;
-
-  if (!isSecondary) {
-    attacker.apl -= 1;
-    attacker.actionsPerformed.push(wizardState.actionType === 'shoot' ? 'Shoot' : 'Fight');
-    ui.addLog(`[行动点] ${attacker.name} 消耗 1 APL，当前 APL: ${attacker.apl}`);
+  // === Standard 规则: 击杀回调 ===
+  if (defender.isDead && activeRuleSet().hasKillCallbacks) {
+    triggerKillAbilities(attacker, defender, 'shoot', actualDamage);
   }
+
+  // Poison 规则：造成 ≥1 伤害且武器有 Poison，defender 获得 poison token（注册表检测）
+  const hasPoison = !!weaponMods(wizardState.weapon).applyPoisonTokenOnDamage;
+  if (hasPoison && actualDamage > 0 && defender.poisonTokens < 1) {
+    defender.poisonTokens = 1;
+    ui.addLog(`[毒素] ${defender.name} 获得了 1 个毒素标记！下次激活开始时将受到 1 点伤害。`);
+  }
+
+  // PSYCHIC 规则：攻击方每投出 1，自己受到 1 点伤害 (Peril，注册表检测)
+  const hasPsychic = !!weaponMods(wizardState.weapon).perilOnFailValue;
+  if (hasPsychic) {
+    const perilCount = wizardState.attackRolls.filter(r => r === 1).length;
+    if (perilCount > 0) {
+      ui.addLog(`
+<div style="background: rgba(239, 68, 68, 0.12); border-left: 4px solid #ef4444; padding: 8px; margin: 6px 0; border-radius: 4px; font-size: 0.85rem;">
+  <span style="color:#ef4444; font-weight:bold; font-size: 0.95rem;">⚠️ [亚空间反噬 (PSYCHIC Peril)]</span><br>
+  灵能武器 <strong style="color:#fff;">${wizardState.weapon.name}</strong> 引导失败，发生反噬！<br>
+  在进攻投骰中出现了 <strong style="color:#ef4444; font-size: 1rem;">${perilCount}</strong> 个【1】，施法特工 <strong style="color:#fff;">${attacker.name}</strong> 因而受到 <strong style="color:#ef4444; font-size: 1rem;">${perilCount}</strong> 点致命伤害！
+</div>`);
+      attacker.applyWounds(perilCount, null, 'auto', '亚空间反噬');
+    }
+  }
+
+  // Hot 规则：使用后投 D6，若 < Hit，反噬 = 结果 × 2
+  // "After an operative uses this weapon, roll one D6: if the result is less
+  //  than the weapon's Hit stat, inflict damage on that operative equal to
+  //  the result multiplied by two."
+  const hasHot = !!weaponMods(wizardState.weapon).selfDamageOnLowRoll;
+  if (hasHot) {
+    const hotRoll = Math.floor(Math.random() * 6) + 1;
+    const hitStat = wizardState.weapon.ts;
+    if (hotRoll < hitStat) {
+      const hotDamage = hotRoll * 2;
+      ui.addLog(`
+<div style="background: rgba(245, 158, 11, 0.12); border-left: 4px solid #f59e0b; padding: 8px; margin: 6px 0; border-radius: 4px; font-size: 0.85rem;">
+  <span style="color:#f59e0b; font-weight:bold; font-size: 0.95rem;">⚠️ [武器过热 (Hot Overcharge)]</span><br>
+  过热武器 <strong style="color:#fff;">${wizardState.weapon.name}</strong> 发生核心过热自伤！<br>
+  过热判定骰子掷出 <strong style="color:#f59e0b; font-size: 1.05rem;">[${hotRoll}]</strong>（小于该武器命中阈值 ${hitStat}），特工 <strong style="color:#fff;">${attacker.name}</strong> 受到 <strong style="color:#ef4444; font-size: 1rem;">${hotDamage}</strong> 点过热伤害 (判定值 ${hotRoll} × 2)！
+</div>`);
+      attacker.applyWounds(hotDamage, null, 'auto', '武器过热自伤');
+    } else {
+      ui.addLog(`[过热] ${wizardState.weapon.name}：过热判定掷出 [${hotRoll}] ≥ 命中阈值 ${hitStat}，安全。`);
+    }
+  }
+
+  attacker.apl -= 1;
+  attacker.actionsPerformed.push('Shoot');
+  ui.addLog(`[行动点] ${attacker.name} 消耗 1 APL，当前 APL: ${attacker.apl}`);
 
   closeModal();
 
-  // Sequence visual events in the queue
-  const attackerDamageTaken = initialAttackerWounds - p.attackerWounds;
-  const defenderDamageTaken = initialDefenderWounds - p.defenderWounds;
-  
-  if (wizardState.actionType === 'shoot' && attackerTookDamage && typeof ui.queueVisualEvent === 'function') {
-    ui.queueVisualEvent({
-      type: 'callback',
-      data: {
-        fn: () => {
-          effects.playFullCombatEffect(attacker.id, wizardState.actionType, "-" + attackerDamageTaken + " Wounds", wizardState.actionType);
-          return new Promise(r => setTimeout(r, 900));
-        }
-      }
-    });
+  if (actualDamage > 0) {
+    setTimeout(() => {
+      ui.triggerAvatarHitEffect(defender.id, 'shoot');
+    }, 100);
   }
 
-  if (wizardState.actionType === 'shoot' && defenderTookDamage && typeof ui.queueVisualEvent === 'function') {
-    ui.queueVisualEvent({
-      type: 'callback',
-      data: {
-        fn: () => {
-          effects.playFullCombatEffect(defender.id, wizardState.actionType, "-" + defenderDamageTaken + " Wounds", wizardState.actionType);
-          return new Promise(r => setTimeout(r, 900));
-        }
-      }
-    });
-  } else if (!defenderTookDamage && wizardState.actionType === 'shoot' && typeof ui.queueVisualEvent === 'function') {
-    ui.queueVisualEvent({
-      type: 'callback',
-      data: {
-        fn: () => {
-          effects.playFullCombatEffect(defender.id, 'parry', "SAVED", "parry");
-          return new Promise(r => setTimeout(r, 900));
-        }
-      }
-    });
+  // === Blast/Torrent 多目标射击 ===
+  const triggerMods = weaponMods(wizardState.weapon);
+  const hasBlastRule = !!triggerMods.aoePrimarySecondary;
+  const hasTorrentRule = !!triggerMods.aoeRadius;
+  if (hasBlastRule || hasTorrentRule) {
+    handleBlastTorrentSecondaries(attacker, defender, wizardState.weapon, hasBlastRule, hasTorrentRule);
   }
 
-  if (attackerDied && typeof ui.queueVisualEvent === 'function') {
-    ui.queueVisualEvent({
-      type: 'death',
-      data: { operative: attacker }
-    });
-  }
-
-  if (defenderDied && typeof ui.queueVisualEvent === 'function') {
-    ui.queueVisualEvent({
-      type: 'death',
-      data: { operative: defender }
-    });
-  }
-
-  // Next steps callback
-  if (typeof ui.queueVisualEvent === 'function') {
-    ui.queueVisualEvent({
-      type: 'callback',
-      data: {
-        fn: () => {
-          if (ui.renderOperatives) ui.renderOperatives();
-          if (ui.updateActivePanel) ui.updateActivePanel();
-          
-          if (wizardState.actionType === 'shoot' && !isSecondary) {
-            const triggerMods = weaponMods(wizardState.weapon);
-            const hasBlastRule = !!triggerMods.aoePrimarySecondary;
-            const hasTorrentRule = !!triggerMods.aoeRadius;
-            if (hasBlastRule || hasTorrentRule) {
-              handleBlastTorrentSecondaries(attacker, defender, wizardState.weapon, hasBlastRule, hasTorrentRule);
-              return; 
-            }
-          }
-          if (wizardState.actionType === 'shoot' && isSecondary) {
-            processNextSecondaryTarget();
-            return;
-          }
-          if (extraCallback) extraCallback();
-        }
-      }
-    });
-  } else {
-    // Fallback if visual queue is broken
-    if (ui.renderOperatives) ui.renderOperatives();
-    if (ui.updateActivePanel) ui.updateActivePanel();
-    
-    if (wizardState.actionType === 'shoot' && !isSecondary) {
-      const triggerMods = weaponMods(wizardState.weapon);
-      const hasBlastRule = !!triggerMods.aoePrimarySecondary;
-      const hasTorrentRule = !!triggerMods.aoeRadius;
-      if (hasBlastRule || hasTorrentRule) {
-        handleBlastTorrentSecondaries(attacker, defender, wizardState.weapon, hasBlastRule, hasTorrentRule);
-        return; 
-      }
-    }
-    if (wizardState.actionType === 'shoot' && isSecondary) {
-      processNextSecondaryTarget();
-      return;
-    }
-    if (extraCallback) extraCallback();
+  // === Devastating 距离前缀 AoE（"1" Devastating x"）===
+  // 仅当保留暴击 + 距离前缀存在时；与 Blast/Torrent 互斥（避免双 modal，二者无现役组合）
+  const devAoeDist = triggerMods.aoeDistance;
+  const devVal = triggerMods.immediateCritDmg || 0;
+  if (!hasBlastRule && !hasTorrentRule && devAoeDist && devVal > 0 && wizardState.attackCrit > 0) {
+    handleDevastatingAoe(attacker, defender, wizardState.weapon, devVal, devAoeDist, wizardState.attackCrit);
   }
 }
 
@@ -2279,7 +2026,72 @@ export function applyFinalCombatResults(extraCallback) {
  * Blast: 主目标后，对 3" 内每个次要目标射击 (使用相同武器数据)
  * Torrent: 主目标后，选择任意数量额外目标射击
  */
+/**
+ * 自动结算一次"次要目标"攻击（用于 Blast/Torrent 多目标）。
+ * 自包含：独立投攻击骰 + 保留阶段规则 + 防御骰 + 对消级联 + 伤害（暴击/普通分算）。
+ * 不走向导 UI，结果直接写入日志并扣血。
+ * @param {Object} attacker - 攻击方 Operative
+ * @param {Object} weapon - 武器
+ * @param {Object} defender - 次要目标 Operative
+ */
+function autoResolveSecondaryAttack(attacker, weapon, defender) {
+  const effectiveTs = getEffectiveTs(weapon, attacker);
+  const lethalThreshold = weaponMods(effectiveWeapon(weapon, attacker)).critThreshold ?? 6;
 
+  // 攻击骰
+  const rolls = [];
+  for (let i = 0; i < weapon.attacks; i++) rolls.push(Math.floor(Math.random() * 6) + 1);
+  let aCrit = 0, aNorm = 0;
+  rolls.forEach(v => { if (v >= lethalThreshold) aCrit++; else if (v >= effectiveTs) aNorm++; });
+
+  // 保留阶段规则 (基础 + 阵营派生经 effectiveWeapon 注入，与主目标同源)
+  const retainMods = weaponMods(effectiveWeapon(weapon, attacker), { retainedCrits: aCrit, retainedNorms: aNorm });
+  if (retainMods.autoRetainNormal) {
+    const fails = rolls.filter(v => v < effectiveTs && v < lethalThreshold).length;
+    aNorm += Math.min(retainMods.autoRetainNormal, fails);
+  }
+  if (retainMods.upgradeNormalToCrit && retainMods.source === 'Rending' && aCrit > 0 && aNorm > 0) { aNorm -= 1; aCrit += 1; }
+  if (retainMods.retainOneFailAsNormal && aCrit > 0) {
+    const fails = rolls.filter(v => v < effTs && v !== 6 && v < lethalThreshold).length;
+    if (fails > 0) aNorm += 1;
+  }
+  if (retainMods.upgradeNormalToCrit && retainMods.source === 'Severe' && aCrit === 0 && aNorm >= 1) { aNorm -= 1; aCrit += 1; }
+
+  ui.addLog(`  攻击骰 [${rolls.join(', ')}] → ${aCrit} 暴击, ${aNorm} 普通`);
+  if (aCrit + aNorm === 0) { ui.addLog(`  无命中，跳过。`); return; }
+
+  // 防御骰
+  const defRolls = [];
+  for (let i = 0; i < defender.df; i++) defRolls.push(Math.floor(Math.random() * 6) + 1);
+  let dCrit = 0, dNorm = 0;
+  defRolls.forEach(v => { if (v === 6) dCrit++; else if (v >= defender.sv) dNorm++; });
+  ui.addLog(`  防御骰 [${defRolls.join(', ')}] → ${dCrit} 暴击, ${dNorm} 普通`);
+
+  // 对消级联（与主目标 step6 一致）：暴击攻 vs 暴击防；剩余暴击攻用 2 普通防；普通攻 vs 普通防；剩余普通攻用暴击防
+  let remACrit = aCrit, remANorm = aNorm, remDCrit = dCrit, remDNorm = dNorm;
+  const cwc = Math.min(remACrit, remDCrit); remACrit -= cwc; remDCrit -= cwc;
+  if (remACrit > 0 && remDNorm >= 2) {
+    const cwnp = Math.min(remACrit, Math.floor(remDNorm / 2)); remACrit -= cwnp; remDNorm -= cwnp * 2;
+  }
+  const nwn = Math.min(remANorm, remDNorm); remANorm -= nwn; remDNorm -= nwn;
+  const nwc = Math.min(remANorm, remDCrit); remANorm -= nwc; remDCrit -= nwc;
+
+  // 伤害（暴击=criticalDamage，普通=normalDamage；Devastating 每个剩余暴击 +x）
+  const devVal = weaponMods(effectiveWeapon(weapon, attacker)).immediateCritDmg || 0;
+  const dmgPerAttack = [];
+  for (let i = 0; i < remACrit; i++) dmgPerAttack.push(weapon.criticalDamage + devVal);
+  for (let i = 0; i < remANorm; i++) dmgPerAttack.push(weapon.normalDamage);
+  const totalDmg = dmgPerAttack.reduce((s, v) => s + v, 0);
+
+  if (totalDmg > 0) {
+    const oldW = defender.wounds;
+    const actual = defender.applyWounds(dmgPerAttack, null, 'auto', '次要目标溅射');
+    ui.addLog(`  穿透 ${remACrit}暴击+${remANorm}普通 → ${actual} 伤害 (${oldW}→${defender.wounds} HP)`);
+    if (defender.isDead) ui.addLog(`  💀 ${defender.name} 被击杀！`);
+  } else {
+    ui.addLog(`  全部被格挡！`);
+  }
+}
 
 function handleBlastTorrentSecondaries(attacker, primaryDefender, weapon, hasBlast, hasTorrent) {
   const allEnemies = gameState.operatives.filter(
@@ -2342,49 +2154,32 @@ export function resolveSecondaries(confirmed) {
 
   closeModal();
 
-  if (!confirmed || selectedIds.length === 0) {
-    ui.addLog(`[多目标] 未选择任何次要目标或跳过。`);
+  if (!confirmed) {
+    ui.addLog(`[多目标] 跳过次要目标射击。`);
     return;
   }
 
-  wizardState.secondaryQueue = selectedIds;
-  processNextSecondaryTarget();
-}
-
-export function processNextSecondaryTarget() {
-  if (wizardState.secondaryQueue && wizardState.secondaryQueue.length > 0) {
-    const nextTargetId = wizardState.secondaryQueue.shift();
-    const target = gameState.operatives.find(op => op.id === nextTargetId);
-    
-    if (target && !target.isDead) {
-      wizardState.isSecondaryTarget = true;
-      wizardState.defender = target;
-      wizardState.step = 3;
-      wizardState.attackRolls = [];
-      wizardState.defenseRolls = [];
-      wizardState.attackRerolledIndices = [];
-      wizardState.combatFlow = [];
-      wizardState.weaponRerollUsed = false;
-      wizardState.weaponRerollRule = null;
-      wizardState.stunApplied = false;
-      
-      const ruleLabel = weaponHasRule(wizardState.weapon, 'Blast') ? 'Blast' : 'Torrent';
-      ui.addLog(`\n--- [多目标] ${ruleLabel} 开始次要目标结算: ${target.name} ---`);
-      
-      renderShootStep();
-      const combatModal = document.getElementById('combat-modal');
-      if (combatModal) combatModal.style.display = 'flex';
-      return;
-    } else {
-      processNextSecondaryTarget();
-    }
-  } else {
-    ui.addLog(`[多目标] 所有次要目标射击结算完毕。`);
-    wizardState.isSecondaryTarget = false;
-    closeModal();
-    if (ui.renderOperatives) ui.renderOperatives();
-    if (ui.updateActivePanel) ui.updateActivePanel();
+  if (selectedIds.length === 0) {
+    ui.addLog(`[多目标] 未选择任何次要目标。`);
+    return;
   }
+
+  const attacker = wizardState.attacker;
+  const weapon = wizardState.weapon;
+
+  selectedIds.forEach(targetId => {
+    const target = gameState.operatives.find(op => op.id === targetId);
+    if (!target || target.isDead) return;
+
+    const ruleLabel = weaponHasRule(weapon, 'Blast') ? 'Blast' : 'Torrent';
+    ui.addLog(`\n--- ${ruleLabel} 次要目标: ${target.name} ---`);
+
+    // 每个次要目标独立完整结算（投攻击骰/防御骰/对消/伤害，暴击与普通分算）
+    autoResolveSecondaryAttack(attacker, weapon, target);
+  });
+
+  ui.renderOperatives?.();
+  ui.updateActivePanel?.();
 }
 
 /**
@@ -2474,8 +2269,6 @@ export function openFightWizard() {
       modalContent.style.backgroundPosition = 'center';
     }
 
-    window.pushStateSnapshot?.(`Start Fight: ${op.name}`);
-
     Object.assign(wizardState, {
       actionType: 'fight',
       step: 1,
@@ -2488,15 +2281,9 @@ export function openFightWizard() {
       mode: gameState.globalRollMode,
       activeAttackerDice: [],
       activeDefenderDice: [],
-      attackRolls: [],
-      defenseRolls: [],
-      attackRerolledIndices: [],
-      weaponRerollUsed: false,
-      weaponRerollRule: null,
       meleeTurn: 'attacker',
       meleeLogs: '',
       drRolls: [],
-      combatFlow: [],
     });
 
     if (!wizardState.weapon) {
@@ -2710,13 +2497,6 @@ export function renderFightStep() {
 
   else if (wizardState.step === 5) {
     title.textContent = '近战结算 - 步骤 5: 伤害与格挡交替分配';
-
-    // 如果当前行动方已经没有任何可用的成功骰，自动将结算权移交给对方
-    if (wizardState.meleeTurn === 'attacker' && wizardState.activeAttackerDice.every(d => d.used)) {
-      wizardState.meleeTurn = 'defender';
-    } else if (wizardState.meleeTurn === 'defender' && wizardState.activeDefenderDice.every(d => d.used)) {
-      wizardState.meleeTurn = 'attacker';
-    }
 
     const attackerAlive = wizardState.attacker.wounds > 0;
     const defenderAlive = wizardState.defender.wounds > 0;
@@ -2944,7 +2724,6 @@ export function rollMeleeDice() {
     const attCubes = attPool.getElementsByClassName('kt-dice-cube');
     const skipAttEffTs = getEffectiveTs(wizardState.weapon, wizardState.attacker);
     const skipDefEffTs = getEffectiveTs(defMeleeWeapon, wizardState.defender);
-    let hasMeleePenaltyFail = false;
     for (let i = attSettleIndex; i < totalAttacks; i++) {
       const val = Math.floor(Math.random() * 6) + 1;
       finalAttRolls.push(val);
@@ -2953,16 +2732,7 @@ export function rollMeleeDice() {
         cube.classList.remove('rolling');
         cube.textContent = val;
         if (val === 6) cube.classList.add('crit-dice');
-        else if (val < skipAttEffTs) {
-          cube.classList.add('fail-dice');
-          if (val >= wizardState.weapon.ts) {
-            const badge = document.createElement('div');
-            badge.style.cssText = 'position: absolute; bottom: -10px; left: -10px; background: var(--red); border-radius: 50%; width: 22px; height: 22px; font-size: 0.7rem; display: flex; align-items: center; justify-content: center; color: white; font-weight: bold; border: 1.5px solid #fff; box-shadow: 0 2px 5px rgba(0,0,0,0.5); z-index: 5;';
-            badge.textContent = '+1';
-            cube.appendChild(badge);
-            hasMeleePenaltyFail = true;
-          }
-        }
+        else if (val < skipAttEffTs) cube.classList.add('fail-dice');
       }
     }
     // Settle all remaining defender dice
@@ -2975,22 +2745,10 @@ export function rollMeleeDice() {
         cube.classList.remove('rolling');
         cube.textContent = val;
         if (val === 6) cube.classList.add('crit-dice');
-        else if (val < skipDefEffTs) {
-          cube.classList.add('fail-dice');
-          if (val >= defMeleeWeapon.ts) {
-            const badge = document.createElement('div');
-            badge.style.cssText = 'position: absolute; bottom: -10px; left: -10px; background: var(--red); border-radius: 50%; width: 22px; height: 22px; font-size: 0.7rem; display: flex; align-items: center; justify-content: center; color: white; font-weight: bold; border: 1.5px solid #fff; box-shadow: 0 2px 5px rgba(0,0,0,0.5); z-index: 5;';
-            badge.textContent = '+1';
-            cube.appendChild(badge);
-            hasMeleePenaltyFail = true;
-          }
-        }
+        else if (val < skipDefEffTs) cube.classList.add('fail-dice');
       }
     }
     finishMeleeRolls();
-    if (hasMeleePenaltyFail) {
-      playSound('epic_fail');
-    }
   };
   // Append to a common parent that holds the button
   const meleeBody = document.getElementById('modal-body');
@@ -3022,13 +2780,6 @@ export function rollMeleeDice() {
       } else if (val < attEffTs) {
         cube.classList.add('fail-dice');
         playSound('dice_drop');
-        if (val >= wizardState.weapon.ts) {
-          const badge = document.createElement('div');
-          badge.style.cssText = 'position: absolute; bottom: -10px; left: -10px; background: var(--red); border-radius: 50%; width: 22px; height: 22px; font-size: 0.7rem; display: flex; align-items: center; justify-content: center; color: white; font-weight: bold; border: 1.5px solid #fff; box-shadow: 0 2px 5px rgba(0,0,0,0.5); z-index: 5;';
-          badge.textContent = '+1';
-          cube.appendChild(badge);
-          playSound('epic_fail');
-        }
       } else {
         playSound('dice_drop');
       }
@@ -3059,13 +2810,6 @@ export function rollMeleeDice() {
       } else if (val < defEffTs) {
         cube.classList.add('fail-dice');
         playSound('dice_drop');
-        if (val >= defMeleeWeapon.ts) {
-          const badge = document.createElement('div');
-          badge.style.cssText = 'position: absolute; bottom: -10px; left: -10px; background: var(--red); border-radius: 50%; width: 22px; height: 22px; font-size: 0.7rem; display: flex; align-items: center; justify-content: center; color: white; font-weight: bold; border: 1.5px solid #fff; box-shadow: 0 2px 5px rgba(0,0,0,0.5); z-index: 5;';
-          badge.textContent = '+1';
-          cube.appendChild(badge);
-          playSound('epic_fail');
-        }
       } else {
         playSound('dice_drop');
       }
@@ -3146,9 +2890,6 @@ export function rollMeleeDice() {
       body.appendChild(rerollDiv);
     }
 
-    // 动画结束后，重新渲染为可点击交互的骰子视图（包含重投角标等）
-    renderMeleeRollsView();
-
     nextBtn.disabled = false;
   }
 
@@ -3158,7 +2899,7 @@ export function rollMeleeDice() {
 // 黑暗狂热: 重投 1 个失败近战骰
 export function rerollMeleeDice(side) {
   if (wizardState.darkZealotryUsed[side]) {
-    if (showToast) showToast('每方只能使用 1 次黑暗狂热重投！', 'warning');
+    ui.showToast('每方只能使用 1 次黑暗狂热重投！', 'warning');
     return;
   }
 
@@ -3166,7 +2907,7 @@ export function rerollMeleeDice(side) {
   const failedRolls = allRolls.filter(r => !r.isSuccess);
 
   if (failedRolls.length === 0) {
-    if (showToast) showToast('没有可重投的失败骰！', 'warning');
+    ui.showToast('没有可重投的失败骰！', 'warning');
     return;
   }
 
@@ -3223,55 +2964,17 @@ export function renderMeleeRollsView() {
 
   const attDiceClass = getDiceClass(wizardState.attacker.faction);
   const defDiceClass = getDiceClass(wizardState.defender.faction);
-  
-  // 获取武器规则
-  const activeAttPloys = wizardState.attacker?.activeDebuffs?.filter(d => d.target === 'weapon_rule') || [];
-  const hasAttCeaseless = (wizardState.weapon?.hasRule && wizardState.weapon.hasRule('Ceaseless')) || activeAttPloys.some(p => p.rule === 'lumbering_death' && p.extra_rule === 'Ceaseless' && wizardState.attacker.faction === 'Plague Marine');
-  const wAttReroll = hasAttCeaseless ? 'Ceaseless' : 'none';
-
-  // 防守方检测 innate Ceaseless
-  const hasDefCeaseless = wizardState.meleeDefWeapon?.hasRule && wizardState.meleeDefWeapon.hasRule('Ceaseless');
-  const wDefReroll = hasDefCeaseless ? 'Ceaseless' : 'none';
 
   attPool.innerHTML = '';
-  wizardState.allAttackerRolls.forEach((d, idx) => {
+  wizardState.activeAttackerDice.forEach(d => {
     let cls = `kt-dice-cube ${attDiceClass}`;
     if (d.isCrit) cls += ' crit-dice';
-    else if (!d.isSuccess) cls += ' fail-dice';
-    
     const dice = document.createElement('div');
     dice.className = cls;
     dice.textContent = d.val;
-    
-    // 渲染红叉或绿勾
-    const hasAlreadyRerolled = (wizardState.attMeleeRerolledIndices || []).includes(idx);
-    if (hasAlreadyRerolled) {
-      dice.style.cursor = 'not-allowed';
-      const badge = document.createElement('div');
-      badge.className = 'reroll-indicator';
-      badge.style.background = d.isSuccess ? 'var(--green)' : 'var(--red)';
-      badge.textContent = d.isSuccess ? '✓' : '✖';
-      dice.appendChild(badge);
-    } else {
-      dice.style.cursor = 'pointer';
-      const badge = document.createElement('div');
-      badge.className = 'reroll-indicator';
-      
-      // 检测 Ceaseless
-      if (wAttReroll === 'Ceaseless' && d.val === 1) {
-        badge.textContent = 'C';
-        badge.style.background = 'var(--gold)';
-        badge.style.color = 'black';
-      } else {
-        badge.textContent = 'R';
-      }
-      dice.appendChild(badge);
-      dice.onclick = () => showMeleeRerollModal('attacker', idx, wAttReroll);
-    }
-    
     attPool.appendChild(dice);
   });
-  if (wizardState.allAttackerRolls.length === 0) {
+  if (wizardState.activeAttackerDice.length === 0) {
     const span = document.createElement('span');
     span.style.cssText = 'color:var(--text-muted);font-size:0.85rem;';
     span.textContent = '全部未命中';
@@ -3279,191 +2982,20 @@ export function renderMeleeRollsView() {
   }
 
   defPool.innerHTML = '';
-  wizardState.allDefenderRolls.forEach((d, idx) => {
+  wizardState.activeDefenderDice.forEach(d => {
     let cls = `kt-dice-cube ${defDiceClass}`;
     if (d.isCrit) cls += ' crit-dice';
-    else if (!d.isSuccess) cls += ' fail-dice';
-    
     const dice = document.createElement('div');
     dice.className = cls;
     dice.textContent = d.val;
-    
-    // 渲染红叉或绿勾
-    const hasAlreadyRerolled = (wizardState.defMeleeRerolledIndices || []).includes(idx);
-    if (hasAlreadyRerolled) {
-      dice.style.cursor = 'not-allowed';
-      const badge = document.createElement('div');
-      badge.className = 'reroll-indicator';
-      badge.style.background = d.isSuccess ? 'var(--green)' : 'var(--red)';
-      badge.textContent = d.isSuccess ? '✓' : '✖';
-      dice.appendChild(badge);
-    } else {
-      dice.style.cursor = 'pointer';
-      const badge = document.createElement('div');
-      badge.className = 'reroll-indicator';
-      
-      if (wDefReroll === 'Ceaseless' && d.val === 1) {
-        badge.textContent = 'C';
-        badge.style.background = 'var(--gold)';
-        badge.style.color = 'black';
-      } else {
-        badge.textContent = 'R';
-      }
-      dice.appendChild(badge);
-      dice.onclick = () => showMeleeRerollModal('defender', idx, wDefReroll);
-    }
-    
     defPool.appendChild(dice);
   });
-  if (wizardState.allDefenderRolls.length === 0) {
+  if (wizardState.activeDefenderDice.length === 0) {
     const span = document.createElement('span');
     span.style.cssText = 'color:var(--text-muted);font-size:0.85rem;';
     span.textContent = '全部未命中';
     defPool.appendChild(span);
   }
-}
-
-export function showMeleeRerollModal(side, idx, wReroll) {
-  const isDefense = side === 'defender';
-  const isRerolledAlready = isDefense
-    ? (wizardState.defMeleeRerolledIndices || []).includes(idx)
-    : (wizardState.attMeleeRerolledIndices || []).includes(idx);
-    
-  if (isRerolledAlready) {
-    if (showToast) showToast('该骰子已重投过，根据规则无法再次重投！', 'warning');
-    return;
-  }
-
-  const overlay = document.createElement('div');
-  overlay.className = 'modal-overlay';
-  overlay.style.display = 'flex';
-  overlay.style.zIndex = '3000';
-  
-  const faction = isDefense ? wizardState.defender.faction : wizardState.attacker.faction;
-  const curCp = getCpForFaction(faction);
-  const val = isDefense ? wizardState.allDefenderRolls[idx].val : wizardState.allAttackerRolls[idx].val;
-  
-  const canCp = curCp >= 1 && (isDefense ? !wizardState.defMeleeCpUsed : !wizardState.attMeleeCpUsed);
-  
-  let optionsHtml = '';
-  
-  // CP Reroll option
-  if (canCp) {
-    optionsHtml += `
-      <button id="btn-melee-reroll-cp" class="btn-large" style="padding: 10px; font-size:0.9rem;">
-        战术重投 (消耗 1 CP, 剩 ${curCp} CP)
-      </button>
-    `;
-  }
-  
-  // Rule-based free reroll options
-  if (wReroll === 'Ceaseless' && val === 1) {
-    optionsHtml += `
-      <button id="btn-melee-reroll-ceaseless" class="btn-large" style="padding: 10px; font-size:0.9rem; background:linear-gradient(135deg, #10b981, #047857); border-color:#059669; color:white; font-weight:bold;">
-        不息规则重投 [Ceaseless] (免费)
-      </button>
-    `;
-  }
-
-  if (optionsHtml === '') {
-    optionsHtml = `<p style="color:var(--red); font-size:0.9rem; margin-bottom:10px;">当前无可用的重投选项（CP不足或不符合条件）</p>`;
-  }
-
-  overlay.innerHTML = `
-    <div class="modal-content" style="max-width: 400px; border: 1px solid var(--gold); box-shadow: 0 0 20px rgba(0,0,0,0.8); background: rgba(10,15,28,0.98);">
-      <div class="modal-header" style="padding: 12px; background: rgba(10,20,35,0.95); border-bottom: 1px solid var(--gold);">
-        <div class="modal-title" style="font-size:1.1rem; color:var(--gold); font-weight:bold;">🎲 选择近战重投方式</div>
-      </div>
-      <div class="modal-body" style="padding: 20px; text-align: center;">
-        <p style="margin-bottom: 12px; font-size:1rem; color:var(--text-muted);">当前骰值: <strong style="font-size:1.6rem; color:white; font-family:'Pirata One',serif; border: 1px solid rgba(255,255,255,0.15); padding: 4px 12px; border-radius: 4px; background: rgba(255,255,255,0.05); margin-left: 8px;">${val}</strong></p>
-        <p style="font-size:0.8rem; color:var(--text-muted); margin-top:-4px; margin-bottom: 20px; line-height: 1.4;">
-          请选择要应用于该骰子的重投方式。
-        </p>
-        <div style="display:flex; flex-direction:column; gap:12px; width:100%;">
-          ${optionsHtml}
-          <button id="btn-melee-reroll-cancel" class="btn-cancel" style="padding: 10px; font-size:0.9rem;">
-            取消 (Cancel)
-          </button>
-        </div>
-      </div>
-    </div>
-  `;
-  
-  document.body.appendChild(overlay);
-  
-  if (canCp) {
-    document.getElementById('btn-melee-reroll-cp').onclick = () => {
-      document.body.removeChild(overlay);
-      executeMeleeReroll(side, idx, 'cp');
-    };
-  }
-  
-  if (wReroll === 'Ceaseless' && val === 1) {
-    const btnCeaseless = document.getElementById('btn-melee-reroll-ceaseless');
-    if (btnCeaseless) {
-      btnCeaseless.onclick = () => {
-        document.body.removeChild(overlay);
-        executeMeleeReroll(side, idx, 'ceaseless');
-      };
-    }
-  }
-  
-  document.getElementById('btn-melee-reroll-cancel').onclick = () => {
-    playSound('click');
-    document.body.removeChild(overlay);
-  };
-}
-
-export function executeMeleeReroll(side, idx, reason) {
-  playSound('dice_roll');
-  const faction = side === 'attacker' ? wizardState.attacker.faction : wizardState.defender.faction;
-  
-  if (reason === 'cp') {
-    setCpForFaction(faction, getCpForFaction(faction) - 1);
-    if (side === 'attacker') wizardState.attMeleeCpUsed = true;
-    else wizardState.defMeleeCpUsed = true;
-  }
-  
-  ui.updateScoresUI();
-
-  if (side === 'attacker') {
-    if (!wizardState.attMeleeRerolledIndices) wizardState.attMeleeRerolledIndices = [];
-    wizardState.attMeleeRerolledIndices.push(idx);
-  } else {
-    if (!wizardState.defMeleeRerolledIndices) wizardState.defMeleeRerolledIndices = [];
-    wizardState.defMeleeRerolledIndices.push(idx);
-  }
-
-  const poolId = side === 'attacker' ? 'melee-att-pool' : 'melee-def-pool';
-  const pool = document.getElementById(poolId);
-  const diceCubes = pool.getElementsByClassName('kt-dice-cube');
-  const cube = diceCubes[idx];
-  const diceClass = getDiceClass(faction);
-  cube.className = `kt-dice-cube ${diceClass} rolling`;
-  cube.innerHTML = '?';
-
-  setTimeout(() => {
-    const newVal = Math.floor(Math.random() * 6) + 1;
-    const oldRoll = side === 'attacker' ? wizardState.allAttackerRolls[idx] : wizardState.allDefenderRolls[idx];
-    const oldVal = oldRoll.val;
-    
-    // Update the record
-    oldRoll.val = newVal;
-    const effTs = side === 'attacker' ? wizardState.meleeEffectiveAttTs : wizardState.meleeEffectiveDefTs;
-    const critThreshold = side === 'attacker' ? wizardState.meleeAttCritThreshold : wizardState.meleeDefCritThreshold;
-    oldRoll.isSuccess = newVal >= effTs || newVal >= critThreshold;
-    oldRoll.isCrit = newVal >= critThreshold;
-
-    const label = reason === 'cp' ? 'CP重投' : (reason === 'ceaseless' ? 'Ceaseless' : '重投');
-    ui.addLog(`  - [近战${label}] ${side === 'attacker' ? '攻击方' : '防守方'} D6: [${oldVal}] -> [${newVal}]`);
-    
-    // 重新渲染视图
-    renderMeleeRollsView();
-
-    if (!oldRoll.isSuccess) {
-      playSound('epic_fail');
-    }
-  }, 500);
 }
 
 // ==========================================
@@ -3593,8 +3125,6 @@ export function getShootDuelHeaderHtml() {
 // ==========================================
 
 export function chooseMeleeDice(side, idx) {
-  if (wizardState.isMeleeAnimating) return;
-  playSound('click');
   if (side !== wizardState.meleeTurn) {
     playSound('alert');
     if (showToast) showToast('现在不属于你的近战分配回合！', 'warning');
@@ -3609,10 +3139,8 @@ export function chooseMeleeDice(side, idx) {
   renderFightStep();
 }
 
-export async function resolveMeleeChoice(action) {
-  if (!wizardState.selectedMeleeDice || wizardState.isMeleeAnimating) return;
-  wizardState.isMeleeAnimating = true;
-
+export function resolveMeleeChoice(action) {
+  if (!wizardState.selectedMeleeDice) return;
   const { side, idx } = wizardState.selectedMeleeDice;
 
   const diceList = side === 'attacker' ? wizardState.activeAttackerDice : wizardState.activeDefenderDice;
@@ -3654,22 +3182,7 @@ export async function resolveMeleeChoice(action) {
     //     结算，无聚合保留阶段。阵营派生规则已改为经 effectiveWeapon 注入，后续补全近战 Severe 时
     //     可统一走 weaponMods(effectiveWeapon(...)).upgradeNormalToCrit。
 
-    let dmg = dice.isCrit ? strikeCritDmg : strikeNormDmg;
-
-    if (hasFactionTrait(targetOpponent.faction, 'disgustingResilience') && dmg >= 3) {
-      const drRollStr = prompt(`🦠 恶心无视 (Disgustingly Resilient)\n\n${targetOpponent.name} 即将受到 ${dmg} 点伤害。\n该特工具有【恶心无视】特性，请投掷 1 个减伤判定骰：\n若结果为 4+，本次伤害减 1。\n\n请输入投掷出的骰子点数 (1-6)，如果未投掷或失败直接点取消或留空：`);
-      if (drRollStr) {
-        const drRoll = parseInt(drRollStr, 10);
-        if (!isNaN(drRoll) && drRoll >= 4) {
-          dmg -= 1;
-          ui.addLog(`[恶心无视] ${targetOpponent.name} 投掷了 ${drRoll} (成功)，伤害减免 1 点，最终伤害为 ${dmg}！`);
-          if (typeof ui.showToast !== 'undefined') ui.showToast(`🦠 恶心无视生效！伤害 -1！`, 'success');
-        } else if (!isNaN(drRoll)) {
-          ui.addLog(`[恶心无视] ${targetOpponent.name} 投掷了 ${drRoll} (失败)，未减免伤害。`);
-        }
-      }
-    }
-
+    const dmg = dice.isCrit ? strikeCritDmg : strikeNormDmg;
     const msg = `> ${side === 'attacker' ? '攻击方' : '防守方'} 执行打击 (Strike)，分配了 ${dmg} 伤害！<br>`;
     wizardState.meleeLogs += msg;
 
@@ -3731,16 +3244,8 @@ export async function resolveMeleeChoice(action) {
       ui.updateActivePanel();
     }
 
-    // Update UI HP before animation plays
-    wizardState.selectedMeleeDice = null;
-    renderFightStep();
-
-    // Wait for the full combat effect
-    await effects.playFullCombatEffect(targetOpponent.id, 'strike', "-" + dmg + " Wounds", "strike");
-
-    if (targetOpponent.isDead && typeof ui.triggerOperativeDeathOverlay === 'function') {
-      ui.triggerOperativeDeathOverlay(targetOpponent);
-    }
+    playSound('heavy_strike');
+    ui.triggerCombatVisual("-" + dmg + " Wounds", "strike");
   } else {
     // ---- Brutal 规则 ----
     // "Your opponent can only block with critical successes"
@@ -3776,13 +3281,8 @@ export async function resolveMeleeChoice(action) {
     opponentDiceList[targetIdx].used = true;
     const msg = `> ${side === 'attacker' ? '攻击方' : '防守方'} 执行格挡 (Parry)，消去对方一个骰子 [${opponentDiceList[targetIdx].val}]！<br>`;
     wizardState.meleeLogs += msg;
-    const currentOp = side === 'attacker' ? wizardState.attacker : wizardState.defender;
-    
-    // Update UI before animation
-    wizardState.selectedMeleeDice = null;
-    renderFightStep();
-
-    await effects.playFullCombatEffect(currentOp.id, 'parry', 'PARRY', 'parry');
+    playSound('metal_clash');
+    ui.triggerCombatVisual("PARRY", "parry");
   }
 
   const opponentSide = side === 'attacker' ? 'defender' : 'attacker';
@@ -3802,13 +3302,15 @@ export async function resolveMeleeChoice(action) {
     wizardState.meleeTurn = side;
   }
 
-  wizardState.isMeleeAnimating = false;
   wizardState.selectedMeleeDice = null;
   renderFightStep();
+
+  if (action === 'strike') {
+    ui.triggerAvatarHitEffect(targetOpponent.id, 'melee');
+  }
 }
 
 export function cancelMeleeChoice() {
-  if (wizardState.isMeleeAnimating) return;
   playSound('click');
   wizardState.selectedMeleeDice = null;
   renderFightStep();
@@ -3819,20 +3321,16 @@ export function confirmFightResult() {
   const attacker = wizardState.attacker;
   const defender = wizardState.defender;
 
-  wizardState.pendingResults.attackerWounds = attacker.wounds;
-  wizardState.pendingResults.defenderWounds = defender.wounds;
-  wizardState.pendingResults.attackerTokens = [...(attacker.tokens || [])];
-  wizardState.pendingResults.defenderTokens = [...(defender.tokens || [])];
-  wizardState.pendingResults.attackerPoisonTokens = attacker.poisonTokens || 0;
-  wizardState.pendingResults.defenderPoisonTokens = defender.poisonTokens || 0;
+  ui.addLog(`\n--- 近战搏斗结果 ---`);
+  ui.addLog(`[双核交锋] ${attacker.name} vs ${defender.name}`);
+  ui.addLog(`  - ${attacker.name} 生命值: ${attacker.wounds}/${attacker.maxWounds}`);
+  ui.addLog(`  - ${defender.name} 生命值: ${defender.wounds}/${defender.maxWounds}`);
 
-  logCombatFlow('End', '近战搏斗结束。');
+  attacker.apl -= 1;
+  attacker.actionsPerformed.push('Fight');
+  ui.addLog(`[行动点] ${attacker.name} 消耗 1 APL，当前 APL: ${attacker.apl}`);
 
-  if (typeof ui.showCombatSummaryModal === 'function') {
-    ui.showCombatSummaryModal(0);
-  } else {
-    applyFinalCombatResults();
-  }
+  closeModal();
 }
 
 

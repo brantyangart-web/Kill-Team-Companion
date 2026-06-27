@@ -31,10 +31,46 @@ const RULE_I18N = {
   'Piercing 2': '穿甲 2',
   'Hot': '过热',
   'Lethal 5+': '致命 5+',
+  'Blast 1"': '爆炸 1"',
+  'Blast 2"': '爆炸 2"',
+  'Balanced': '平衡',
+  'Ceaseless': '不息',
+  'Relentless': '无情',
+};
+
+const RULE_DESCRIPTIONS = {
+  'PSYCHIC': '【灵能】：每次你执行带有此特殊规则的攻击时，如果你在攻击骰中投出任何未修改的 1，该特工将受到等同于投出 1 数量的致命伤害（在掷骰阶段结算，俗称“爆头”）。',
+  'Saturate': '【饱和】：目标在进行防御投骰时，不能保留任何成功的普通骰（只能保留暴击防守，或靠规则强制保留）。',
+  'Severe': '【重伤】：如果你没有保留任何暴击命中，你可以将一个普通命中骰变成暴击命中骰。',
+  'Poison': '【毒素】：每当你用该武器对敌方特工造成伤害时，目标获得 1 个毒素标记（上限1个）。其每次激活时，受 1 点直接伤害。',
+  'Toxic': '【剧毒】：每当目标带有毒素标记时，此武器每次成功造成的伤害 +1。',
+  'Piercing Crits 1': '【穿甲暴击 1】：每当你保留 1 个暴击命中，目标的防御骰减少 1 个。',
+  'Torrent 1"': '【涌流 1"】：在对主目标射击后，可以对距离主目标 1" 范围内、并且符合可见性等条件的每一个其他特工分别进行一次射击。',
+  'Torrent 2"': '【涌流 2"】：同涌流，范围变为 2"。',
+  'Shock': '【震击】：在近战中当你打击(Strike)并造成暴击伤害时，你可以立刻丢弃对手 1 个尚未结算的普通成功骰。',
+  'Stun': '【眩晕】：暴击命中将使目标 APL -1（不可叠加）。',
+  'Brutal': '【残暴】：在近战中，对手只能使用暴击成功骰来进行格挡(Parry)。',
+  'Indirect Fire': '【间接射击】：只要目标不在掩蔽(Cover)地形的正后方且可见，就能进行射击，无视交战规则中的地形遮挡惩罚。',
+  'Heavy (Dash only)': '【重型(仅冲刺)】：如果该特工在本回合执行了常规移动(Normal Move)或冲锋(Charge)，则无法使用此武器；射击后也不能再执行移动或冲锋（可以冲刺 Dash）。',
+  'Seek Light': '【追光】：目标不能因轻型掩体(Light Terrain)而获得掩蔽(Cover)或保留自动防御骰。',
+  'Silent': '【静默】：特工在处于“隐蔽(Conceal)”状态下仍然可以开火。',
+  'Piercing 1': '【穿甲 1】：每当你进行攻击时，目标的防御骰减少 1 个。',
+  'Piercing 2': '【穿甲 2】：目标的防御骰减少 2 个。',
+  'Hot': '【过热】：每次攻击投出任何未修改的 1，射击者在攻击后受到 3 点致命伤害。',
+  'Lethal 5+': '【致命 5+】：投出 5 和 6 均算作暴击命中。',
+  'Blast 1"': '【爆炸 1"】：在对主目标结算完毕后，必须对 1" 内所有特工(无论敌我)分别进行一次该武器的射击。',
+  'Blast 2"': '【爆炸 2"】：同爆炸，范围变为 2"。',
+  'Balanced': '【平衡】：你可以在本次攻击中重投 1 个骰子。',
+  'Ceaseless': '【不息】：你可以在本次攻击中重投任何结果为 1 的骰子。',
+  'Relentless': '【无情】：你可以在本次攻击中重投任意数量的骰子。',
 };
 
 export function translateRule(rule) {
   return RULE_I18N[rule] || rule;
+}
+
+export function getRuleDescription(rule) {
+  return RULE_DESCRIPTIONS[rule] || '暂无此规则的详细说明。';
 }
 
 export class Weapon {
@@ -101,6 +137,9 @@ export class Operative {
     // 特工类型标识 (如 'sm_captain', 'pm_champion', 'leg_aspiring_champion')
     // 用于在战斗结算中触发特殊能力
     this.operativeType = '';
+
+    // 通用状态标签池 (例如 'Poisoned', 'Injured', 'Stunned')
+    this.tokens = [];
 
     // Legionary: 混沌印记 ('KHORNE'/'NURGLE'/'SLAANESH'/'TZEENTCH'/'UNDIVIDED')
     this.marksOfChaos = null;
@@ -254,13 +293,12 @@ export class Operative {
 
   /**
    * 分配伤害。
-   * @param {number|number[]} amountOrAttacks - 总伤害值，或每次攻击的伤害数组（用于 DR per-attack）
-   * @param {number[]} [drRolls] - 手动录入或系统自动生成的 DR 骰子
-   * @param {string} [drSource] - 骰子来源：'manual' (物理录入) | 'auto' (自动代投) | 'melee_auto' (近战自动代投)
-   * @param {string} [reason] - 扣血原因（用于在伤害动画上悬浮展示标签）
+   * @param {number|number[]} totalIncoming - 总伤害值，或每次攻击的伤害数组（为了向下兼容数组，会在内部直接求和）
+   * @param {number} [preCalculatedDrReduced=0] - 已经被外部减免的伤害值（仅用于传递给伤害动画）
+   * @param {string} [reason=''] - 扣血原因（用于在伤害动画上悬浮展示标签）
    * @returns {number} 实际受到的伤害
    */
-  applyWounds(amountOrAttacks, drRolls = null, drSource = 'auto', reason = '') {
+  applyWounds(totalIncoming, preCalculatedDrReduced = 0, reason = '') {
     if (this.isDead) return 0;
 
     let hitSound = 'flesh';
@@ -279,104 +317,43 @@ export class Operative {
     if (activeRuleSet().factionMechanicsEnabled &&
         this.operativeType === 'sm_captain' &&
         !this.ironHaloUsed &&
-        !Array.isArray(amountOrAttacks)) { // 只对单次伤害触发
+        !Array.isArray(totalIncoming)) { // 只对单次伤害触发
       // 弹出确认提示
-      const useIronHalo = confirm(`💫 Iron Halo (每战一次)\n\n${this.name} 即将受到 ${amountOrAttacks} 点伤害。\n是否使用 Iron Halo 忽略本次伤害？`);
+      const useIronHalo = confirm(`💫 Iron Halo (每战一次)\n\n${this.name} 即将受到 ${totalIncoming} 点伤害。\n是否使用 Iron Halo 忽略本次伤害？`);
       if (useIronHalo) {
         this.ironHaloUsed = true;
-        ui.addLog(`[钢铁光环] ${this.name} 使用 Iron Halo！忽略 ${amountOrAttacks} 点伤害！(每战一次已使用)`);
+        ui.addLog(`[钢铁光环] ${this.name} 使用 Iron Halo！忽略 ${totalIncoming} 点伤害！(每战一次已使用)`);
         if (ui.showToast) ui.showToast('💫 Iron Halo: 伤害已忽略！', 'success');
         return 0;
       }
     }
 
-    const hasDr = activeRuleSet().factionMechanicsEnabled
-      && hasFactionTrait(this.faction, 'disgustingResilience');
-    let totalIncoming = 0;
-    let attackBreakdown = [];
-
-    if (Array.isArray(amountOrAttacks)) {
-      attackBreakdown = amountOrAttacks;
-      totalIncoming = amountOrAttacks.reduce((s, v) => s + v, 0);
+    let actualIncoming = 0;
+    if (Array.isArray(totalIncoming)) {
+      actualIncoming = totalIncoming.reduce((s, v) => s + v, 0);
     } else {
-      totalIncoming = amountOrAttacks;
-      attackBreakdown = [amountOrAttacks]; // 视为单次攻击
+      actualIncoming = totalIncoming;
     }
 
-    ui.addLog(`[伤害] ${this.name} 准备分配 ${totalIncoming} 点伤害...`);
+    ui.addLog(`[伤害] ${this.name} 准备分配 ${actualIncoming} 点伤害...`);
 
-    let actualDamage = 0;
-
-    if (hasDr) {
-      // Sickening Resilience (firefight ploy)
-      const hasPloyActive = isFirefightPloyActive('sickening_resilience', this.faction);
-      if (hasPloyActive) {
-        ui.addLog(`<span style="color:#7ab88a; font-weight:bold;">[战术特性] 【恶心坚韧】战术当前激活！(无需投骰，对所有 ≥3 伤害的攻击直接自动减免 1 点，最低降至 2)</span>`);
-      } else {
-        ui.addLog(`[特性] 触发${getFactionDisplayName(this.faction)}专属【恶心作呕 (DR 4+)】：`);
-      }
-
-      let drRollIndex = 0;
-
-      for (const attackDmg of attackBreakdown) {
-        if (attackDmg < 3) {
-          // DR 仅在 3+ 伤害攻击时触发
-          ui.addLog(`  - 单次攻击伤害 ${attackDmg} (<3)，不触发 DR。`);
-          actualDamage += attackDmg;
-          continue;
-        }
-
-        if (hasPloyActive) {
-          const reduced = Math.max(2, attackDmg - 1);
-          ui.addLog(`  - 伤害 ${attackDmg}：【恶心坚韧】自动减免 1 点 -> ${reduced} 伤害`);
-          actualDamage += reduced;
-          continue;
-        }
-
-        let roll;
-        let sourceLabel = '';
-        let hintLabel = '';
-        if (drRolls && drRollIndex < drRolls.length) {
-          roll = drRolls[drRollIndex++];
-          if (drSource === 'manual') {
-            sourceLabel = `<span style="color:#7ab88a; font-weight:bold;">[玩家物理录入]</span> 录入 DR 骰子`;
-          } else {
-            sourceLabel = `<span style="color:#f59e0b; font-weight:bold;">[系统自动代投]</span> 投 DR 骰子`;
-          }
-          ui.addLog(`  - 伤害 ${attackDmg} (>=3): ${sourceLabel} [${roll}]`);
-        } else {
-          roll = Math.floor(Math.random() * 6) + 1;
-          if (drSource === 'melee_auto') {
-            sourceLabel = `<span style="color:#ef4444; font-weight:bold;">[近战系统代投]</span> 投 DR 骰子`;
-          } else {
-            sourceLabel = `<span style="color:#f59e0b; font-weight:bold;">[系统自动代投]</span> 投 DR 骰子`;
-            hintLabel = ` <span style="font-size:0.75rem; color:var(--text-muted);">(当前为系统代投。若想使用物理骰子，请在设置中切换为“物理录入”模式)</span>`;
-          }
-          ui.addLog(`  - 伤害 ${attackDmg} (>=3): ${sourceLabel} [${roll}]${hintLabel}`);
-        }
-
-        if (roll >= 4) {
-          const reduced = attackDmg - 1;
-          ui.addLog(`    -> 🛡️ 减免成功！伤害减 1 点 (${attackDmg} -> ${reduced})`);
-          actualDamage += reduced;
-        } else {
-          ui.addLog(`    -> ❌ 减免失败，受到全额 ${attackDmg} 点伤害。`);
-          actualDamage += attackDmg;
-        }
-      }
-    } else {
-      actualDamage = totalIncoming;
-    }
+    const actualDamage = actualIncoming;
 
     const prevHp = this.wounds;
     this.wounds = Math.max(0, this.wounds - actualDamage);
     ui.addLog(`[分配] ${this.name} 生命值: ${prevHp} -> ${this.wounds} ${this.wounds === 0 ? '(已阵亡!)' : ''}`);
 
     // Queue damage animation automatically for any damage taken or reduced
-    const drReduced = hasDr ? Math.max(0, totalIncoming - actualDamage) : 0;
-    if (ui.queueVisualEvent && ui.getOperativeAvatarUrl && (actualDamage > 0 || drReduced > 0)) {
-      const avatarUrl = ui.getOperativeAvatarUrl(this.id, this.faction);
-      const themeVar = getFactionThemeVar(this.faction);
+    // (Except for 'melee_auto' which handles its own new anime cut-in visuals)
+    if (reason !== 'melee_auto' && ui.queueVisualEvent && ui.getOperativeAvatarUrl && (actualDamage > 0 || preCalculatedDrReduced > 0)) {
+      if (reason === '毒素发作') {
+        ui.queueVisualEvent({
+          type: 'poison_cutin',
+          data: { opId: this.id }
+        });
+      } else {
+        const avatarUrl = ui.getOperativeAvatarUrl(this.id, this.faction);
+        const themeVar = getFactionThemeVar(this.faction);
       ui.queueVisualEvent({
         type: 'damage',
         data: {
@@ -385,16 +362,17 @@ export class Operative {
           currentWounds: prevHp,
           damageAmount: actualDamage,
           themeVar: themeVar,
-          drReduced: drReduced,
+          drReduced: preCalculatedDrReduced,
           reason: reason,
           hitSound: hitSound
         }
       });
+      }
     } else {
       // Fallback when queue manager is not active
       if (actualDamage > 0) {
         playSound(hitSound);
-      } else if (drReduced > 0) {
+      } else if (preCalculatedDrReduced > 0) {
         playSound('bubble');
       }
     }
