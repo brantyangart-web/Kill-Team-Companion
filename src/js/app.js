@@ -32,7 +32,8 @@ import {
   rollDicePool, evaluateAttackRolls, evaluateDefenseRolls,
   showToast, trapFocus, releaseFocusTrap,
   initCombatCallbacks, queueVisualEvent,
-  setupSandboxTestHarness, toggleTestPloy, sandboxEndTurningPoint
+  setupSandboxTestHarness, toggleTestPloy, sandboxEndTurningPoint,
+  showCombatSummaryModal
 } from './ui.js';
 
 import { skipCounteract } from './state.js';
@@ -50,7 +51,7 @@ import {
   chooseMeleeDice, resolveMeleeChoice, cancelMeleeChoice, confirmFightResult,
   resolveSecondaries, resolveDevastationAoe, selectDefFightWeapon,
   rerollWeaponRuleDice, toggleRelentlessSelect, confirmRelentlessReroll,
-  initCombatUiCallbacks, initCombatAccessibility
+  initCombatUiCallbacks, initCombatAccessibility, applyFinalCombatResults
 } from './combat.js';
 
 // ==========================================
@@ -96,6 +97,9 @@ initCombatUiCallbacks({
   triggerAvatarHitEffect,
   triggerCombatVisual,
   getOperativeAvatarUrl,
+  showCombatSummaryModal,
+  queueVisualEvent,
+  triggerOperativeDeathOverlay,
 });
 
 // Combat module needs toast/focus-trap for validation prompts
@@ -154,8 +158,36 @@ window.setQA = setQA;
 window.rollAttackDice = rollAttackDice;
 window.rollDefenseDice = rollDefenseDice;
 window.selectFightDefender = selectFightDefender;
+
+// FX Testing
+window.refreshFxTestOps = () => {
+  const select = document.getElementById('test-fx-op');
+  if (!select) return;
+  select.innerHTML = '<option value="">Select Operative...</option>';
+  gameState.operatives.forEach(op => {
+    const opt = document.createElement('option');
+    opt.value = op.id;
+    opt.textContent = op.name;
+    select.appendChild(opt);
+  });
+};
+
+document.getElementById('test-fx-toggle')?.addEventListener('click', window.refreshFxTestOps);
+
+document.getElementById('test-fx-btn')?.addEventListener('click', () => {
+  const opId = document.getElementById('test-fx-op')?.value;
+  const type = document.getElementById('test-fx-type')?.value;
+  if (!opId) {
+    if (typeof showToast !== 'undefined') showToast('Please select an operative first!', 'error');
+    else alert('Please select an operative first!');
+    return;
+  }
+  const text = type === 'parry' ? 'SAVED' : '-5 Wounds';
+  effects.playFullCombatEffect(opId, type, text, type);
+});
 window.selectFightWeapon = selectFightWeapon;
 window.selectDefFightWeapon = selectDefFightWeapon;
+window.applyFinalCombatResults = applyFinalCombatResults;
 window.resolveSecondaries = resolveSecondaries;
 window.resolveDevastationAoe = resolveDevastationAoe;
 window.rerollWeaponRuleDice = rerollWeaponRuleDice;
@@ -199,6 +231,9 @@ window.sandboxEndTurningPoint = sandboxEndTurningPoint;
 // ==========================================
 //   Initialize app on DOM ready
 // ==========================================
+import * as ui from './ui.js';
+import * as rules from '../rules/faction.js';
+import * as effects from './effects.js';
 
 document.addEventListener('DOMContentLoaded', () => {
   // 注入各方阵营模板数据（避免循环依赖）

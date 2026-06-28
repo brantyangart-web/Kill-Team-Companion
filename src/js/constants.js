@@ -7,15 +7,17 @@ import { Weapon } from './models.js';
 
 const SM_TEMPLATES = [
   // --- LEADER 选项 ---
-  { id: 'sm_1', name: 'Space Marine Captain (星际战士队长)', operativeType: 'sm_captain',
+  { id: 'sm_1', name: 'Space Marine Captain (星际战士连长)', operativeType: 'sm_captain',
     wounds: 15, apl: 3, df: 3, sv: 3, isLeader: true, move: 6,
     defaultAvatar: './assets/images/operatives/sm/sm_captain.jpg',
+    abilities: ['ironHalo', 'heroicLeader'],
     weapons: [
-      new Weapon('Master-crafted Bolt Rifle (精铸爆弹步枪)', 4, 3, 4, 5, true, 24, ['Indirect Fire']),
-      new Weapon('Relic Blade (遗物利刃)', 5, 3, 5, 6, false, null, ['Severe'])
+      new Weapon('Plasma Pistol (standard) (等离子手枪 - 标准)', 4, 3, 3, 5, true, 8, ['Piercing 1']),
+      new Weapon('Plasma Pistol (supercharge) (等离子手枪 - 超载)', 4, 3, 4, 5, true, 8, ['Hot', 'Lethal 5+', 'Piercing 1']),
+      new Weapon('Power Fist (动力拳套)', 5, 3, 5, 7, false, null, ['Brutal'])
     ]
   },
-  { id: 'sm_2', name: 'Assault Intercessor Sergeant (突击军士)', operativeType: 'sm_assault_sergeant',
+  { id: 'sm_2', name: 'Assault Intercessor Sergeant (突击仲裁者军士)', operativeType: 'sm_assault_sergeant',
     wounds: 15, apl: 3, df: 3, sv: 3, isLeader: true, move: 6,
     defaultAvatar: './assets/images/operatives/sm/sm_sergeant.jpg',
     weapons: [
@@ -23,7 +25,7 @@ const SM_TEMPLATES = [
       new Weapon('Chainsword (链锯剑)', 5, 3, 4, 5, false, null, [])
     ]
   },
-  { id: 'sm_3', name: 'Intercessor Sergeant (战术军士)', operativeType: 'sm_intercessor_sergeant',
+  { id: 'sm_3', name: 'Intercessor Sergeant (仲裁者军士)', operativeType: 'sm_intercessor_sergeant',
     wounds: 15, apl: 3, df: 3, sv: 3, isLeader: true, move: 6,
     defaultAvatar: './assets/images/operatives/sm/sm_sergeant.jpg',
     weapons: [
@@ -33,31 +35,46 @@ const SM_TEMPLATES = [
   },
 
   // --- OPERATOR 选项 (5选, 除 Warrior 外不可重复) ---
-  { id: 'sm_4', name: 'Eliminator Sniper (Eliminator 狙击手)', operativeType: 'sm_eliminator_sniper',
+  { id: 'sm_4', name: 'Eliminator Sniper (歼灭者狙击手)', operativeType: 'sm_eliminator_sniper',
     wounds: 14, apl: 3, df: 3, sv: 3, isLeader: false, move: 6,
     defaultAvatar: './assets/images/operatives/sm/sm_sniper.jpg',
+    abilities: ['optics', 'camoCloak'],
     weapons: [
       new Weapon('Bolt Sniper Rifle (爆弹狙击步枪)', 4, 2, 3, 4, true, null, ['Heavy (Dash only)', 'Saturate', 'Seek Light', 'Silent']),
       new Weapon('Fists (铁拳)', 4, 3, 3, 4, false, null, [])
     ]
   },
-  { id: 'sm_5', name: 'Heavy Intercessor Gunner (重型火力手)', operativeType: 'sm_heavy_gunner',
+  { id: 'sm_5', name: 'Heavy Intercessor Gunner (重装仲裁者炮手)', operativeType: 'sm_heavy_gunner',
     wounds: 18, apl: 3, df: 3, sv: 3, isLeader: false, move: 5,
     defaultAvatar: './assets/images/operatives/sm/sm_heavy_gunner.jpg',
     weapons: [
-      new Weapon('Heavy Bolter (重型爆弹枪)', 5, 3, 4, 5, true, null, ['Piercing Crits 1']),
+      new Weapon('Bolt Pistol (爆弹手枪)', 4, 3, 3, 4, true, 8, []),
+      new Weapon('Heavy Bolter (focused) (重型爆弹枪 - 聚焦)', 5, 3, 4, 5, true, null, ['Piercing Crits 1']),
+      new Weapon('Heavy Bolter (sweeping) (重型爆弹枪 - 扫射)', 4, 3, 4, 5, true, null, ['Piercing Crits 1', 'Torrent 1"']),
       new Weapon('Fists (铁拳)', 4, 3, 3, 4, false, null, [])
     ]
   },
-  { id: 'sm_8', name: 'Intercessor Gunner (战术火力手)', operativeType: 'sm_intercessor_gunner',
+  { id: 'sm_8', name: 'Intercessor Gunner (仲裁者炮手)', operativeType: 'sm_intercessor_gunner',
     wounds: 14, apl: 3, df: 3, sv: 3, isLeader: false, move: 6,
     defaultAvatar: './assets/images/operatives/sm/sm_warrior_b.jpg',
     weapons: [
       new Weapon('Auto Bolt Rifle (自动爆弹步枪)', 4, 3, 3, 4, true, null, ['Torrent 1"']),
+      new Weapon('Auxiliary Grenade Launcher (frag) (破片榴弹发射器)', 4, 3, 2, 4, true, null, ['Blast 2"']),
+      new Weapon('Auxiliary Grenade Launcher (krak) (穿甲榴弹发射器)', 4, 3, 4, 5, true, null, ['Piercing 1']),
+      new Weapon('Bolt Rifle (爆弹步枪)', 4, 3, 3, 4, true, null, ['Piercing Crits 1']),
       new Weapon('Fists (铁拳)', 4, 3, 3, 4, false, null, [])
     ]
   },
-  { id: 'sm_6', name: 'Assault Intercessor Warrior (突击战士)', operativeType: 'sm_assault_warrior',
+  { id: 'sm_9', name: 'Assault Intercessor Grenadier (突击掷弹兵)', operativeType: 'sm_assault_grenadier',
+    wounds: 14, apl: 3, df: 3, sv: 3, isLeader: false, move: 6,
+    defaultAvatar: './assets/images/operatives/sm/sm_assault.jpg',
+    abilities: ['grenadier'],
+    weapons: [
+      new Weapon('Heavy Bolt Pistol (重型爆弹手枪)', 4, 3, 3, 4, true, 8, ['Piercing Crits 1']),
+      new Weapon('Chainsword (链锯剑)', 5, 3, 4, 5, false, null, [])
+    ]
+  },
+  { id: 'sm_6', name: 'Assault Intercessor Warrior (突击仲裁者战士)', operativeType: 'sm_assault_warrior',
     wounds: 14, apl: 3, df: 3, sv: 3, isLeader: false, isWarrior: true, move: 6,
     defaultAvatar: './assets/images/operatives/sm/sm_assault.jpg',
     weapons: [
@@ -65,7 +82,7 @@ const SM_TEMPLATES = [
       new Weapon('Chainsword (链锯剑)', 5, 3, 4, 5, false, null, [])
     ]
   },
-  { id: 'sm_7', name: 'Intercessor Warrior (战术战士)', operativeType: 'sm_intercessor_warrior',
+  { id: 'sm_7', name: 'Intercessor Warrior (仲裁者战士)', operativeType: 'sm_intercessor_warrior',
     wounds: 14, apl: 3, df: 3, sv: 3, isLeader: false, isWarrior: true, move: 6,
     defaultAvatar: './assets/images/operatives/sm/sm_warrior_a.jpg',
     weapons: [
@@ -82,18 +99,19 @@ const SM_TEMPLATES = [
 
 const PM_TEMPLATES = [
   // --- LEADER ---
-  { id: 'pm_1', name: 'Plague Marine Champion (瘟疫冠军)', operativeType: 'pm_champion',
+  { id: 'pm_1', name: 'Plague Marine Champion (瘟疫战士勇士)', operativeType: 'pm_champion',
     wounds: 15, apl: 3, df: 3, sv: 3, isLeader: true, move: 5,
     defaultAvatar: './assets/images/operatives/pm/pm_champion.jpg',
+    abilities: ['grandfathersBlessing'],
     weapons: [
       new Weapon('Plasma Pistol (standard) (等离子手枪 - 标准)', 4, 3, 3, 5, true, 8, ['Piercing 1']),
-      new Weapon('Plasma Pistol (supercharge) (等离子手枪 - 超载)', 4, 3, 4, 5, true, 8, ['Hot', 'Lethal 5+', 'Piercing 1']),
+      new Weapon('Plasma Pistol (supercharge) (等离子手枪 - 过载)', 4, 3, 4, 5, true, 8, ['Hot', 'Lethal 5+', 'Piercing 1']),
       new Weapon('Plague Sword (瘟疫之剑)', 5, 3, 4, 5, false, null, ['Severe', 'Poison', 'Toxic'])
     ]
   },
 
   // --- OPERATOR 选项 (6选5, Warrior 可复选) ---
-  { id: 'pm_2', name: 'Malignant Plaguecaster (恶性瘟疫术士)', operativeType: 'pm_plaguecaster',
+  { id: 'pm_2', name: 'Malignant Plaguecaster (恶瘟投放者)', operativeType: 'pm_plaguecaster',
     wounds: 14, apl: 3, df: 3, sv: 3, isLeader: false, move: 5,
     defaultAvatar: './assets/images/operatives/pm/pm_caster.jpg',
     weapons: [
@@ -102,7 +120,7 @@ const PM_TEMPLATES = [
       new Weapon('Corrupted Staff (腐蚀法杖)', 4, 3, 3, 4, false, null, ['PSYCHIC', 'Severe', 'Shock', 'Stun', 'Poison'])
     ]
   },
-  { id: 'pm_3', name: 'Plague Marine Bombardier (瘟疫掷弹兵)', operativeType: 'pm_bombardier',
+  { id: 'pm_3', name: 'Plague Marine Bombardier (瘟疫战士掷弹兵)', operativeType: 'pm_bombardier',
     wounds: 14, apl: 3, df: 3, sv: 3, isLeader: false, move: 5,
     defaultAvatar: './assets/images/operatives/pm/pm_gunner.jpg',
     weapons: [
@@ -110,7 +128,7 @@ const PM_TEMPLATES = [
       new Weapon('Fists (铁拳)', 4, 3, 3, 4, false, null, [])
     ]
   },
-  { id: 'pm_4', name: 'Plague Marine Fighter (瘟疫搏击手)', operativeType: 'pm_fighter',
+  { id: 'pm_4', name: 'Plague Marine Fighter (瘟疫战士斗士)', operativeType: 'pm_fighter',
     wounds: 14, apl: 3, df: 3, sv: 3, isLeader: false, move: 5,
     defaultAvatar: './assets/images/operatives/pm/pm_fighter.jpg',
     weapons: [
@@ -118,7 +136,7 @@ const PM_TEMPLATES = [
       new Weapon('Flail of Corruption (腐化之链枷)', 5, 3, 4, 5, false, null, ['Brutal', 'Severe', 'Shock', 'Poison'])
     ]
   },
-  { id: 'pm_5', name: 'Plague Marine Heavy Gunner (瘟疫重炮手)', operativeType: 'pm_heavy_gunner',
+  { id: 'pm_5', name: 'Plague Marine Heavy Gunner (瘟疫战士重炮手)', operativeType: 'pm_heavy_gunner',
     wounds: 14, apl: 3, df: 3, sv: 3, isLeader: false, move: 5,
     defaultAvatar: './assets/images/operatives/pm/pm_heavy.jpg',
     weapons: [
@@ -126,17 +144,19 @@ const PM_TEMPLATES = [
       new Weapon('Fists (铁拳)', 4, 3, 3, 4, false, null, [])
     ]
   },
-  { id: 'pm_6', name: 'Plague Marine Icon Bearer (瘟疫圣像手)', operativeType: 'pm_icon_bearer',
+  { id: 'pm_6', name: 'Plague Marine Icon Bearer (瘟疫战士持徽手)', operativeType: 'pm_icon_bearer',
     wounds: 14, apl: 3, df: 3, sv: 3, isLeader: false, move: 5,
     defaultAvatar: './assets/images/operatives/pm/pm_icon.jpg',
+    abilities: ['iconOfContagion'],
     weapons: [
       new Weapon('Bolt Pistol (爆弹手枪)', 4, 3, 3, 4, true, 8, []),
       new Weapon('Plague Knife (瘟疫匕首)', 5, 3, 3, 4, false, null, ['Severe', 'Poison'])
     ]
   },
-  { id: 'pm_7', name: 'Plague Marine Warrior (瘟疫战士)', operativeType: 'pm_warrior',
+  { id: 'pm_7', name: 'Plague Marine Warrior (瘟疫战士士兵)', operativeType: 'pm_warrior',
     wounds: 14, apl: 3, df: 3, sv: 3, isLeader: false, isWarrior: true, move: 5,
     defaultAvatar: './assets/images/operatives/pm/pm_warrior.jpg',
+    abilities: ['repulsiveFortitude'],
     weapons: [
       new Weapon('Boltgun (爆弹枪)', 4, 3, 3, 4, true, null, ['Toxic']),
       new Weapon('Plague Knife (瘟疫匕首)', 4, 3, 3, 4, false, null, ['Severe', 'Poison'])
@@ -162,9 +182,10 @@ const LEG_TEMPLATES = [
   //   Power weapon  5/3+/4/6  Lethal 5+
   //   Tainted chainsword  5/3+/4/5  Rending
   // 特殊能力 (TODO): In the Eyes of the Gods — 每次激活击杀敌人后 APL +1 直到该激活结束
-  { id: 'leg_1', name: 'Aspiring Champion (铁血冠军)', operativeType: 'leg_aspiring_champion',
+  { id: 'leg_1', name: 'Aspiring Champion (军团野心勇士)', operativeType: 'leg_champion',
     wounds: 15, apl: 3, df: 3, sv: 3, isLeader: true, move: 6,
-    defaultAvatar: './assets/images/operatives/leg/leg_champion.jpg',
+    defaultAvatar: './assets/images/operatives/leg/leg_1_champion.jpg',
+    abilities: ['eyeOfTheGods'],
     weapons: [
       new Weapon('Plasma Pistol (等离子手枪)', 4, 3, 3, 5, true, 8, ['Piercing 1']),
       new Weapon('Power Fist (动力拳套)', 5, 4, 5, 7, false, null, ['Brutal'])
@@ -179,7 +200,7 @@ const LEG_TEMPLATES = [
   // 特殊能力 (TODO):
   //   Daemonic Aura — 敌人于控制范围内退却时可掷骰 3+ 阻止
   //   Soul Gorge — 近战击杀后恢复 D3+1 伤口
-  { id: 'leg_2', name: 'Chosen (神选者)', operativeType: 'leg_chosen',
+  { id: 'leg_2', name: 'Chosen (军团神选者)', operativeType: 'leg_chosen',
     wounds: 15, apl: 3, df: 3, sv: 3, isLeader: true, move: 6,
     defaultAvatar: './assets/images/operatives/leg/leg_apostate.jpg',
     weapons: [
@@ -192,9 +213,10 @@ const LEG_TEMPLATES = [
 
   // 官方武器: Bolt Pistol 4/3+/3/4 Range 8", Daemonic Claw 5/3+/4/5 Rending
   // 特殊能力 (TODO): Unleash Daemon — 每战一次，获得减伤 + 武器增强 (Ceaseless, Lethal 5+)
-  { id: 'leg_3', name: 'Anointed (受膏者)', operativeType: 'leg_anointed',
+  { id: 'leg_3', name: 'Anointed (军团受选者)', operativeType: 'leg_anointed',
     wounds: 14, apl: 3, df: 3, sv: 3, isLeader: false, move: 6,
-    defaultAvatar: './assets/images/operatives/leg/leg_anointed.jpg',
+    defaultAvatar: './assets/images/operatives/leg/leg_6_anointed.jpg',
+    abilities: ['unleashDaemon'],
     weapons: [
       new Weapon('Bolt Pistol (爆弹手枪)', 4, 3, 3, 4, true, 8, []),
       new Weapon('Daemonic Claw (恶魔魔爪)', 5, 3, 4, 5, false, null, ['Rending'])
@@ -207,7 +229,7 @@ const LEG_TEMPLATES = [
   //   Life siphon  5/3+/3/3  PSYCHIC, Saturate, Siphon Life*
   //   Fell dagger  5/3+/3/4  PSYCHIC, Rending, Siphon Life*
   // 特殊能力 (TODO): Siphon Life* — 武器规则，命中时治疗友军
-  { id: 'leg_4', name: 'Balefire Acolyte (炎劫祭司)', operativeType: 'leg_balefire_acolyte',
+  { id: 'leg_4', name: 'Balefire Acolyte (军团邪火使徒)', operativeType: 'leg_balefire_acolyte',
     wounds: 14, apl: 3, df: 3, sv: 3, isLeader: false, move: 6,
     defaultAvatar: './assets/images/operatives/leg/leg_lord.jpg',
     weapons: [
@@ -221,7 +243,7 @@ const LEG_TEMPLATES = [
   //   Double-handed chainaxe  5/4+/5/7  Brutal
   // 特殊能力 (TODO): Devastating Onslaught —
   //   近战时敌人无法协助；回合末可对 2" 内敌人免费冲锋 (≤2")
-  { id: 'leg_5', name: 'Butcher (屠夫)', operativeType: 'leg_butcher',
+  { id: 'leg_5', name: 'Butcher (军团屠夫)', operativeType: 'leg_butcher',
     wounds: 14, apl: 3, df: 3, sv: 3, isLeader: false, move: 6,
     defaultAvatar: './assets/images/operatives/leg/leg_berserker.jpg',
     weapons: [
@@ -237,9 +259,10 @@ const LEG_TEMPLATES = [
   //   Plasma gun (standard)  4/3+/4/6  Piercing 1
   //   Plasma gun (supercharge)  4/3+/5/6  Hot, Lethal 5+, Piercing 1
   //   Fists  4/3+/3/4
-  { id: 'leg_6', name: 'Gunner (特种枪手)', operativeType: 'leg_gunner',
+  { id: 'leg_6', name: 'Gunner (军团炮手)', operativeType: 'leg_gunner',
     wounds: 14, apl: 3, df: 3, sv: 3, isLeader: false, move: 6,
-    defaultAvatar: './assets/images/operatives/leg/leg_gunner.jpg',
+    defaultAvatar: './assets/images/operatives/leg/leg_5_butcher.jpg',
+    abilities: ['devastatingOnslaught'],
     weapons: [
       new Weapon('Bolt Pistol (爆弹手枪)', 4, 3, 3, 4, true, 8, []),
       new Weapon('Plasma Gun (等离子枪)', 4, 3, 4, 6, true, null, ['Piercing 1'])
@@ -255,7 +278,7 @@ const LEG_TEMPLATES = [
   //   Reaper chaincannon (focused)  5/3+/3/4  Ceaseless, Heavy (Reposition only), Punishing
   //   Reaper chaincannon (sweeping)  4/3+/3/4  Ceaseless, Heavy (Reposition only), Punishing, Torrent 2"
   //   Fists  4/3+/3/4
-  { id: 'leg_7', name: 'Heavy Gunner (重机枪手)', operativeType: 'leg_heavy_gunner',
+  { id: 'leg_7', name: 'Heavy Gunner (军团重炮手)', operativeType: 'leg_heavy_gunner',
     wounds: 14, apl: 3, df: 3, sv: 3, isLeader: false, move: 6,
     defaultAvatar: './assets/images/operatives/leg/leg_heavy.jpg',
     weapons: [
@@ -272,9 +295,10 @@ const LEG_TEMPLATES = [
   // 特殊能力 (TODO):
   //   Icon Bearer — 控制标记时 APL 视为 +1
   //   Favoured of the Dark Gods — 策略阶段控制非污染标记时，污染该标记并获得 1CP
-  { id: 'leg_8', name: 'Icon Bearer (举旗手)', operativeType: 'leg_icon_bearer',
+  { id: 'leg_8', name: 'Icon Bearer (军团持徽手)', operativeType: 'leg_icon_bearer',
     wounds: 14, apl: 3, df: 3, sv: 3, isLeader: false, move: 6,
-    defaultAvatar: './assets/images/operatives/leg/leg_icon.jpg',
+    defaultAvatar: './assets/images/operatives/leg/leg_2_chosen.jpg',
+    abilities: ['soulFeast'],
     weapons: [
       new Weapon('Bolt Pistol (爆弹手枪)', 4, 3, 3, 4, true, 8, []),
       new Weapon('Boltgun (爆弹枪)', 4, 3, 3, 4, true, null, [])
@@ -288,9 +312,10 @@ const LEG_TEMPLATES = [
   //   Vicious Reflexes — 反击时先手 (防御方先掷骰)
   //   Horrifying Dismemberment — 击杀后 3" 内另一敌人 APL -1 直到其下次激活结束
   //   Grisly Mark (2AP) — 放置标记，3" 内敌人拾取/任务行动 +1AP；控制标记时敌方 APL 视为 -1
-  { id: 'leg_9', name: 'Shrivetalon (剥皮裂爪)', operativeType: 'leg_shrivetalon',
+  { id: 'leg_9', name: 'Shrivetalon (军团赦罪之爪)', operativeType: 'leg_shrivetalon',
     wounds: 14, apl: 3, df: 3, sv: 3, isLeader: false, move: 6,
-    defaultAvatar: './assets/images/operatives/leg/leg_shrivetalon.jpg',
+    defaultAvatar: './assets/images/operatives/leg/leg_4_shrivetalon.jpg',
+    abilities: ['horrifyingDismemberment'],
     weapons: [
       new Weapon('Bolt Pistol (爆弹手枪)', 4, 3, 3, 4, true, 8, ['Rending']),
       new Weapon('Flensing Blades (剥皮双刃)', 5, 3, 3, 5, false, null, ['Lethal 5+'])
@@ -303,7 +328,7 @@ const LEG_TEMPLATES = [
   //   Chainsword  5/3+/4/5
   //   Fists  4/3+/3/4
   // 特殊能力 (TODO): Infernal Pact — 每战一次，友军 LEGIONARY 被击杀时获得增益
-  { id: 'leg_10', name: 'Legionary Warrior (军团战士)', operativeType: 'leg_warrior',
+  { id: 'leg_10', name: 'Warrior (军团战士)', operativeType: 'leg_warrior',
     wounds: 14, apl: 3, df: 3, sv: 3, isLeader: false, isWarrior: true, move: 6,
     defaultAvatar: './assets/images/operatives/leg/leg_trooper.jpg',
     weapons: [
@@ -573,6 +598,66 @@ const RULE_TEXTS = {
             <li>反噬伤害直接作用于攻击方特工。</li>
           </ul>
         `
+  },
+  repulsiveFortitude: {
+    title: '🦠 可憎韧性 (Repulsive Fortitude)',
+    body: '<p><b>被动能力</b></p><p>每当有特工向该特工射击时，防御骰子掷出 <b>5+</b> 即算作暴击成功(Critical Success)。</p>'
+  },
+  disgustingResilience: {
+    title: '🦠 恼人韧性 (Disgustingly Resilient)',
+    body: '<p><b>阵营特性</b></p><p>每当一枚攻击骰子对友方【瘟疫战士】造成 3 点或更多伤害时，掷一个D6：如果结果是 4+，将该次造成的伤害减 1。</p>'
+  },
+  grenadier: {
+    title: '💣 掷弹兵 (Grenadier)',
+    body: '<p><b>被动能力</b></p><p>该特工可以使用破片手雷(frag)和穿甲手雷(krak)（见通用装备）。如此做不计入你的手雷有限使用次数中（即如果你还为其他特工选择了这些手雷作为装备也不受影响）。当该特工使用手雷时，将其命中(Hit)属性提升 1 点。</p>'
+  },
+  ironHalo: {
+    title: '💫 钢铁光环 (Iron Halo)',
+    body: '<p><b>每战一次 (Once per battle)</b></p><p>当一枚攻击骰子对此特工造成普通伤害(Normal Dmg)时，你可以无视该次造成的伤害。</p>'
+  },
+  heroicLeader: {
+    title: '👑 英勇领袖 (Heroic Leader)',
+    body: '<p><b>每回合一次 (Once per turning point)</b>，你可以执行以下操作之一：</p><ul><li>如果目标是该【死亡天使】特工，以 0CP 使用一个交火策略(Firefight ploy)（不包括指挥重投）。</li><li>当你激活一名友方【死亡天使】特工时，如果该队长在交战区内且不在敌方控制范围内，使用“战斗学说(Combat Doctrine)”战略策略（正常支付CP）。如果你本回合已使用过该策略则不能如此做。</li><li>如果该队长在交战区内且不在敌方控制范围内，以 0CP 使用“调整学说(Adjust Doctrine)”交火策略。</li></ul>'
+  },
+  optics: {
+    title: '🎯 光学瞄具 (Optics)',
+    body: '<p><b>动作 (1 AP)</b></p><p>直到该特工下一次激活开始前，当其进行射击时，敌方特工不能处于遮蔽(Obscured)状态。如果该特工在敌方特工的控制范围内，则不能执行此动作。</p>'
+  },
+  camoCloak: {
+    title: '🍃 迷彩斗篷 (Camo Cloak)',
+    body: '<p><b>被动能力</b></p><p>当有特工向该特工射击时，无视饱和(Saturate)武器规则。该特工自动拥有【隐秘(Stealthy)】战团战术。如果你本身就选择了该战团战术，你可以同时执行其两个选项（即保留两个掩体豁免骰——一个普通成功和一个暴击成功）。</p>'
+  },
+  grandfathersBlessing: {
+    title: '🦠 慈父的祝福 (Grandfather\'s Blessing)',
+    body: '<p><b>被动能力</b></p><p>每当一名带有你的“中毒(Poison)”标记的敌方特工在该特工 7" 范围内失去一个或多个伤口时，该特工恢复等量已损失的伤口（每回合最多恢复 3 点，且只有在该特工未瘫痪时生效）。</p>'
+  },
+  iconOfContagion: {
+    title: '☠️ 传疫徽记 (Icon of Contagion)',
+    body: '<p><b>被动能力</b></p><p>只要该特工位于对手半场区域(opponent\'s territory)内，你使用“传染(Contagion)”战略策略时消耗 0CP。</p>'
+  },
+  astartesDoubleAction: {
+    title: '⚔️ 阿斯塔特 (Astartes)',
+    body: '<p><b>阵营特性</b></p><p>在一名特工的激活期间，它可以执行两次射击或两次近战。如果是两次射击，其中至少一次必须使用爆弹手枪、爆弹枪或灵能武器。每次激活不能选择相同的灵能远程武器超过一次。</p>'
+  },
+  devastatingOnslaught: {
+    title: '🩸 毁灭性猛攻 (Devastating Onslaught)',
+    body: '<p><b>被动能力</b></p><p>当该特工进行近战或反击时，敌方特工不能协助(assist)。在每个敌方特工激活或反击结束时，你可以选择该特工 2" 内的一名敌方特工，该特工可以免费执行一次“冲锋”动作（可将其命令改为Engage），但移动不能超过 2"，并且必须结束于该选中目标的控制范围内。</p>'
+  },
+  horrifyingDismemberment: {
+    title: '🔪 可怕肢解 (Horrifying Dismemberment)',
+    body: '<p><b>被动能力</b></p><p>每当该特工在近战或反击中使一名敌方特工瘫痪时，选择另一名在它或被瘫痪特工 3" 内且可见的敌方特工。将该敌方特工的 APL 减 1，直到其下一次激活结束。</p>'
+  },
+  unleashDaemon: {
+    title: '🔥 释放恶魔 (Unleash Daemon)',
+    body: '<p><b>每战一次</b></p><p>激活该特工时使用。直到本场战斗结束：<br>• 该特工无法执行拾取标记或任务动作。如果携带了标记必须立刻以0AP放置。<br>• 4点或以上的普通和暴击伤害对该特工造成的伤害减1（与纳垢印记不可叠加减2）。<br>• 它的恶魔魔爪获得无情(Ceaseless)和致命5+(Lethal 5+)规则。</p>'
+  },
+  soulFeast: {
+    title: '💀 灵魂盛宴 (Soul Feast)',
+    body: '<p><b>被动能力</b></p><p>在该特工近战或反击之后，如果它没有瘫痪，但它在序列中使一名敌方特工瘫痪，它恢复 D3+1 点已损失的伤口。</p>'
+  },
+  eyeOfTheGods: {
+    title: '👁️ 诸神的注视 (In the Eyes of the Gods)',
+    body: '<p><b>被动能力</b></p><p>在该特工的每次激活中仅限一次，如果它使一名敌方特工瘫痪，将其 APL 属性加 1，直到该次激活结束。</p>'
   }
 };
 
