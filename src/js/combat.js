@@ -1,7 +1,7 @@
 import { gameState, wizardState } from './state.js';
 import * as effects from './effects.js';
 import { playSound } from './audio.js';
-import { Operative, Weapon, translateRule, getEffectiveTs } from './models.js';
+import { Operative, Weapon, translateRule, getEffectiveTs, rollD6 } from './models.js';
 import {
   getEnemyFaction, getDiceClass, getCpForFaction, setCpForFaction,
   getFactionDisplayName, getFactionCssSuffix, hasFactionTrait, getFactionThemeVar, getActivePloys, setActivePloys,
@@ -1030,7 +1030,7 @@ export function rollAttackDice() {
     const skipEffTs = getEffectiveTs(wizardState.weapon, wizardState.attacker);
     let hasHitPenaltyFail = false;
     for (let i = currentSettleIndex; i < totalAttacks; i++) {
-      const val = Math.floor(Math.random() * 6) + 1;
+      const val = rollD6();
       finalRolls.push(val);
       const cube = diceCubes[i];
       if (cube) {
@@ -1070,7 +1070,7 @@ export function rollAttackDice() {
   function settleNextDice() {
     if (skipDiceAnimation) return;
     if (currentSettleIndex < totalAttacks) {
-      const val = Math.floor(Math.random() * 6) + 1;
+      const val = rollD6();
       finalRolls.push(val);
 
       // 更新 DOM
@@ -1282,7 +1282,7 @@ export function rerollSingleAttackDice(idx) {
   cube.innerHTML = '?';
 
   setTimeout(() => {
-    const newVal = Math.floor(Math.random() * 6) + 1;
+    const newVal = rollD6();
     ui.addLog(`  - [重投] 攻击方消耗 1 CP重投 D6: [${wizardState.attackRolls[idx]}] -> [${newVal}]`);
     logCombatFlow('Reroll', `[战术重投] 攻击方消耗 1 CP，将骰子 [${wizardState.attackRolls[idx]}] 重新投掷为 [${newVal}]`);
     wizardState.attackRolls[idx] = newVal;
@@ -1504,7 +1504,7 @@ export function rerollWeaponRuleDice(indices, ruleType) {
 
   setTimeout(() => {
     const oldVals = indices.map(i => wizardState.attackRolls[i]);
-    indices.forEach(i => { wizardState.attackRolls[i] = Math.floor(Math.random() * 6) + 1; });
+    indices.forEach(i => { wizardState.attackRolls[i] = rollD6(); });
     const newVals = indices.map(i => wizardState.attackRolls[i]);
     ui.addLog(`  - [${ruleType}] 免费重投骰子 [${oldVals.join(',')}] -> [${newVals.join(',')}]`);
     logCombatFlow('Reroll', `[武器规则重投: ${ruleType}] 免费将骰子 [${oldVals.join(', ')}] 重新投掷为 [${newVals.join(', ')}]`);
@@ -1725,7 +1725,7 @@ export function rollDefenseDice(dfCount) {
     diceAnimationTimeouts = [];
     const diceCubes = pool.getElementsByClassName('kt-dice-cube');
     for (let i = currentSettleIndex; i < dfCount; i++) {
-      const val = Math.floor(Math.random() * 6) + 1;
+      const val = rollD6();
       finalRolls.push(val);
       const cube = diceCubes[i];
       if (cube) {
@@ -1750,7 +1750,7 @@ export function rollDefenseDice(dfCount) {
   function settleNextDice() {
     if (skipDiceAnimation) return;
     if (currentSettleIndex < dfCount) {
-      const val = Math.floor(Math.random() * 6) + 1;
+      const val = rollD6();
       finalRolls.push(val);
 
       const diceCubes = pool.getElementsByClassName('kt-dice-cube');
@@ -1854,7 +1854,7 @@ export function rerollSingleDefenseDice(idx, dfCount) {
   cube.innerHTML = '?';
 
   setTimeout(() => {
-    const newVal = Math.floor(Math.random() * 6) + 1;
+    const newVal = rollD6();
     ui.addLog(`  - [重投] 防御方消耗 1 CP重投 D6: [${wizardState.defenseRolls[idx]}] -> [${newVal}]`);
     wizardState.defenseRolls[idx] = newVal;
 
@@ -2946,7 +2946,7 @@ export function rollMeleeDice() {
     const skipDefEffTs = getEffectiveTs(defMeleeWeapon, wizardState.defender);
     let hasMeleePenaltyFail = false;
     for (let i = attSettleIndex; i < totalAttacks; i++) {
-      const val = Math.floor(Math.random() * 6) + 1;
+      const val = rollD6();
       finalAttRolls.push(val);
       const cube = attCubes[i];
       if (cube) {
@@ -2968,7 +2968,7 @@ export function rollMeleeDice() {
     // Settle all remaining defender dice
     const defCubes = defPool.getElementsByClassName('kt-dice-cube');
     for (let i = defSettleIndex; i < totalDefAttacks; i++) {
-      const val = Math.floor(Math.random() * 6) + 1;
+      const val = rollD6();
       finalDefRolls.push(val);
       const cube = defCubes[i];
       if (cube) {
@@ -3007,7 +3007,7 @@ export function rollMeleeDice() {
   function settleAttackerDice() {
     if (skipDiceAnimation) return;
     if (attSettleIndex < totalAttacks) {
-      const val = Math.floor(Math.random() * 6) + 1;
+      const val = rollD6();
       finalAttRolls.push(val);
 
       const diceCubes = attPool.getElementsByClassName('kt-dice-cube');
@@ -3044,7 +3044,7 @@ export function rollMeleeDice() {
   function settleDefenderDice() {
     if (skipDiceAnimation) return;
     if (defSettleIndex < totalDefAttacks) {
-      const val = Math.floor(Math.random() * 6) + 1;
+      const val = rollD6();
       finalDefRolls.push(val);
 
       const diceCubes = defPool.getElementsByClassName('kt-dice-cube');
@@ -3178,7 +3178,7 @@ export function rerollMeleeDice(side) {
     ? (wizardState.meleeAttCritThreshold || 6)
     : (wizardState.meleeDefCritThreshold || 6);
 
-  const newVal = Math.floor(Math.random() * 6) + 1;
+  const newVal = rollD6();
   const wasSuccess = newVal >= effectiveTs || newVal >= critThreshold;
 
   playSound('crit');
@@ -3443,7 +3443,7 @@ export function executeMeleeReroll(side, idx, reason) {
   cube.innerHTML = '?';
 
   setTimeout(() => {
-    const newVal = Math.floor(Math.random() * 6) + 1;
+    const newVal = rollD6();
     const oldRoll = side === 'attacker' ? wizardState.allAttackerRolls[idx] : wizardState.allDefenderRolls[idx];
     const oldVal = oldRoll.val;
     
@@ -3617,7 +3617,10 @@ export async function resolveMeleeChoice(action) {
 
   const diceList = side === 'attacker' ? wizardState.activeAttackerDice : wizardState.activeDefenderDice;
   const dice = diceList[idx];
-  if (dice.used) return;
+  if (dice.used) {
+    wizardState.isMeleeAnimating = false;
+    return;
+  }
 
   const targetOpponent = side === 'attacker' ? wizardState.defender : wizardState.attacker;
   const opponentDiceList = side === 'attacker' ? wizardState.activeDefenderDice : wizardState.activeAttackerDice;
@@ -3753,6 +3756,7 @@ export async function resolveMeleeChoice(action) {
     if (opponentHasBrutal && !dice.isCrit) {
       playSound('alert');
       if (showToast) showToast('残暴 (Brutal)：只能使用暴击骰格挡！', 'warning');
+      wizardState.isMeleeAnimating = false;
       return;
     }
 
@@ -3769,6 +3773,7 @@ export async function resolveMeleeChoice(action) {
     if (targetIdx === -1) {
       playSound('alert');
       if (showToast) showToast('没有合法的对方骰子可供格挡招架！', 'warning');
+      wizardState.isMeleeAnimating = false;
       return;
     }
 
@@ -3958,14 +3963,14 @@ export function rollDrDice(count) {
   setTimeout(() => {
     if (typeof playSound === 'function') playSound('dice_drop');
     for (let i=0; i<count; i++) {
-      let roll = Math.floor(Math.random() * 6) + 1;
+      let roll = rollD6();
       let rerolledStr = '';
       
       // Auto reroll first failure if active
       if (roll < 4 && hasPloyActive && !hasRerolled) {
         hasRerolled = true;
         const oldRoll = roll;
-        roll = Math.floor(Math.random() * 6) + 1;
+        roll = rollD6();
         rerolledStr = `[重投 ${oldRoll}->${roll}] `;
         if (typeof ui !== 'undefined' && ui.addLog) {
           ui.addLog(`[溃疡狂热] 自动重投了 1 颗失败的减伤骰子 (${oldRoll} -> ${roll})`);

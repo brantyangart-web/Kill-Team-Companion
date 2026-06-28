@@ -4,6 +4,16 @@ import { hasFactionTrait, getActivePloys, getFactionDisplayName, getFactionTheme
 import { isFirefightPloyActive } from '../rules/ploys.js';
 import { activeRuleSet } from '../rules/ruleSets.js';
 
+// Cryptographically random d6 roll (1-6). Uint8Array rejection-samples to
+// eliminate modulo bias: reject values >= 252 (= 6 * 42, largest multiple of
+// 6 that fits in a byte), so all six outcomes are equally probable.
+export function rollD6() {
+  const buf = new Uint8Array(1);
+  let v;
+  do { crypto.getRandomValues(buf); v = buf[0]; } while (v >= 252);
+  return (v % 6) + 1;
+}
+
 // UI callbacks - set during app initialization to avoid circular deps
 const ui = {};
 export function initModelCallbacks(callbacks) {

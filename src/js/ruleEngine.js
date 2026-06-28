@@ -1,4 +1,5 @@
 import { playSound } from './audio.js';
+import { rollD6 } from './models.js';
 
 export function resolveRuleQueue(rules, onComplete) {
   if (!rules || rules.length === 0) {
@@ -61,7 +62,7 @@ export function showGenericRuleModal(ruleConfig, onComplete) {
       let successes = 0;
 
       for (let i = 0; i < diceCount; i++) {
-        const roll = Math.floor(Math.random() * 6) + 1;
+        const roll = rollD6();
         rolls.push(roll);
         
         let success = false;

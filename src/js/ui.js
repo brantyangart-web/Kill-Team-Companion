@@ -1,7 +1,7 @@
 import { gameState, wizardState, GAG_MESSAGES, hasUsableOperatives, switchSides, endTurningPoint, startCounteractActivation, skipCounteract } from './state.js';
 import { playSound } from './audio.js';
 import { SM_TEMPLATES, PM_TEMPLATES, LEG_TEMPLATES, RULE_TEXTS } from './constants.js';
-import { Weapon, Operative, translateRule, getRuleDescription } from './models.js';
+import { Weapon, Operative, translateRule, getRuleDescription, rollD6 } from './models.js';
 import {
   getEnemyFaction, getDiceClass, getCpForFaction, setCpForFaction,
   getVpForFaction, setVpForFaction, getFactionDisplayName, getFactionCssSuffix,
@@ -2626,11 +2626,11 @@ export function rollInitiativeOverlay() {
 
   // 顺序停下
   setTimeout(() => {
-    const smVal = Math.floor(Math.random() * 6) + 1;
+    const smVal = rollD6();
     smDiceEl.innerHTML = `<div class="kt-dice-cube ${team0DiceCls} ${smVal===6?'crit-dice':''}">${smVal}</div>`;
     playSound('dice_drop');
     setTimeout(() => {
-      const pmVal = Math.floor(Math.random() * 6) + 1;
+      const pmVal = rollD6();
       pmDiceEl.innerHTML = `<div class="kt-dice-cube ${team1DiceCls} ${pmVal===6?'crit-dice':''}">${pmVal}</div>`;
       playSound('dice_drop');
       if (smVal === pmVal) {
@@ -3472,7 +3472,7 @@ export function triggerAvatarHitEffect(opId, type) {
 export function rollDicePool(count) {
   const rolls = [];
   for (let i = 0; i < count; i++) {
-    rolls.push(Math.floor(Math.random() * 6) + 1);
+    rolls.push(rollD6());
   }
   return rolls.sort((a, b) => b - a);
 }
