@@ -19,6 +19,23 @@
 
   <main id="main-content" class="app-container">
 
+    <button id="btn-enter-sandbox" onclick="setupSandboxTestHarness()" style="position: fixed; top: 15px; right: 15px; z-index: 1000; background: var(--gold); color: #1a1d24; border: none; padding: 8px 12px; border-radius: 6px; cursor: pointer; font-family: 'Outfit', sans-serif; font-size: 0.85rem; font-weight: 700; box-shadow: 0 2px 10px rgba(0,0,0,0.5); transition: background 0.2s;">
+      🧪 快速进入测试环境 (Test Sandbox)
+    </button>
+
+    <!-- 计谋沙盒调试面板 -->
+    <div class="test-harness-panel" id="test-harness-panel" style="display: none; background: rgba(10, 20, 35, 0.95); border-bottom: 2px solid var(--gold); padding: 10px; text-align: center; color: white; position: relative; z-index: 100;">
+      <div style="font-family: 'Pirata One', serif; font-size: 1.2rem; color: var(--gold); margin-bottom: 6px;">🛠️ Sandbox Ploy Debug Panel</div>
+      <div style="margin-bottom: 10px; display: flex; justify-content: center; gap: 10px;">
+        <button onclick="sandboxEndTurningPoint()" class="btn-large" style="padding: 6px 16px; font-size: 0.8rem; background: linear-gradient(135deg, var(--red), #5a2020); border-color: #b84c4c; box-shadow: none; border-radius: 4px; cursor: pointer;">
+          ⏳ 强制结束当前 Turning Point (End TP)
+        </button>
+      </div>
+      <div id="debug-ploy-buttons" style="display: flex; gap: 8px; justify-content: center; flex-wrap: wrap;">
+        <!-- Buttons injected by JS -->
+      </div>
+    </div>
+
     <!-- 顶部状态 Dash -->
     <div class="global-dash" id="global-dash" style="display: none;">
       <div class="tp-box">
@@ -235,6 +252,7 @@
             <div style="font-size:0.8rem; color:var(--text-muted); margin:8px 0;">
               Move: <b id="pending-op-move">-</b> | HP: <b id="pending-op-hp">-</b> | APL: <b id="pending-op-apl">-</b>
             </div>
+            <div id="pending-op-abilities" style="display: flex; gap: 6px; flex-wrap: wrap; justify-content: center; margin: 4px 0 12px 0; max-width: 90%;"></div>
             <div style="display:flex; gap:10px; margin-top:8px;">
               <button class="btn-end-activation" onclick="cancelSelection()" style="background:rgba(100,116,139,0.2); border-color:#475569; padding:8px 24px; font-size:0.85rem;">取消</button>
               <button class="btn-end-activation" onclick="confirmActivation()" style="background:linear-gradient(135deg, var(--green), #2a5a3a); border-color:#4a7c59; padding:8px 24px; font-size:0.85rem;">确认激活</button>
@@ -246,10 +264,11 @@
             <div class="active-agent-name" id="active-op-name">-</div>
             <div class="active-agent-faction" id="active-op-faction">-</div>
 
-                          <div style="display: flex; justify-content: center; align-items: center; gap: 8px; margin: 10px 0;">
-                <span style="font-size: 0.85rem; color: var(--text-muted);">剩余 APL: <b id="active-op-apl-text" style="color:var(--sm-accent); font-size:1.1rem;">-</b></span>
-                <div class="apl-badge-container" id="active-apl-dots" style="margin-left: 4px;"></div>
-              </div>
+            <div style="display: flex; justify-content: center; align-items: center; gap: 8px; margin: 10px 0;">
+              <span style="font-size: 0.85rem; color: var(--text-muted);">剩余 APL: <b id="active-op-apl-text" style="color:var(--sm-accent); font-size:1.1rem;">-</b></span>
+              <div class="apl-badge-container" id="active-apl-dots" style="margin-left: 4px;"></div>
+            </div>
+            <div id="active-op-abilities" style="display: flex; gap: 6px; flex-wrap: wrap; justify-content: center; margin: 4px 0 12px 0; max-width: 90%;"></div>
 
             <div id="active-ploys-display" style="text-align: center; font-size: 0.85rem; margin-bottom: 10px; min-height: 20px;"></div>
 
@@ -353,8 +372,26 @@
     </div>
   </div>
 
+  <!-- FX Test Panel -->
+  <div id="test-fx-panel" style="position:fixed; top:80px; right:20px; background:rgba(15, 23, 42, 0.9); border:1px solid #334155; padding:10px; z-index:999999; border-radius:8px; display:none; flex-direction:column; gap:8px; box-shadow: 0 4px 12px rgba(0,0,0,0.5);">
+    <h4 style="margin:0; color:#cbd5e1; font-size:13px; font-family:'Pirata One',serif; display:flex; justify-content:space-between; align-items:center;">
+      <span>🛠️ FX Test</span>
+      <button onclick="document.getElementById('test-fx-panel').style.display='none'" style="background:none;border:none;color:#ef4444;cursor:pointer;font-size:12px;">✖</button>
+    </h4>
+    <select id="test-fx-op" style="background:#1e293b; color:white; border:1px solid #334155; padding:4px; border-radius:4px; font-size:12px;">
+      <option value="">Select Operative...</option>
+    </select>
+    <select id="test-fx-type" style="background:#1e293b; color:white; border:1px solid #334155; padding:4px; border-radius:4px; font-size:12px;">
+      <option value="shoot">Shoot (-5 Wounds)</option>
+      <option value="strike">Strike (-5 Wounds)</option>
+      <option value="parry">Parry (Saved)</option>
+    </select>
+    <button id="test-fx-btn" class="action-btn" style="padding:4px 8px; font-size:12px; background:linear-gradient(135deg,#3b82f6,#2563eb);">Trigger Effect</button>
+  </div>
+  <button id="test-fx-toggle" onclick="document.getElementById('test-fx-panel').style.display='flex'" style="position:fixed; top:20px; right:20px; z-index:999998; background:#1e293b; color:#cbd5e1; border:1px solid #334155; border-radius:4px; padding:4px 8px; cursor:pointer; font-size:12px;">🧪 FX</button>
+
   <!-- 动作说明帮助弹窗 -->
-  <div class="modal-overlay" id="help-modal" role="dialog" aria-modal="true" aria-labelledby="help-title">
+  <div class="modal-overlay" id="help-modal" role="dialog" aria-modal="true" aria-labelledby="help-title" style="z-index: 9999999;">
     <div class="modal-content" style="max-width:480px; border-color:var(--sm-accent);">
       <div class="modal-header">
         <div class="modal-title" id="help-title" style="color:var(--sm-accent);">规则解释</div>

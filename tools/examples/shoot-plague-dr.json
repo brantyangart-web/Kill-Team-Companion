@@ -1,0 +1,17 @@
+{
+  "type": "shoot",
+  "attacker": { "name": "Legionary", "faction": "legionaries", "apl": 2 },
+  "defender": {
+    "name": "Plague Marine",
+    "faction": "plague_marines",
+    "df": 3,
+    "sv": 3,
+    "wounds": 8,
+    "disgustinglyResilient": true
+  },
+  "weapon": { "name": "Plasma", "attacks": 2, "bs": 3, "normalDamage": 2, "criticalDamage": 3 },
+  "attackDice": [6, 4],
+  "defenseDice": [2, 1],
+  "inCover": false,
+  "drRolls": [4]
+}

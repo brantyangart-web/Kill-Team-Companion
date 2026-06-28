@@ -1,0 +1,11 @@
+{
+  "type": "melee",
+  "attacker": { "name": "Assault", "faction": "angels_of_death", "wounds": 8 },
+  "defender": { "name": "Cultist", "faction": "legionaries", "wounds": 6 },
+  "attackerWeapon": { "name": "Chainsword", "bs": 3, "normalDamage": 3, "criticalDamage": 4 },
+  "defenderWeapon": { "name": "Knife", "bs": 4, "normalDamage": 1, "criticalDamage": 2 },
+  "attackerDice": [6, 4, 2],
+  "defenderDice": [5, 3],
+  "attackerActions": ["strike", "strike"],
+  "defenderActions": ["parry"]
+}

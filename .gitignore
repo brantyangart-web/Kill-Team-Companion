@@ -1,2 +1,9 @@
 /dist
 /node_modules
+
+# 规则源 PDF（81MB，仅本地参考；MD/merged 已纳入版本）
+docs/rules/pdf/
+
+# 测试覆盖率产物
+coverage/
+

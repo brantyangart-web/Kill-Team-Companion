@@ -9,6 +9,7 @@ import { audioCtx, playSound } from './audio.js';
 import { Weapon, Operative, initModelCallbacks } from './models.js';
 import { SM_TEMPLATES, PM_TEMPLATES, LEG_TEMPLATES, RULE_TEXTS } from './constants.js';
 import { injectTemplates } from '../rules/faction.js';
+import { initDMSystem } from './dm.js';
 
 import {
   addLog, updateScoresUI, adjustScore, confirmReset, updateGuidance,
@@ -21,6 +22,7 @@ import {
   endActivation, startInitiativePhase, showPhaseOverlay, hidePhaseOverlay, hideCounteractOverlay,
   showCounteractOverlay, selectCounteractOperative, skipCounteractAction,
   rollInitiativeOverlay, selectTurnOrder, confirmTurnOrder, startStrategyPhase, buyStrategyPloy, selectDoctrine,
+  selectNurglingsTarget, cancelBuyPloy,
   proceedToFirefight, showRuleHelp, closeHelpModal,
   triggerOperativeDeathOverlay, confirmOperativeDeath, checkVictory, declareVictory,
   showTurnEndScoringOverlay, renderTurnEndScoringContent, toggleScoringChecklist,
@@ -29,7 +31,9 @@ import {
   triggerCombatVisual, triggerAvatarHitEffect, getOperativeAvatarUrl,
   rollDicePool, evaluateAttackRolls, evaluateDefenseRolls,
   showToast, trapFocus, releaseFocusTrap,
-  initCombatCallbacks, queueVisualEvent
+  initCombatCallbacks, queueVisualEvent,
+  setupSandboxTestHarness, toggleTestPloy, sandboxEndTurningPoint,
+  showCombatSummaryModal
 } from './ui.js';
 
 import { skipCounteract } from './state.js';
@@ -45,8 +49,9 @@ import {
   rollMeleeDice, rerollMeleeDice, renderMeleeRollsView,
   getDuelAvatarHtml, getMeleeDuelHeaderHtml, getShootDuelHeaderHtml,
   chooseMeleeDice, resolveMeleeChoice, cancelMeleeChoice, confirmFightResult,
-  resolveSecondaries, selectDefFightWeapon,
-  initCombatUiCallbacks, initCombatAccessibility
+  resolveSecondaries, resolveDevastationAoe, selectDefFightWeapon,
+  rerollWeaponRuleDice, toggleRelentlessSelect, confirmRelentlessReroll,
+  initCombatUiCallbacks, initCombatAccessibility, applyFinalCombatResults
 } from './combat.js';
 
 // ==========================================
@@ -92,6 +97,9 @@ initCombatUiCallbacks({
   triggerAvatarHitEffect,
   triggerCombatVisual,
   getOperativeAvatarUrl,
+  showCombatSummaryModal,
+  queueVisualEvent,
+  triggerOperativeDeathOverlay,
 });
 
 // Combat module needs toast/focus-trap for validation prompts
@@ -150,9 +158,41 @@ window.setQA = setQA;
 window.rollAttackDice = rollAttackDice;
 window.rollDefenseDice = rollDefenseDice;
 window.selectFightDefender = selectFightDefender;
+
+// FX Testing
+window.refreshFxTestOps = () => {
+  const select = document.getElementById('test-fx-op');
+  if (!select) return;
+  select.innerHTML = '<option value="">Select Operative...</option>';
+  gameState.operatives.forEach(op => {
+    const opt = document.createElement('option');
+    opt.value = op.id;
+    opt.textContent = op.name;
+    select.appendChild(opt);
+  });
+};
+
+document.getElementById('test-fx-toggle')?.addEventListener('click', window.refreshFxTestOps);
+
+document.getElementById('test-fx-btn')?.addEventListener('click', () => {
+  const opId = document.getElementById('test-fx-op')?.value;
+  const type = document.getElementById('test-fx-type')?.value;
+  if (!opId) {
+    if (typeof showToast !== 'undefined') showToast('Please select an operative first!', 'error');
+    else alert('Please select an operative first!');
+    return;
+  }
+  const text = type === 'parry' ? 'SAVED' : '-5 Wounds';
+  effects.playFullCombatEffect(opId, type, text, type);
+});
 window.selectFightWeapon = selectFightWeapon;
 window.selectDefFightWeapon = selectDefFightWeapon;
+window.applyFinalCombatResults = applyFinalCombatResults;
 window.resolveSecondaries = resolveSecondaries;
+window.resolveDevastationAoe = resolveDevastationAoe;
+window.rerollWeaponRuleDice = rerollWeaponRuleDice;
+window.toggleRelentlessSelect = toggleRelentlessSelect;
+window.confirmRelentlessReroll = confirmRelentlessReroll;
 window.rollMeleeDice = rollMeleeDice;
 window.rerollMeleeDice = rerollMeleeDice;
 window.chooseMeleeDice = chooseMeleeDice;
@@ -165,6 +205,8 @@ window.selectTurnOrder = selectTurnOrder;
 window.confirmTurnOrder = confirmTurnOrder;
 window.buyStrategyPloy = buyStrategyPloy;
 window.selectDoctrine = selectDoctrine;
+window.selectNurglingsTarget = selectNurglingsTarget;
+window.cancelBuyPloy = cancelBuyPloy;
 window.proceedToFirefight = proceedToFirefight;
 
 // Counteract
@@ -182,9 +224,16 @@ window.toggleScoringChecklist = toggleScoringChecklist;
 window.adjustScoreTemp = adjustScoreTemp;
 window.confirmTurnEndScoring = confirmTurnEndScoring;
 
+// Sandbox Test Mode
+window.setupSandboxTestHarness = setupSandboxTestHarness;
+window.sandboxEndTurningPoint = sandboxEndTurningPoint;
+
 // ==========================================
 //   Initialize app on DOM ready
 // ==========================================
+import * as ui from './ui.js';
+import * as rules from '../rules/faction.js';
+import * as effects from './effects.js';
 
 document.addEventListener('DOMContentLoaded', () => {
   // 注入各方阵营模板数据（避免循环依赖）
@@ -194,6 +243,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
   renderRosterPickers();
   updateRulesVersion(); // 初始化规则版本（默认 lite，隐藏 Advance）
+  initDMSystem(); // Initialize the Dungeon Master Panel
 });
 
 // ==========================================

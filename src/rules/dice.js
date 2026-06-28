@@ -31,7 +31,10 @@ export function evaluateAttackRolls(rolls, bs) {
   let misses = 0;
 
   for (const val of rolls) {
-    if (val === 6) {
+    if (val === 1) {
+      // 规则：每个结果为1的掷骰总是失败（自然1自动失败，优先于命中判定）
+      misses++;
+    } else if (val === 6) {
       criticals++;
     } else if (val >= bs) {
       normals++;
@@ -55,7 +58,10 @@ export function evaluateDefenseRolls(rolls, sv) {
   let fails = 0;
 
   for (const val of rolls) {
-    if (val === 6) {
+    if (val === 1) {
+      // 规则：每个结果为1的掷骰总是失败（自然1自动失败，优先于豁免判定）
+      fails++;
+    } else if (val === 6) {
       criticals++;
     } else if (val >= sv) {
       normals++;

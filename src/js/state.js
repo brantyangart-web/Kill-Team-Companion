@@ -1,7 +1,8 @@
 import { playSound } from './audio.js';
 import { getEnemyFaction, getFactionDisplayName, getTeamSlot } from '../rules/faction.js';
 import { isFinalTurningPoint } from '../rules/strategy.js';
-import { resetPloysThisTP } from '../rules/ploys.js';
+import { resetPloysThisTP, getPloy } from '../rules/ploys.js';
+import { activeRuleSet } from '../rules/ruleSets.js';
 
 // UI callbacks - set during app initialization to avoid circular deps
 const ui = {};
@@ -84,6 +85,9 @@ export const gameState = {
 
   // Butcher: Devastating Onslaught 冲锋目标追踪
   butcherChargeTargets: {},
+
+  // Nurglings target tracking
+  nurglingsTarget: null,
 };
 
 // ==========================================
@@ -111,6 +115,8 @@ const defaultWizardState = {
 
   attRerollIndex: -1,
   defRerollIndex: -1,
+  attackRerolledIndices: [],
+  defenseRerolledIndices: [],
   stunApplied: false,
   shockTriggered: false,
 
@@ -119,6 +125,19 @@ const defaultWizardState = {
   meleeTurn: 'attacker',
 
   drRolls: [],
+  defenseRulesIntercepted: false,
+  
+  // 新增：结构化的战斗日志，用于交战结束后的复盘弹窗
+  combatFlow: [],
+  // 缓存最终交战结果，以便在编辑确认后再应用
+  pendingResults: {
+    attackerWounds: 0,
+    defenderWounds: 0,
+    attackerTokens: [],
+    defenderTokens: [],
+    attackerDead: false,
+    defenderDead: false,
+  }
 };
 
 export let wizardState = { ...defaultWizardState };
@@ -170,8 +189,28 @@ export function hasUsableOperatives(slotOrFaction) {
 export function endTurningPoint() {
   playSound('click');
 
+  // Clear any leftover nurglings target and debuffs before resetting APL
+  gameState.nurglingsTarget = null;
+  gameState.operatives.forEach(op => {
+    if (op.activeDebuffs) {
+      op.activeDebuffs = op.activeDebuffs.filter(d => d.rule !== 'nurglings');
+    }
+  });
+
+  // Remove non-persistent ploys from persistentPloys (e.g. if toggled via sandbox test harness or standard purchase)
+  if (gameState.persistentPloys) {
+    [0, 1].forEach(slot => {
+      if (gameState.persistentPloys[slot]) {
+        gameState.persistentPloys[slot] = gameState.persistentPloys[slot].filter(ployId => {
+          const ploy = getPloy(ployId);
+          return ploy && ploy.duration === 'persistent';
+        });
+      }
+    });
+  }
+
   // TP 上限检测：lite 规则 TP4 结束，standard 规则 TP5 结束
-  if (isFinalTurningPoint(gameState.turningPoint, gameState.rulesVersion)) {
+  if (isFinalTurningPoint(gameState.turningPoint)) {
     ui.addLog(`\n========================================`);
     ui.addLog(`>>> 已达第 ${gameState.turningPoint} 回合上限！进入最终胜负结算！`);
     ui.addLog(`========================================`);
@@ -201,6 +240,14 @@ export function endTurningPoint() {
       op.actionsPerformed = [];
       op.hasCounteractedThisTP = false; // 每 TP 重置反击限制
     }
+
+    // 恢复自适应战术 (Adaptive Tactics) 修改过的副战术
+    if (op.faction === 'Space Marine' && gameState.chapterTacticSelections && gameState.chapterTacticSelections[op.id]) {
+      op.chapterTactics = [
+        gameState.chapterTacticSelections[op.id].primary,
+        gameState.chapterTacticSelections[op.id].secondary
+      ];
+    }
   });
 
   // 更新 UI 以反映重置后的状态
@@ -223,7 +270,8 @@ export function endTurningPoint() {
 export function hasCounteractOperatives(slotOrFaction) {
   const slot = typeof slotOrFaction === 'number' ? slotOrFaction : getTeamSlot(slotOrFaction);
   const faction = gameState.teamFactions[slot];
-  const canIgnoreOrder = hasFactionTrait(faction, 'counteractRegardlessOfOrder');
+  const canIgnoreOrder = activeRuleSet().factionMechanicsEnabled
+    && hasFactionTrait(faction, 'counteractRegardlessOfOrder');
 
   return gameState.operatives.some(op =>
     op.teamSlot === slot && !op.isDead && op.hasActed &&
