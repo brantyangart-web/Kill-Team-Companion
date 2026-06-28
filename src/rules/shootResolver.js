@@ -114,11 +114,10 @@ export function resolveShooting({
   let dfPoolSize = defender.df;
 
   if (inCover) {
-    log(`  - 🛡️ 防守方处于掩体中！触发【掩体保护机制】：`);
-    log(`    1. 自动保留一个普通成功 (Normal Save +1)`);
-    log(`    2. 投骰池减少 1 个骰子 (DFPool = ${dfPoolSize} -> ${dfPoolSize - 1})`);
+    // 规则（掩体）：防御方可不进行掷骰直接保留一枚普通成功——即额外赠 1 普通防守，
+    // 投骰池不减。先前实现错误地把投骰池减 1（缺陷 D1）。
+    log(`  - 🛡️ 防守方处于掩体中！触发【掩体保护机制】：额外保留一个普通成功 (Normal Save +1)，投骰池不变 (DFPool = ${dfPoolSize})`);
     defNorm += 1;
-    dfPoolSize = Math.max(0, dfPoolSize - 1);
   }
 
   if (mode === 'manual' && manualDefense) {
