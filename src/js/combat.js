@@ -21,7 +21,7 @@ import { showDamageAnimation } from './damageAnimation.js';
 import { activeRuleSet } from '../rules/ruleSets.js';
 import { evaluatePloyInteractions, getOperativeAvatarUrl } from './ui.js';
 import { applyWeaponRules, parseWeaponRule, weaponHasRule, getWeaponRuleParam } from '../rules/weapons.js';
-import { resolveRuleQueue } from './ruleEngine.js';
+import { resolveRuleQueue, showGenericRuleModal } from './ruleEngine.js';
 
 export function logCombatFlow(phase, text) {
   if (!wizardState.combatFlow) wizardState.combatFlow = [];
@@ -3660,27 +3660,55 @@ export async function resolveMeleeChoice(action) {
     let dmg = dice.isCrit ? strikeCritDmg : strikeNormDmg;
 
     if (hasFactionTrait(targetOpponent.faction, 'disgustingResilience') && dmg >= 3) {
-      const drRollStr = prompt(`🦠 恶心无视 (Disgustingly Resilient)\n\n${targetOpponent.name} 即将受到 ${dmg} 点伤害。\n该特工具有【恶心无视】特性，请投掷 1 个减伤判定骰：\n若结果为 4+，本次伤害减 1。\n\n请输入投掷出的骰子点数 (1-6)，如果未投掷或失败直接点取消或留空：`);
-      if (drRollStr) {
-        const drRoll = parseInt(drRollStr, 10);
-        if (!isNaN(drRoll) && drRoll >= 4) {
-          dmg -= 1;
-          ui.addLog(`[恶心无视] ${targetOpponent.name} 投掷了 ${drRoll} (成功)，伤害减免 1 点，最终伤害为 ${dmg}！`);
-          if (typeof ui.showToast !== 'undefined') ui.showToast(`🦠 恶心无视生效！伤害 -1！`, 'success');
-        } else if (!isNaN(drRoll)) {
-          ui.addLog(`[恶心无视] ${targetOpponent.name} 投掷了 ${drRoll} (失败)，未减免伤害。`);
-        }
+      const drRoll = await new Promise(resolve => {
+        let rolledValue = null;
+        showGenericRuleModal({
+          title: '🦠 恶心无视 (Disgustingly Resilient)',
+          description: `<b>${targetOpponent.name}</b> 即将受到 <b>${dmg}</b> 点伤害。<br><br>该特工具有【恶心无视】特性，投掷 1 个减伤判定骰：若结果为 <b>4+</b>，本次伤害减 1。`,
+          requiresDice: true,
+          diceCount: 1,
+          diceThreshold: 4,
+          onDiceRolled: (rolls) => { rolledValue = rolls[0]; },
+        }, () => resolve(rolledValue));
+      });
+      if (drRoll >= 4) {
+        dmg -= 1;
+        ui.addLog(`[恶心无视] ${targetOpponent.name} 投掷了 ${drRoll} (成功)，伤害减免 1 点，最终伤害为 ${dmg}！`);
+        if (showToast) showToast(`🦠 恶心无视生效！伤害 -1！`, 'success');
+      } else {
+        ui.addLog(`[恶心无视] ${targetOpponent.name} 投掷了 ${drRoll} (失败)，未减免伤害。`);
       }
     }
 
-    const msg = `> ${side === 'attacker' ? '攻击方' : '防守方'} 执行打击 (Strike)，分配了 ${dmg} 伤害！<br>`;
+    // === Iron Halo (SM Captain) — 每战一次，忽略 1 次 Normal Dmg ===
+    let ironHaloBlocked = false;
+    if (activeRuleSet().factionMechanicsEnabled &&
+        targetOpponent.operativeType === 'sm_captain' &&
+        !targetOpponent.ironHaloUsed &&
+        !dice.isCrit) {
+      ironHaloBlocked = await new Promise(resolve => {
+        showGenericRuleModal({
+          title: '💫 钢铁光环 (Iron Halo)',
+          description: `<b>${targetOpponent.name}</b> 即将受到 <b>${dmg}</b> 点普通伤害。<br><br>是否使用【钢铁光环】忽略本次伤害？<br><span style="color:var(--text-muted);font-size:0.85em;">（每战一次）</span>`,
+          choices: [
+            { label: '💫 使用 Iron Halo（忽略伤害）', result: true },
+            { label: '跳过', result: false },
+          ],
+        }, resolve);
+      });
+      if (ironHaloBlocked) {
+        targetOpponent.ironHaloUsed = true;
+        ui.addLog(`[钢铁光环] ${targetOpponent.name} 使用 Iron Halo！忽略 ${dmg} 点伤害！(每战一次已使用)`);
+        if (showToast) showToast('💫 Iron Halo: 伤害已忽略！', 'success');
+      }
+    }
+
+    const msg = `> ${side === 'attacker' ? '攻击方' : '防守方'} 执行打击 (Strike)，分配了 ${ironHaloBlocked ? 0 : dmg} 伤害！<br>`;
     wizardState.meleeLogs += msg;
 
     const oldWounds = targetOpponent.wounds;
-    const actualDmg = targetOpponent.applyWounds(dmg, null, 'melee_auto');
+    const actualDmg = ironHaloBlocked ? 0 : targetOpponent.applyWounds(dmg, null, 'melee_auto');
     const drReduced = dmg - actualDmg;
-
-
 
     // === Standard 规则: 近战击杀回调 ===
     if (targetOpponent.isDead && activeRuleSet().hasKillCallbacks) {
@@ -3690,7 +3718,7 @@ export async function resolveMeleeChoice(action) {
 
     // Poison 规则：近战造成 ≥1 伤害且武器有 Poison，给予毒素标记
     const hasPoisonMelee = !!weaponMods(activeWeapon).applyPoisonTokenOnDamage;
-    if (hasPoisonMelee && dmg > 0 && targetOpponent.poisonTokens < 1) {
+    if (hasPoisonMelee && actualDmg > 0 && targetOpponent.poisonTokens < 1) {
       targetOpponent.poisonTokens = 1;
       ui.addLog(`[毒素] ${targetOpponent.name} 获得了 1 个毒素标记！(来自近战)`);
     }
@@ -3738,8 +3766,12 @@ export async function resolveMeleeChoice(action) {
     wizardState.selectedMeleeDice = null;
     renderFightStep();
 
-    // Wait for the full combat effect
-    await effects.playFullCombatEffect(targetOpponent.id, 'strike', "-" + dmg + " Wounds", "strike");
+    // Only play hit animation when damage actually landed
+    if (actualDmg > 0) {
+      await effects.playFullCombatEffect(targetOpponent.id, 'strike', "-" + actualDmg + " Wounds", "strike");
+    } else if (ironHaloBlocked) {
+      await effects.playFullCombatEffect(targetOpponent.id, 'parry', "IRON HALO!", "deflect");
+    }
 
     if (targetOpponent.isDead && typeof ui.triggerOperativeDeathOverlay === 'function') {
       ui.triggerOperativeDeathOverlay(targetOpponent);

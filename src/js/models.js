@@ -322,21 +322,6 @@ export class Operative {
       hitSound = 'splash_damage';
     }
 
-    // === Iron Halo (SM Captain) ===
-    // 每战一次，忽略 1 个 Normal Dmg（阵营机制，由 factionMechanicsEnabled 开关）
-    if (activeRuleSet().factionMechanicsEnabled &&
-        this.operativeType === 'sm_captain' &&
-        !this.ironHaloUsed &&
-        !Array.isArray(totalIncoming)) { // 只对单次伤害触发
-      // 弹出确认提示
-      const useIronHalo = confirm(`💫 Iron Halo (每战一次)\n\n${this.name} 即将受到 ${totalIncoming} 点伤害。\n是否使用 Iron Halo 忽略本次伤害？`);
-      if (useIronHalo) {
-        this.ironHaloUsed = true;
-        ui.addLog(`[钢铁光环] ${this.name} 使用 Iron Halo！忽略 ${totalIncoming} 点伤害！(每战一次已使用)`);
-        if (ui.showToast) ui.showToast('💫 Iron Halo: 伤害已忽略！', 'success');
-        return 0;
-      }
-    }
 
     let actualIncoming = 0;
     if (Array.isArray(totalIncoming)) {
